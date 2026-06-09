@@ -1,0 +1,35 @@
+name: "list_invoices basic — single tool, single arg"
+description: |
+  The user asks for their invoices on a dashboard route. The LLM should
+  pick list_my_invoices (the only matching tool) and NOT call search_orders
+  (irrelevant). This is the smoke test: simplest happy path.
+
+user_message: "¿qué facturas tengo?"
+page_context:
+  route: "/dashboard"
+
+tools_available:
+  - name: list_my_invoices
+    description: "Lista las facturas del usuario autenticado."
+    parameters:
+      type: object
+      properties:
+        limit:
+          type: integer
+          description: "Maximum number of invoices to return."
+      required: []
+  - name: search_orders
+    description: "Busca pedidos por número o cliente."
+    parameters:
+      type: object
+      properties:
+        query:
+          type: string
+      required: [query]
+
+expected:
+  tool_calls:
+    - name: list_my_invoices
+      args_subset: {}
+  forbidden_tools:
+    - search_orders

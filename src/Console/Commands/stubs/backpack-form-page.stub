@@ -1,0 +1,54 @@
+{{--
+    Override de `vendor:backpack/crud:src/resources/views/crud/inc/form_page.blade.php`
+    publicado por `chatbot:install --backpack-forms`.
+
+    El único cambio respecto al original de Backpack es la inyección del
+    atributo `data-chatbot-form` en el `<form>`, con un id determinístico
+    `<kebab-entity>-<operation>` (mismo que el provider emite en
+    `crud.form.id`). Eso permite al LLM apuntar con `fill_form` sin
+    auto-discovery cuando hay múltiples forms en la página.
+
+    Mantén este archivo sincronizado con el de Backpack si actualizas a una
+    versión mayor (re-publica con `--force` para regenerarlo).
+--}}
+@extends(backpack_view('blank'))
+
+@php
+    $chatbotFormId = \Illuminate\Support\Str::kebab(class_basename($crud->getModel())) . '-' . ($operation ?? 'edit');
+@endphp
+
+@section('header')
+    <section class="header-section container-fluid animated fadeIn d-flex align-items-baseline">
+        <h1 class="text-capitalize mb-0" bp-section="page-heading">
+            <span>{!! $crud->getHeading() ?? $crud->entity_name_plural !!}</span>
+            <small class="d-none d-md-inline" bp-section="page-subheading">{!! $crud->getSubheading() ?? trans('backpack::crud.add') . ' ' . $crud->entity_name !!}.</small>
+        </h1>
+    </section>
+@endsection
+
+@section('content')
+    <div class="row" bp-section="crud-operation-{{ $crud->getOperation() }}">
+        <div class="{{ $crud->getFormWidthClass() ?? 'col-md-8' }}">
+            @include('crud::inc.grouped_errors')
+
+            <form method="post"
+                  action="{{ $crud->route }}{{ isset($entry) ? '/'.$entry->getKey() : '' }}"
+                  @if ($crud->hasUploadFields('both'))
+                  enctype="multipart/form-data"
+                  @endif
+                  data-chatbot-form="{{ $chatbotFormId }}">
+                @if (isset($entry)) @method('PUT') @endif
+                @csrf
+
+                {{-- load the view from the application if it exists, otherwise load the one in the package --}}
+                @if(view()->exists('vendor.backpack.crud.form_content'))
+                    @include('vendor.backpack.crud.form_content', ['fields' => $crud->fields(), 'action' => $crud->getOperation()])
+                @else
+                    @include('crud::form_content', ['fields' => $crud->fields(), 'action' => $crud->getOperation()])
+                @endif
+
+                @include('crud::inc.form_save_buttons')
+            </form>
+        </div>
+    </div>
+@endsection

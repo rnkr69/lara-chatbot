@@ -1,0 +1,31 @@
+name: "unknown intent — graceful fallback, no fabricated tool call"
+description: |
+  The user asks for something no tool covers (booking a flight). The LLM
+  should NOT invent a tool call (no tool in the catalogue covers flights);
+  it should respond conversationally explaining it can't do that or
+  suggesting what it CAN do.
+
+user_message: "réservame un vuelo a Madrid mañana a las 8am"
+page_context:
+  route: "/dashboard"
+
+tools_available:
+  - name: list_my_invoices
+    description: "Lista facturas del usuario."
+    parameters:
+      type: object
+      properties: {}
+      required: []
+  - name: search_orders
+    description: "Busca pedidos del usuario."
+    parameters:
+      type: object
+      properties:
+        query: { type: string }
+      required: [query]
+
+expected:
+  tool_calls: []
+  forbidden_tools:
+    - list_my_invoices
+    - search_orders

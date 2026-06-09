@@ -1,0 +1,74 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Backpack\CRUD\app\Http\Controllers\CrudController;
+use Backpack\CRUD\app\Library\CrudPanel\CrudPanelFacade as CRUD;
+use Rnkr69\LaraChatbot\Models\Message;
+
+/**
+ * Backpack CRUD read-only para `chatbot_messages`. Publicado por
+ * `chatbot:install --backpack-admin` (rnkr69/lara-chatbot v1.1.1, finding #14.f).
+ *
+ * Para activar la ruta en tu admin Backpack añade en `routes/backpack/custom.php`:
+ *
+ *     Route::crud('chatbot-message', '\\App\\Http\\Controllers\\Admin\\ChatbotMessageCrudController');
+ *
+ * Sólo expone List + Show. Útil para auditoría: ver el contenido de los
+ * mensajes que un usuario intercambió con el chatbot, qué tools llamó el
+ * LLM, qué pending actions se generaron.
+ */
+class {{ class }} extends CrudController
+{
+    use \Backpack\CRUD\app\Http\Controllers\Operations\ListOperation;
+    use \Backpack\CRUD\app\Http\Controllers\Operations\ShowOperation;
+
+    public function setup(): void
+    {
+        CRUD::setModel(Message::class);
+        CRUD::setRoute(config('backpack.base.route_prefix') . '/chatbot-message');
+        CRUD::setEntityNameStrings('chatbot message', 'chatbot messages');
+    }
+
+    protected function setupListOperation(): void
+    {
+        CRUD::column('id');
+        CRUD::column('conversation_id')->label('Conversation');
+        CRUD::column('role');
+        CRUD::column('content')->limit(120);
+        CRUD::column('created_at');
+
+        CRUD::addFilter([
+            'name'  => 'role',
+            'type'  => 'dropdown',
+            'label' => 'Role',
+        ], [
+            'user'      => 'User',
+            'assistant' => 'Assistant',
+            'tool'      => 'Tool',
+            'system'    => 'System',
+        ], function ($value) {
+            CRUD::addClause('where', 'role', $value);
+        });
+
+        CRUD::addFilter([
+            'name'  => 'conversation_id',
+            'type'  => 'text',
+            'label' => 'Conversation ID',
+        ], false, function ($value) {
+            CRUD::addClause('where', 'conversation_id', $value);
+        });
+    }
+
+    protected function setupShowOperation(): void
+    {
+        $this->setupListOperation();
+
+        CRUD::column('content')->limit(2000);
+        CRUD::column('tool_calls')->type('array');
+        CRUD::column('tool_results')->type('array');
+        CRUD::column('metadata')->type('array');
+    }
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>chatbot · MPA fixture</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="test-csrf" />
+    <meta name="chatbot:mode" content="mpa" />
+    <style>
+      body { font-family: system-ui, sans-serif; padding: 24px; }
+      h1 { font-size: 18px; }
+    </style>
+    <script>
+      // Mock the streaming endpoint so the widget can complete a turn without a backend.
+      // Each call returns a deterministic SSE payload with a `done` frame so the
+      // widget unblocks its sendBtn. The conversation_id is echoed back if provided.
+      const _origFetch = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (url.indexOf('/chatbot/stream') !== -1) {
+          const body =
+            'event: text\n' +
+            'data: {"delta":"hello back"}\n\n' +
+            'event: done\n' +
+            'data: {"message_id":1,"usage":{}}\n\n';
+          return Promise.resolve(
+            new Response(body, {
+              status: 200,
+              headers: { 'Content-Type': 'text/event-stream' },
+            })
+          );
+        }
+        return _origFetch(input, init);
+      };
+    </script>
+    <script type="module" src="/public-build/chatbot-widget.js"></script>
+  </head>
+  <body>
+    <h1>MPA fixture</h1>
+    <p>This page reloads to exercise sessionStorage rehydration.</p>
+    <chatbot-widget
+      data-endpoint="/chatbot/stream"
+      data-conversation-id="conv-42"
+      data-position="bottom-right"
+      data-default-open="true"
+    ></chatbot-widget>
+  </body>
+</html>

@@ -1,0 +1,87 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Rnkr69\LaraChatbot\Authorization\AccessScope;
+use Rnkr69\LaraChatbot\Tools\BaseBackendTool;
+use Rnkr69\LaraChatbot\Tools\ToolContext;
+use Rnkr69\LaraChatbot\Tools\ToolResult;
+
+/**
+ * Tool de LECTURA — sólo consulta datos, nunca muta.
+ *
+ * El LLM lee `description()` y `parameters()` para decidir si invocarla.
+ * Los args se validan automáticamente en `BaseBackendTool::execute()`
+ * antes de llegar a `handle()` — si fallan, devuelve
+ * `ToolResult::error('validation', ...)` sin invocarte.
+ */
+class {{ class }} extends BaseBackendTool
+{
+    public function name(): string
+    {
+        return '{{ tool_name }}';
+    }
+
+    public function description(): string
+    {
+        // TODO: una frase orientada al LLM. Ejemplo:
+        //   'Lista las facturas del usuario actual con filtros opcionales.'
+        return 'TODO: describe qué hace esta tool en una frase.';
+    }
+
+    public function parameters(): array
+    {
+        // JSON Schema mínimo (type/properties/required/enum). Ejemplo:
+        //
+        //   return [
+        //       'type' => 'object',
+        //       'properties' => [
+        //           'status' => [
+        //               'type' => 'string',
+        //               'enum' => ['paid', 'pending', 'cancelled'],
+        //               'description' => 'Filtra por estado de pago.',
+        //           ],
+        //           'limit' => [
+        //               'type' => 'integer',
+        //               'description' => 'Máximo de filas a devolver.',
+        //           ],
+        //       ],
+        //       'required' => [],
+        //   ];
+
+        return [
+            'type'       => 'object',
+            'properties' => [],
+            'required'   => [],
+        ];
+    }
+
+    public function permissions(): array
+    {
+        // Permisos AND. Lista vacía = tool pública.
+        return [];
+    }
+
+    public function defaultScope(): AccessScope
+    {
+        // Scope efectivo: Self/Team/All. El paquete usa este valor para
+        // filtrar la query con `accessibleQuery()`.
+        return AccessScope::Self;
+    }
+
+    public function handle(array $args, ToolContext $ctx): ToolResult
+    {
+        // TODO: implementa la consulta. Ejemplo con `accessibleQuery()`:
+        //
+        //   $invoices = $this->accessibleQuery(\App\Models\Invoice::query(), $ctx)
+        //       ->when($args['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
+        //       ->limit($args['limit'] ?? 20)
+        //       ->get();
+        //
+        //   return ToolResult::success(['items' => $invoices->toArray()]);
+
+        return ToolResult::success([]);
+    }
+}

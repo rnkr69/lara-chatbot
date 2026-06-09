@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>chatbot · pin-from-chat fixture (v2.0 / E6)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="test-csrf" />
+    <style>
+      body { font-family: system-ui, sans-serif; padding: 24px; }
+      h1 { font-size: 18px; }
+    </style>
+    <script>
+      // Mutable state exposed to the spec so it can introspect what the
+      // widget sent (pin payloads, create-dashboard POSTs, etc.). The
+      // spec drives the UI; the fixture only provides the network shape.
+      const state = {
+        rows: [
+          { id: 1, slug: 'mi-panel', name: 'Mi Panel', is_default: true,
+            layout_version: 1, metadata: null, widget_count: 1,
+            created_at: null, updated_at: null },
+          { id: 2, slug: 'operaciones', name: 'Operaciones', is_default: false,
+            layout_version: 1, metadata: null, widget_count: 0,
+            created_at: null, updated_at: null },
+        ],
+        // Set to a non-zero status (with errors body) to simulate a 422
+        // when /widgets POST arrives.
+        forceWidgetsStatus: 0,
+        forceWidgetsBody: null,
+        widgetsPosts: [],
+        createPosts: [],
+        listDashboardsCalls: 0,
+      };
+      window.__pinFixture = state;
+
+      function jsonResponse(data, status) {
+        return new Response(JSON.stringify(data), {
+          status: status || 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const _origFetch = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        const method = (init && init.method) || 'GET';
+        let body = null;
+        if (init && typeof init.body === 'string') {
+          try { body = JSON.parse(init.body); } catch { body = init.body; }
+        }
+
+        // ── /chatbot/stream — SSE that always emits one pinnable table ────
+        if (url.indexOf('/chatbot/stream') !== -1) {
+          // The block carries id/pinnable/source so readV2BlockMetadata
+          // (block-metadata.ts) propagates them onto BlockPayload, which
+          // makes wrapWithPinButton mount the 📌 overlay.
+          const sse =
+            'event: block\n' +
+            'data: ' + JSON.stringify({
+              type: 'table',
+              data: { caption: 'Users', rows: [{ id: 1, name: 'Alice' }] },
+              id: 'blk-test-1',
+              source: { tool: 'list_users', args: { limit: 10 } },
+              pinnable: true,
+            }) + '\n\n' +
+            'event: done\n' +
+            'data: {"message_id":1,"usage":{}}\n\n';
+          return Promise.resolve(new Response(sse, {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          }));
+        }
+
+        // ── GET /chatbot/dashboards ──────────────────────────────────────
+        if (method === 'GET' && /\/chatbot\/dashboards\/?$/.test(url)) {
+          state.listDashboardsCalls += 1;
+          return Promise.resolve(jsonResponse({ data: state.rows }));
+        }
+
+        // ── POST /chatbot/dashboards ─────────────────────────────────────
+        if (method === 'POST' && /\/chatbot\/dashboards\/?$/.test(url)) {
+          state.createPosts.push(body);
+          const slug = (body && body.name) ? body.name.toLowerCase().replace(/\s+/g, '-') : 'new';
+          const row = {
+            id: 99, slug, name: body.name, is_default: false,
+            layout_version: 1, metadata: null, widget_count: 0,
+            created_at: null, updated_at: null,
+          };
+          state.rows.push(row);
+          return Promise.resolve(jsonResponse({ data: row }, 201));
+        }
+
+        // ── POST /chatbot/dashboards/{slug}/widgets ──────────────────────
+        if (method === 'POST' && /\/chatbot\/dashboards\/[^/]+\/widgets$/.test(url)) {
+          state.widgetsPosts.push({ url, body });
+          if (state.forceWidgetsStatus !== 0) {
+            return Promise.resolve(new Response(
+              JSON.stringify(state.forceWidgetsBody || {}),
+              { status: state.forceWidgetsStatus,
+                headers: { 'Content-Type': 'application/json' } },
+            ));
+          }
+          return Promise.resolve(jsonResponse({ data: { id: 5 } }, 201));
+        }
+
+        return _origFetch(input, init);
+      };
+    </script>
+    <script type="module" src="/public-build/chatbot-widget.js"></script>
+  </head>
+  <body>
+    <h1>Pin-from-chat fixture</h1>
+    <chatbot-widget
+      data-endpoint="/chatbot/stream"
+      data-default-open="true"
+    ></chatbot-widget>
+  </body>
+</html>

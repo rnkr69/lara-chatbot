@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="dummy-token" />
+    <title>chatbot-widget smoke</title>
+    <style>
+      body { font-family: system-ui, sans-serif; padding: 32px; max-width: 720px; margin: 0 auto; }
+      pre { background: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; }
+      .demo-target { padding: 12px; background: #fef3c7; margin: 16px 0; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <h1>chatbot-widget smoke page</h1>
+    <p>
+      This static page satisfies the ROADMAP §5/E12 DoD: load <code>chatbot-widget.js</code>
+      and the widget renders against a mock backend. To exercise the full SSE flow,
+      point <code>data-endpoint</code> at a Laravel host running E09's
+      <code>POST /chatbot/stream</code>.
+    </p>
+    <p>For a fully offline test, the snippet below stubs <code>window.fetch</code>
+       to emit a canned SSE response so you can click around without a backend.</p>
+
+    <pre><code>npm run build
+python3 -m http.server --directory tests/js/fixtures 4173
+# open http://localhost:4173/smoke.html</code></pre>
+
+    <div id="target" class="demo-target">
+      A demo target. Try: <code>window.Chatbot.registerTool('navigate', a =&gt; alert(a.url))</code>
+    </div>
+
+    <chatbot-widget
+      data-endpoint="/chatbot/stream"
+      data-position="right"
+      data-default-open="true"
+    ></chatbot-widget>
+
+    <script>
+      // Offline mock: capture POST /chatbot/stream and answer with a canned SSE.
+      const origFetch = window.fetch;
+      window.fetch = function (input, init) {
+        const url = typeof input === 'string' ? input : input.url;
+        if (url.endsWith('/chatbot/stream')) {
+          const body = [
+            'event: text\ndata: {"delta":"Hello "}\n\n',
+            'event: text\ndata: {"delta":"world. "}\n\n',
+            'event: text\ndata: {"delta":"This is a **markdown** demo."}\n\n',
+            'event: block\ndata: {"type":"actions","data":{"actions":[{"label":"Try a toast","prompt":"show a toast saying hello"}]}}\n\n',
+            'event: done\ndata: {"message_id":42,"usage":{"input":3,"output":12}}\n\n',
+          ];
+          let i = 0;
+          const stream = new ReadableStream({
+            pull(c) {
+              if (i >= body.length) { c.close(); return; }
+              c.enqueue(new TextEncoder().encode(body[i++]));
+            },
+          });
+          return Promise.resolve(new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }));
+        }
+        return origFetch(input, init);
+      };
+    </script>
+    <script type="module" src="../../../public-build/chatbot-widget.js"></script>
+  </body>
+</html>

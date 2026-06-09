@@ -1,0 +1,39 @@
+name: "dashboard context — LLM uses widget_id from page_context"
+description: |
+  The user says "borra el primer KPI" while looking at a dashboard with
+  several KPI widgets. The LLM should:
+  (a) resolve "el primer KPI" against page_context.dashboard.widgets,
+  (b) call delete_widget with widget_id = 17 (the id of the first KPI in
+      the page_context, NOT a fabricated id).
+
+  This is the test that page_context flows into the LLM and that the LLM
+  uses it to disambiguate. In v2.2 this contract is load-bearing for the
+  conversational dashboard.
+
+user_message: "borra el primer KPI"
+page_context:
+  route: "/chatbot/dashboard"
+  dashboard:
+    slug: my-dashboard
+    name: My Dashboard
+    is_default: true
+    widgets:
+      - { id: 17, title: "Total ventas", block_type: kpi, position: { x: 0, y: 0 } }
+      - { id: 18, title: "Promedio mensual", block_type: kpi, position: { x: 3, y: 0 } }
+      - { id: 19, title: "Ventas por país", block_type: chart, position: { x: 0, y: 2 } }
+
+tools_available:
+  - name: delete_widget
+    description: "Borra (soft-delete) un widget del dashboard del usuario."
+    parameters:
+      type: object
+      properties:
+        widget_id: { type: integer }
+      required: [widget_id]
+
+expected:
+  tool_calls:
+    - name: delete_widget
+      args_subset:
+        widget_id: 17
+  forbidden_tools: []

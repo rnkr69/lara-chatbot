@@ -1,0 +1,25 @@
+/vendor/
+/node_modules/
+composer.lock
+.phpunit.cache/
+.phpunit.result.cache
+.idea/
+.vscode/
+.DS_Store
+*.log
+/build/
+/coverage/
+.claude/
+.claude/settings.local.json
+
+# Eval harness — live-mode trace dump. Regenerated every run; never commit.
+/tests/Evals/last-live-run.json
+
+# Internal / company-coupled material — kept locally, never published.
+/docs/hosts/
+/docs/archive/
+/docs/PROGRESS.md
+/docs/skills.md
+/docs/v2.0-host-e2e-test-plan.md
+/.github/workflows/eval-weekly.yml
+/scripts/evals/

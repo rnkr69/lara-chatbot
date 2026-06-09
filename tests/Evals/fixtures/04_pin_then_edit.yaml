@@ -1,0 +1,52 @@
+name: "multi-tool sequence — pin then rename"
+description: |
+  The user asks to pin a widget AND rename it in the same turn. Two tool
+  calls should be emitted in order: add_to_dashboard first, then
+  edit_widget. The runner validates the SEQUENCE matches expected.tool_calls
+  exactly, not just set membership.
+
+user_message: "añade los KPIs de la flota a mi dashboard y llámalo 'Flota - mayo'"
+page_context:
+  route: "/admin/fleet"
+  dashboard:
+    slug: my-dashboard
+    name: My Dashboard
+    is_default: true
+    widgets: []
+
+tools_available:
+  - name: add_to_dashboard
+    description: "Pinea un block como widget del dashboard."
+    parameters:
+      type: object
+      properties:
+        source_tool: { type: string }
+        dashboard_slug: { type: string }
+      required: [source_tool]
+  - name: edit_widget
+    description: "Edita un widget existente (renombrar, mover, redimensionar, cambiar refresh policy)."
+    parameters:
+      type: object
+      properties:
+        widget_id: { type: integer }
+        title: { type: string }
+        position: { type: object }
+        refresh_policy: { type: string, enum: [on_open, manual, never] }
+      required: [widget_id]
+  - name: fleet_kpis
+    description: "Devuelve los KPIs de la flota."
+    parameters:
+      type: object
+      properties: {}
+      required: []
+
+expected:
+  tool_calls:
+    - name: add_to_dashboard
+      args_subset:
+        source_tool: fleet_kpis
+    - name: edit_widget
+      args_subset:
+        title: "Flota - mayo"
+  forbidden_tools: []
+  match_sequence: true

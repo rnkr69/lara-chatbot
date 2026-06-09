@@ -1,0 +1,91 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Rnkr69\LaraChatbot\Authorization\AccessScope;
+use Rnkr69\LaraChatbot\Tools\BaseBackendTool;
+use Rnkr69\LaraChatbot\Tools\ConfirmationLevel;
+use Rnkr69\LaraChatbot\Tools\ToolContext;
+use Rnkr69\LaraChatbot\Tools\ToolResult;
+
+/**
+ * Tool de ESCRITURA — muta datos del host.
+ *
+ * Recomendaciones:
+ *  - Idempotencia: pide `target_id` y verifica el estado antes de mutar
+ *    para que reintentos no creen duplicados.
+ *  - Audit log: el orquestador (E08) dispara `Chatbot\Events\ToolInvoked`
+ *    tras cada `handle()`. Engancha un Listener en tu host si necesitas
+ *    trazabilidad.
+ *  - Bulk: si aceptas `target_ids[]`, devuelve partial-success con
+ *    `succeeded[]`/`failed[]` (ver `docs/backend-tools.md`).
+ */
+class {{ class }} extends BaseBackendTool
+{
+    public function name(): string
+    {
+        return '{{ tool_name }}';
+    }
+
+    public function description(): string
+    {
+        // TODO: una frase orientada al LLM. Ejemplo:
+        //   'Marca un pedido como pagado por su ID.'
+        return 'TODO: describe la acción que ejecuta esta tool.';
+    }
+
+    public function parameters(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => [
+                'target_id' => [
+                    'type' => 'integer',
+                    'description' => 'TODO: ID del registro a mutar.',
+                ],
+            ],
+            'required' => ['target_id'],
+        ];
+    }
+
+    public function permissions(): array
+    {
+        // TODO: declara los permisos requeridos. Ejemplo:
+        //   return ['orders.update'];
+        return [];
+    }
+
+    public function defaultScope(): AccessScope
+    {
+        return AccessScope::Self;
+    }
+
+    public function confirmation(): ConfirmationLevel
+    {
+        // Backend tools en v1 sólo soportan Auto. `Confirm`/`Manual` quedan
+        // en backlog v2 (ver §7 PROGRESS.md). Para acciones críticas usa
+        // una FrontendTool de confirmación (E11/E16) que dispare esta.
+        return ConfirmationLevel::Auto;
+    }
+
+    public function handle(array $args, ToolContext $ctx): ToolResult
+    {
+        // TODO: implementa la mutación. Ejemplo:
+        //
+        //   $order = $this->accessibleQuery(\App\Models\Order::query(), $ctx)
+        //       ->where('id', $args['target_id'])
+        //       ->first();
+        //
+        //   if (! $order) {
+        //       return ToolResult::error('not_owner', 'Pedido no encontrado o no accesible.');
+        //   }
+        //
+        //   $order->markAsPaid();
+        //
+        //   return ToolResult::success(['order_id' => $order->id, 'status' => $order->status]);
+
+        return ToolResult::error('runtime', 'Tool de escritura no implementada.');
+    }
+}

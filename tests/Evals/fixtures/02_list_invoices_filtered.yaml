@@ -1,0 +1,30 @@
+name: "list_invoices filtered — passes a status arg"
+description: |
+  The user asks for overdue invoices. The LLM should pick list_my_invoices
+  AND populate the `status` arg with "overdue" (case-insensitive match in
+  args_subset). Exercises that the orchestrator forwards args correctly.
+
+user_message: "muéstrame mis facturas vencidas"
+page_context:
+  route: "/dashboard"
+  user_locale: "es"
+
+tools_available:
+  - name: list_my_invoices
+    description: "Lista las facturas del usuario. Acepta filtro `status` (paid, pending, overdue)."
+    parameters:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [paid, pending, overdue]
+        limit:
+          type: integer
+      required: []
+
+expected:
+  tool_calls:
+    - name: list_my_invoices
+      args_subset:
+        status: overdue
+  forbidden_tools: []

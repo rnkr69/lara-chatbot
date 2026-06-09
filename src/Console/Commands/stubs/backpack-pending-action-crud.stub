@@ -1,0 +1,79 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Backpack\CRUD\app\Http\Controllers\CrudController;
+use Backpack\CRUD\app\Library\CrudPanel\CrudPanelFacade as CRUD;
+use Rnkr69\LaraChatbot\Models\PendingAction;
+use Rnkr69\LaraChatbot\Models\PendingActionStatus;
+
+/**
+ * Backpack CRUD read-only para `chatbot_pending_actions`. Publicado por
+ * `chatbot:install --backpack-admin` (rnkr69/lara-chatbot v1.1.1, finding #14.f).
+ *
+ * Para activar la ruta en tu admin Backpack añade en `routes/backpack/custom.php`:
+ *
+ *     Route::crud('chatbot-pending-action', '\\App\\Http\\Controllers\\Admin\\ChatbotPendingActionCrudController');
+ *
+ * Sólo expone List + Show. Útil para diagnosticar:
+ *
+ *   - Confirmaciones del usuario que llevan rato `pending` (¿el widget se
+ *     cerró sin resolverlas?).
+ *   - Patrones de `rejected` (¿el LLM propone cosas que el usuario rechaza
+ *     sistemáticamente?).
+ *   - Cleanup pendiente (`expired` que no se han marcado todavía — usa
+ *     `chatbot:cleanup-actions`).
+ */
+class {{ class }} extends CrudController
+{
+    use \Backpack\CRUD\app\Http\Controllers\Operations\ListOperation;
+    use \Backpack\CRUD\app\Http\Controllers\Operations\ShowOperation;
+
+    public function setup(): void
+    {
+        CRUD::setModel(PendingAction::class);
+        CRUD::setRoute(config('backpack.base.route_prefix') . '/chatbot-pending-action');
+        CRUD::setEntityNameStrings('chatbot pending action', 'chatbot pending actions');
+    }
+
+    protected function setupListOperation(): void
+    {
+        CRUD::column('id');
+        CRUD::column('action_id');
+        CRUD::column('conversation_id');
+        CRUD::column('tool');
+        CRUD::column('status');
+        CRUD::column('expires_at');
+        CRUD::column('created_at');
+
+        CRUD::addFilter([
+            'name'  => 'status',
+            'type'  => 'dropdown',
+            'label' => 'Status',
+        ], collect(PendingActionStatus::cases())
+            ->mapWithKeys(fn ($c) => [$c->value => ucfirst($c->value)])
+            ->all(),
+        function ($value) {
+            CRUD::addClause('where', 'status', $value);
+        });
+
+        CRUD::addFilter([
+            'name'  => 'tool',
+            'type'  => 'text',
+            'label' => 'Tool',
+        ], false, function ($value) {
+            CRUD::addClause('where', 'tool', 'like', "%{$value}%");
+        });
+    }
+
+    protected function setupShowOperation(): void
+    {
+        $this->setupListOperation();
+
+        CRUD::column('args')->type('array');
+        CRUD::column('result')->type('array');
+        CRUD::column('resolved_at');
+    }
+}

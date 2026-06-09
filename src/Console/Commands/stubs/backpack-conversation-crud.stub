@@ -1,0 +1,60 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Backpack\CRUD\app\Http\Controllers\CrudController;
+use Backpack\CRUD\app\Library\CrudPanel\CrudPanelFacade as CRUD;
+use Rnkr69\LaraChatbot\Models\Conversation;
+
+/**
+ * Backpack CRUD read-only para `chatbot_conversations`. Publicado por
+ * `chatbot:install --backpack-admin` (rnkr69/lara-chatbot v1.1.1, finding #14.f).
+ *
+ * Para activar la ruta en tu admin Backpack añade en `routes/backpack/custom.php`:
+ *
+ *     Route::crud('chatbot-conversation', '\\App\\Http\\Controllers\\Admin\\ChatbotConversationCrudController');
+ *
+ * Sólo expone List + Show (no permite crear / editar / borrar desde admin;
+ * el package gestiona la persistencia desde el endpoint del chat). Si
+ * quieres permitir borrado masivo desde admin, añade `CRUD::operation(...)` y
+ * el handler correspondiente.
+ */
+class {{ class }} extends CrudController
+{
+    use \Backpack\CRUD\app\Http\Controllers\Operations\ListOperation;
+    use \Backpack\CRUD\app\Http\Controllers\Operations\ShowOperation;
+
+    public function setup(): void
+    {
+        CRUD::setModel(Conversation::class);
+        CRUD::setRoute(config('backpack.base.route_prefix') . '/chatbot-conversation');
+        CRUD::setEntityNameStrings('chatbot conversation', 'chatbot conversations');
+    }
+
+    protected function setupListOperation(): void
+    {
+        CRUD::column('id');
+        CRUD::column('user_id')->label('User');
+        CRUD::column('title');
+        CRUD::column('created_at');
+        CRUD::column('updated_at');
+
+        CRUD::addFilter([
+            'name'  => 'user_id',
+            'type'  => 'text',
+            'label' => 'User ID',
+        ], false, function ($value) {
+            CRUD::addClause('where', 'user_id', $value);
+        });
+    }
+
+    protected function setupShowOperation(): void
+    {
+        $this->setupListOperation();
+
+        CRUD::column('metadata')->type('array');
+        CRUD::column('deleted_at');
+    }
+}

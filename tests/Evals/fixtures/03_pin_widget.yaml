@@ -1,0 +1,41 @@
+name: "pin widget — add_to_dashboard from chat"
+description: |
+  The user asks to add the current chart to their dashboard. The LLM should
+  pick add_to_dashboard with the source_tool argument. This is a v2.2
+  conversational-dashboard happy path.
+
+user_message: "añade este KPI a mi dashboard"
+page_context:
+  route: "/admin/orders"
+  dashboard:
+    slug: my-dashboard
+    name: My Dashboard
+    is_default: true
+    widgets: []
+
+tools_available:
+  - name: add_to_dashboard
+    description: "Pinea un block de una tool reciente como widget del dashboard del usuario. Acepta `source_tool` (nombre de la tool a re-ejecutar) y `dashboard_slug` opcional."
+    parameters:
+      type: object
+      properties:
+        source_tool:
+          type: string
+        dashboard_slug:
+          type: string
+        block_type:
+          type: string
+      required: [source_tool]
+  - name: fleet_kpis
+    description: "Devuelve los KPIs (total, average, count) de la flota actual."
+    parameters:
+      type: object
+      properties: {}
+      required: []
+
+expected:
+  tool_calls:
+    - name: add_to_dashboard
+      args_subset:
+        source_tool: fleet_kpis
+  forbidden_tools: []

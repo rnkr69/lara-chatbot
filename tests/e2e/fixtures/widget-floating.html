@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>chatbot · floating widget fixture (E17 handoff)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="test-csrf" />
+    <style>
+      body { font-family: system-ui, sans-serif; padding: 24px; }
+      h1 { font-size: 18px; }
+    </style>
+    <script>
+      // Stub the SSE endpoint so the widget can complete a turn — same shape as
+      // other fixtures. The conversations endpoint isn't needed in widget mode.
+      const _origFetch = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (url.indexOf('/chatbot/stream') !== -1) {
+          const body =
+            'event: text\n' +
+            'data: {"delta":"hi"}\n\n' +
+            'event: done\n' +
+            'data: {"message_id":1,"usage":{}}\n\n';
+          return Promise.resolve(
+            new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
+          );
+        }
+        return _origFetch(input, init);
+      };
+    </script>
+    <script type="module" src="/public-build/chatbot-widget.js"></script>
+  </head>
+  <body>
+    <h1>Floating widget fixture</h1>
+    <p>The widget has data-conversation-id="cross-tab-77" — its rehydrate path
+       mirrors the id to <code>chatbot:active-conversation:v1</code> in
+       localStorage, which <code>/page.html</code> then picks up.</p>
+    <p><a id="goPage" href="/page.html">Go to /chatbot</a></p>
+    <chatbot-widget
+      data-endpoint="/chatbot/stream"
+      data-conversation-id="cross-tab-77"
+      data-default-open="false"
+    ></chatbot-widget>
+  </body>
+</html>

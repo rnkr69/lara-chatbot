@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         executionOrder="random"
+         beStrictAboutOutputDuringTests="true"
+         failOnWarning="true"
+         failOnRisky="true">
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+        <testsuite name="Evals">
+            <directory>tests/Evals</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+        <exclude>
+            <!-- ChatbotServiceProvider boot wiring se valida vía ServiceProviderBootTest;
+                 las ramas de Spatie/relay ausentes son host-side (ver docs/testing.md). -->
+            <file>src/ChatbotServiceProvider.php</file>
+            <!-- Stubs que el comando install copia al host. -->
+            <directory>src/Console/Commands/stubs</directory>
+        </exclude>
+    </source>
+    <coverage includeUncoveredFiles="true" pathCoverage="false"
+              ignoreDeprecatedCodeUnits="true" disableCodeCoverageIgnore="false">
+        <report>
+            <clover outputFile="build/coverage/clover.xml"/>
+            <html outputDirectory="build/coverage/html" lowUpperBound="50" highLowerBound="75"/>
+            <text outputFile="build/coverage/coverage.txt" showOnlySummary="true"/>
+        </report>
+    </coverage>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="DB_CONNECTION" value="testing"/>
+        <env name="CHATBOT_PROVIDER" value="anthropic"/>
+        <env name="CHATBOT_MODEL" value="claude-sonnet-4-6"/>
+    </php>
+</phpunit>

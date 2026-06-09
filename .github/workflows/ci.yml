@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feature/**', 'fix/**', 'hardening/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  php:
+    name: PHP ${{ matrix.php }} / Laravel ${{ matrix.laravel }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3']
+        laravel: ['^11.0', '^12.0']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, sqlite3, pdo_sqlite
+          coverage: none
+
+      - name: Pin Laravel version
+        run: |
+          composer require "illuminate/contracts:${{ matrix.laravel }}" \
+                           "illuminate/support:${{ matrix.laravel }}" \
+                           --no-update
+
+      - name: Cache composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ matrix.php }}-${{ matrix.laravel }}-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run Pest
+        run: vendor/bin/pest --colors=always
+
+  js:
+    name: JS bundle build + tests + token parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Node 22 (LTS as of 2024-10) — Node 20's fetch / Response.json
+          # internals require more microtask hops than later versions, which
+          # makes jsdom-based tests that drive `await response.json()` chains
+          # fragile against fixed-count helpers. Node 22+ behaves like our
+          # development baseline (Node 22/24). Bump as new LTS lines stabilise.
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Vitest
+        run: npm test
+
+      - name: Build bundles
+        # `npm run build` already invokes scripts/check-bundle-size.mjs (gzip cap)
+        # and scripts/check-bundle-tokens.mjs (per-bundle REQUIRED + cross-bundle
+        # SHARED parity). A failure here is a stale bundle, an oversized bundle,
+        # or a cross-bundle protocol drift (the PR-C class of bug).
+        run: npm run build
+
+  # Playwright is intentionally NOT in CI yet. It is slow under WSL/runners and
+  # the existing 487 vitest cases + Pest suite cover the same protocol surface
+  # in isolation. Run manually before tagging a release:
+  #
+  #   npm run test:e2e
+  #
+  # See docs/distribution.md for the release checklist.

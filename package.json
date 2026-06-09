@@ -1,0 +1,33 @@
+{
+  "name": "@rnkr69/lara-chatbot-widget",
+  "version": "0.4.0",
+  "description": "Web Component <chatbot-widget> bundle for the rnkr69/lara-chatbot Laravel package.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18.18"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:check": "node scripts/check-bundle-size.mjs",
+    "build:tokens": "node scripts/check-bundle-tokens.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "pretest:e2e": "node scripts/build.mjs",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^20.12.0",
+    "esbuild": "^0.21.0",
+    "jsdom": "^24.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.0",
+    "gridstack": "^11.5.1"
+  }
+}

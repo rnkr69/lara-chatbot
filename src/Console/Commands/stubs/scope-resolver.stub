@@ -1,0 +1,56 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Illuminate\Contracts\Auth\Authenticatable;
+use Rnkr69\LaraChatbot\Authorization\AccessScope;
+use Rnkr69\LaraChatbot\Authorization\Contracts\ScopeResolver;
+use Rnkr69\LaraChatbot\Authorization\Exceptions\ScopeResolverNotConfiguredException;
+
+class {{ class }} implements ScopeResolver
+{
+    /**
+     * Mapea (usuario, scope) a la lista de IDs de usuario cuyas filas son
+     * visibles para el invocador. Implementa la jerarquía propia de tu host
+     * (manager → equipo, tenant → users, etc.).
+     *
+     * @return array<int, int|string>
+     */
+    public function resolveAccessibleUserIds(Authenticatable $user, AccessScope $scope): array
+    {
+        return match ($scope) {
+            AccessScope::Self => [$user->getAuthIdentifier()],
+            AccessScope::Team => $this->teamUserIds($user),
+            AccessScope::All  => $this->allUserIds(),
+        };
+    }
+
+    /**
+     * @return array<int, int|string>
+     */
+    protected function teamUserIds(Authenticatable $user): array
+    {
+        // TODO: implementa según tu modelo. Ejemplo (manager → equipo):
+        //
+        //   return \App\Models\User::where('manager_id', $user->getAuthIdentifier())
+        //       ->orWhere('id', $user->getAuthIdentifier())
+        //       ->pluck('id')
+        //       ->all();
+
+        throw new ScopeResolverNotConfiguredException(AccessScope::Team);
+    }
+
+    /**
+     * @return array<int, int|string>
+     */
+    protected function allUserIds(): array
+    {
+        // TODO: implementa para roles admin. Ejemplo:
+        //
+        //   return \App\Models\User::pluck('id')->all();
+
+        throw new ScopeResolverNotConfiguredException(AccessScope::All);
+    }
+}

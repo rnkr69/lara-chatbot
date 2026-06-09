@@ -1,0 +1,89 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Rnkr69\LaraChatbot\Authorization\AccessScope;
+use Rnkr69\LaraChatbot\Tools\BaseBackendTool;
+use Rnkr69\LaraChatbot\Tools\ToolContext;
+use Rnkr69\LaraChatbot\Tools\ToolResult;
+
+/**
+ * Ejemplo de backend tool de LECTURA generado por `chatbot:install`.
+ *
+ * Demuestra la cascada de autorización del paquete:
+ *  1. `permissions()` → permisos AND (Spatie/Gate los valida).
+ *  2. `defaultScope()` → self/team/all (`accessibleQuery()` filtra).
+ *  3. ownership puntual → la consulta sólo devuelve filas accesibles.
+ *
+ * Sustituye `App\Models\Invoice` por el modelo real de tu host. Si no
+ * tienes facturas, borra este archivo y genera el tuyo con
+ * `php artisan chatbot:make:tool MiTool`.
+ */
+class {{ class }} extends BaseBackendTool
+{
+    public function name(): string
+    {
+        return '{{ tool_name }}';
+    }
+
+    public function description(): string
+    {
+        return 'Lista las facturas del usuario actual. Soporta filtros por estado y un límite opcional.';
+    }
+
+    public function parameters(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => [
+                'status' => [
+                    'type' => 'string',
+                    'enum' => ['paid', 'pending', 'cancelled'],
+                    'description' => 'Filtra por estado de pago. Opcional.',
+                ],
+                'limit' => [
+                    'type' => 'integer',
+                    'description' => 'Máximo de filas a devolver (1-100). Default: 20.',
+                ],
+            ],
+            'required' => [],
+        ];
+    }
+
+    public function permissions(): array
+    {
+        // Permisos AND. Si tu host usa Spatie y este permiso no existe,
+        // créalo con `php artisan permission:create-permission invoices.view`
+        // o adapta la cadena a tu modelo de roles.
+        return ['invoices.view'];
+    }
+
+    public function defaultScope(): AccessScope
+    {
+        return AccessScope::Self;
+    }
+
+    public function handle(array $args, ToolContext $ctx): ToolResult
+    {
+        // Cuando tengas el modelo real, descomenta:
+        //
+        //   $query = $this->accessibleQuery(\App\Models\Invoice::query(), $ctx);
+        //
+        //   if (isset($args['status'])) {
+        //       $query->where('status', $args['status']);
+        //   }
+        //
+        //   $limit = max(1, min(100, (int) ($args['limit'] ?? 20)));
+        //
+        //   return ToolResult::success([
+        //       'items' => $query->latest()->limit($limit)->get()->toArray(),
+        //   ]);
+
+        return ToolResult::success([
+            'items' => [],
+            'note'  => 'Ejemplo generado por chatbot:install. Implementa la consulta sobre tu modelo real.',
+        ]);
+    }
+}

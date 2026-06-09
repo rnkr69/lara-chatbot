@@ -1,0 +1,30 @@
+name: "negative — small talk, no tool should fire"
+description: |
+  The user greets the bot. No tool from the catalogue is relevant. The LLM
+  should respond conversationally without invoking ANY tool. This catches
+  the regression class "LLM always invents a tool call to look helpful".
+
+user_message: "hola, ¿cómo te llamas?"
+page_context:
+  route: "/dashboard"
+
+tools_available:
+  - name: list_my_invoices
+    description: "Lista las facturas del usuario autenticado."
+    parameters:
+      type: object
+      properties: {}
+      required: []
+  - name: search_orders
+    description: "Busca pedidos por número o cliente."
+    parameters:
+      type: object
+      properties:
+        query: { type: string }
+      required: [query]
+
+expected:
+  tool_calls: []
+  forbidden_tools:
+    - list_my_invoices
+    - search_orders

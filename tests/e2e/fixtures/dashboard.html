@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>chatbot · dashboard fixture (v2.0 / E5)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="test-csrf" />
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; }
+      body { font-family: system-ui, sans-serif; background: #f5f5f5; }
+      /* Mirrors the corrected dashboard.blade.php (#15): the host page only
+         sizes the root — it must NOT set `display`. The bundle's CSS owns the
+         grid layout; an ID-selector `display: flex` here used to win on
+         specificity and collapse the grid to ~152px. */
+      #chatbot-dashboard-root { height: 100vh; width: 100vw; }
+    </style>
+    <script>
+      // ─────────────────────────────────────────────────────────────────────
+      // Fixture state — mutable across requests so layout PATCHes persist
+      // across reloads simulated by the test re-mounting from this same shape.
+      // ─────────────────────────────────────────────────────────────────────
+      const initialRows = [
+        {
+          id: 1, slug: 'mi-panel', name: 'Mi Panel', is_default: true,
+          layout_version: 1, metadata: null, widget_count: 3,
+          created_at: '2026-05-13T08:00:00.000Z', updated_at: '2026-05-13T09:00:00.000Z',
+        },
+        {
+          id: 2, slug: 'operaciones', name: 'Operaciones', is_default: false,
+          layout_version: 1, metadata: null, widget_count: 0,
+          created_at: '2026-05-13T08:00:00.000Z', updated_at: '2026-05-13T08:30:00.000Z',
+        },
+      ];
+      const initialWidgets = {
+        'mi-panel': [
+          {
+            id: 11, block_type: 'table', title: 'Users',
+            position: { x: 0, y: 0, w: 4, h: 3 },
+            snapshot: {
+              data: { rows: [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }] },
+              captured_at: '2026-05-13T08:00:00.000Z',
+            },
+            source: { tool: 'list_users', args: {}, page_context_snapshot: null },
+            source_signature: 'sig-11',
+            refresh_policy: 'on_open',
+            last_refresh_status: 'fresh',
+            last_refresh_error: null,
+            last_refreshed_at: '2026-05-13T09:00:00.000Z',
+            order_index: 0,
+            created_at: '2026-05-13T08:00:00.000Z',
+            updated_at: '2026-05-13T09:00:00.000Z',
+          },
+          {
+            id: 12, block_type: 'card', title: 'Quick stats',
+            position: { x: 4, y: 0, w: 4, h: 2 },
+            snapshot: {
+              data: { title: 'Active sessions', description: '42 sessions today.' },
+              captured_at: '2026-05-13T08:00:00.000Z',
+            },
+            source: { tool: 'session_stats', args: {} },
+            source_signature: 'sig-12',
+            refresh_policy: 'on_open',
+            last_refresh_status: 'fresh',
+            last_refresh_error: null,
+            last_refreshed_at: '2026-05-13T09:00:00.000Z',
+            order_index: 1,
+            created_at: '2026-05-13T08:00:00.000Z',
+            updated_at: '2026-05-13T09:00:00.000Z',
+          },
+          // v2.0 / E8 — KPI smoke widget: verifies the kpi built-in renderer is wired
+          // in the dashboard bundle (via BUILTIN_BLOCK_RENDERERS) and that label/value/
+          // delta surfaces are present in the DOM after the bulk SSE refresh.
+          {
+            id: 13, block_type: 'kpi', title: 'Latency',
+            position: { x: 8, y: 0, w: 4, h: 2 },
+            snapshot: {
+              data: { label: 'p99 latency', value: 420, unit: 'ms', delta: -12, locale: 'en-US' },
+              captured_at: '2026-05-13T08:00:00.000Z',
+            },
+            source: { tool: 'latency_stats', args: {} },
+            source_signature: 'sig-13',
+            refresh_policy: 'on_open',
+            last_refresh_status: 'fresh',
+            last_refresh_error: null,
+            last_refreshed_at: '2026-05-13T09:00:00.000Z',
+            order_index: 2,
+            created_at: '2026-05-13T08:00:00.000Z',
+            updated_at: '2026-05-13T09:00:00.000Z',
+          },
+        ],
+        'operaciones': [],
+      };
+      const state = {
+        rows: JSON.parse(JSON.stringify(initialRows)),
+        widgets: JSON.parse(JSON.stringify(initialWidgets)),
+        widgetPatches: [],
+        bulkRefreshCalls: 0,
+      };
+      // Exposed to the test so it can introspect after gestures.
+      window.__dashboardFixture = state;
+
+      function jsonResponse(data, status) {
+        if (status === 204) return new Response(null, { status: 204 });
+        return new Response(JSON.stringify({ data }), {
+          status: status || 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      function findDashboard(slug) { return state.rows.find((r) => r.slug === slug); }
+      function findWidget(slug, id) {
+        const ws = state.widgets[slug] || [];
+        return ws.find((w) => w.id === Number(id));
+      }
+
+      const _origFetch = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        const method = (init && init.method) || 'GET';
+
+        // GET /chatbot/dashboards
+        if (method === 'GET' && /\/chatbot\/dashboards\/?$/.test(url)) {
+          return Promise.resolve(jsonResponse(state.rows));
+        }
+
+        // GET /chatbot/dashboards/{slug}
+        const showMatch = url.match(/\/chatbot\/dashboards\/([^/?]+)(?:\?|$)/);
+        if (method === 'GET' && showMatch) {
+          const slug = showMatch[1];
+          const row = findDashboard(slug);
+          if (!row) return Promise.resolve(new Response('not found', { status: 404 }));
+          return Promise.resolve(jsonResponse({ ...row, widgets: state.widgets[slug] || [] }));
+        }
+
+        // POST /chatbot/dashboards/{slug}/refresh — SSE bulk replay.
+        const bulkMatch = url.match(/\/chatbot\/dashboards\/([^/]+)\/refresh$/);
+        if (method === 'POST' && bulkMatch) {
+          state.bulkRefreshCalls += 1;
+          const slug = bulkMatch[1];
+          const widgets = state.widgets[slug] || [];
+          let body = '';
+          widgets.forEach((w) => {
+            // Bump rows so the test can observe a fresh snapshot post-refresh.
+            const fresh = JSON.parse(JSON.stringify(w.snapshot));
+            if (w.block_type === 'table' && fresh.data && Array.isArray(fresh.data.rows)) {
+              fresh.data.rows.push({ id: 99, name: 'Refreshed-' + Date.now() });
+            }
+            body += 'event: widget_refreshed\n';
+            body += 'data: ' + JSON.stringify({
+              widget_id: w.id, status: 'fresh', snapshot: fresh, error: null,
+              last_refreshed_at: new Date().toISOString(),
+            }) + '\n\n';
+          });
+          body += 'event: done\ndata: ' + JSON.stringify({ widget_count: widgets.length }) + '\n\n';
+          return Promise.resolve(new Response(body, {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          }));
+        }
+
+        // PATCH /chatbot/dashboards/{slug}/widgets/{id} — move/retitle.
+        const patchMatch = url.match(/\/chatbot\/dashboards\/([^/]+)\/widgets\/(\d+)$/);
+        if (method === 'PATCH' && patchMatch) {
+          const slug = patchMatch[1];
+          const id = patchMatch[2];
+          const w = findWidget(slug, id);
+          if (!w) return Promise.resolve(new Response('not found', { status: 404 }));
+          let payload = {};
+          try { payload = JSON.parse((init && init.body) || '{}'); } catch (_e) { payload = {}; }
+          if (payload.position) Object.assign(w.position, payload.position);
+          if (typeof payload.title !== 'undefined') w.title = payload.title;
+          state.widgetPatches.push({ slug: slug, id: Number(id), payload: payload });
+          return Promise.resolve(jsonResponse(w));
+        }
+
+        // POST /chatbot/dashboards/{slug}/widgets/{id}/refresh — single refresh.
+        const singleMatch = url.match(/\/chatbot\/dashboards\/([^/]+)\/widgets\/(\d+)\/refresh$/);
+        if (method === 'POST' && singleMatch) {
+          const slug = singleMatch[1];
+          const id = singleMatch[2];
+          const w = findWidget(slug, id);
+          if (!w) return Promise.resolve(new Response('not found', { status: 404 }));
+          return Promise.resolve(jsonResponse({
+            widget_id: w.id, status: 'fresh', snapshot: w.snapshot, error: null,
+            last_refreshed_at: new Date().toISOString(),
+          }));
+        }
+
+        // POST /chatbot/dashboards (create).
+        if (method === 'POST' && /\/chatbot\/dashboards\/?$/.test(url)) {
+          let payload = {};
+          try { payload = JSON.parse((init && init.body) || '{}'); } catch (_e) { payload = {}; }
+          const slug = String(payload.name || 'new')
+            .toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+          const row = {
+            id: state.rows.length + 10, slug: slug, name: payload.name,
+            is_default: !!payload.is_default, layout_version: 1, metadata: null,
+            widget_count: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          state.rows.push(row);
+          state.widgets[slug] = [];
+          return Promise.resolve(jsonResponse(row, 201));
+        }
+
+        // PATCH /chatbot/dashboards/{slug} (rename/setDefault).
+        const updateMatch = url.match(/\/chatbot\/dashboards\/([^/?]+)$/);
+        if (method === 'PATCH' && updateMatch) {
+          const slug = updateMatch[1];
+          const row = findDashboard(slug);
+          if (!row) return Promise.resolve(new Response('not found', { status: 404 }));
+          let payload = {};
+          try { payload = JSON.parse((init && init.body) || '{}'); } catch (_e) { payload = {}; }
+          if (typeof payload.name === 'string') {
+            row.name = payload.name;
+            row.slug = payload.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            state.widgets[row.slug] = state.widgets[slug] || [];
+          }
+          if (payload.is_default === true) {
+            state.rows.forEach((r) => { r.is_default = (r.slug === row.slug); });
+          }
+          return Promise.resolve(jsonResponse(row));
+        }
+
+        // DELETE /chatbot/dashboards/{slug} (destroy).
+        if (method === 'DELETE' && updateMatch) {
+          const slug = updateMatch[1];
+          state.rows = state.rows.filter((r) => r.slug !== slug);
+          return Promise.resolve(new Response(null, { status: 204 }));
+        }
+
+        // DELETE widget.
+        if (method === 'DELETE' && patchMatch) {
+          const slug = patchMatch[1];
+          const id = patchMatch[2];
+          state.widgets[slug] = (state.widgets[slug] || []).filter((w) => w.id !== Number(id));
+          return Promise.resolve(new Response(null, { status: 204 }));
+        }
+
+        return _origFetch(input, init);
+      };
+    </script>
+    <script src="/public-build/chatbot-dashboard.js"></script>
+  </head>
+  <body>
+    <div
+      id="chatbot-dashboard-root"
+      data-dashboards-endpoint="/chatbot/dashboards"
+      data-theme="light"
+      data-default-slug="mi-panel"
+      data-user-id="42"
+    ></div>
+  </body>
+</html>

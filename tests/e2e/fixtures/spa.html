@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>chatbot · SPA Inertia mock fixture</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="test-csrf" />
+    <meta name="chatbot:mode" content="spa" />
+    <style>
+      body { font-family: system-ui, sans-serif; padding: 24px; }
+      h1 { font-size: 18px; }
+      #pageInfo { color: #555; font-size: 14px; }
+    </style>
+    <script>
+      // Inertia mock — exposes a minimal `visit` API and dispatches the
+      // `inertia:navigate` event the widget listens for. Defined BEFORE the
+      // bundle so detectMode() picks SPA on first boot.
+      window.Inertia = {
+        visit: function (url) {
+          window.history.pushState({ inertia: true }, '', url);
+          document.getElementById('pageInfo').textContent = 'Now at ' + url;
+          window.dispatchEvent(new Event('inertia:navigate'));
+        },
+      };
+
+      const _origFetch = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (url.indexOf('/chatbot/stream') !== -1) {
+          const body =
+            'event: text\n' +
+            'data: {"delta":"hi"}\n\n' +
+            'event: done\n' +
+            'data: {"message_id":1,"usage":{}}\n\n';
+          return Promise.resolve(
+            new Response(body, {
+              status: 200,
+              headers: { 'Content-Type': 'text/event-stream' },
+            })
+          );
+        }
+        return _origFetch(input, init);
+      };
+
+      window.__navigateTo = function (url) {
+        window.Inertia.visit(url);
+      };
+    </script>
+    <script type="module" src="/public-build/chatbot-widget.js"></script>
+  </head>
+  <body>
+    <h1>SPA fixture</h1>
+    <p id="pageInfo">Initial page</p>
+    <button id="goB" onclick="window.__navigateTo('/spa.html?p=b')">Go to B</button>
+    <button id="goC" onclick="window.__navigateTo('/spa.html?p=c')">Go to C</button>
+    <chatbot-widget
+      data-endpoint="/chatbot/stream"
+      data-conversation-id="conv-spa-1"
+      data-position="bottom-right"
+      data-default-open="true"
+    ></chatbot-widget>
+  </body>
+</html>

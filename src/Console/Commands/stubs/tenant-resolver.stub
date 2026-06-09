@@ -1,0 +1,62 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Illuminate\Contracts\Auth\Authenticatable;
+use Rnkr69\LaraChatbot\Authorization\Contracts\TenantResolver;
+use Rnkr69\LaraChatbot\Tools\Contracts\BackendTool;
+
+/**
+ * 4ª dimensión de autorización del paquete (gap de hosts multi-tenant).
+ *
+ * Mapea (usuario, tool, page context) a la lista de tenant/entity IDs a
+ * los que el invocador tiene acceso. El paquete inyecta el resultado en
+ * la cascada `permiso → scope → tenant → ownership` cuando una tool
+ * declara `tenantScope=true` (E06).
+ *
+ * Convención de retornos:
+ *  - `null`            ⇒ acceso a todos los tenants (bypass del filtro).
+ *  - `[]` (array vac.) ⇒ sin acceso a ningún tenant (la tool devolverá
+ *                        lista vacía o ToolUnauthorizedException).
+ *  - `[id1, id2, ...]` ⇒ aplicar `whereIn(tenant_field, $ids)` en la query.
+ *
+ * El `pageContext` viene saneado por `PageContextSanitizer` (E14) — sólo
+ * tipos primitivos, profundidad acotada. Útil para lecturas tipo
+ * `corporation_id` (host multi-tenant) o `event_id` (host entity-scoped).
+ */
+class {{ class }} implements TenantResolver
+{
+    /**
+     * @param  array<string, mixed>  $pageContext
+     * @return array<int, int|string>|null
+     */
+    public function resolveAccessibleTenantIds(
+        Authenticatable $user,
+        BackendTool $tool,
+        array $pageContext,
+    ): ?array {
+        // TODO: implementa según tu modelo. Ejemplos:
+        //
+        // 1) Restricción tenant fija por usuario (p.ej. corporation_id):
+        //
+        //   return [$user->corporation_id];
+        //
+        // 2) Sin restricción para roles globales:
+        //
+        //   if ($user->hasRole('super_admin')) {
+        //       return null;
+        //   }
+        //
+        // 3) Tenant que viene del contexto de página (p.ej. event_id):
+        //
+        //   $eventId = $pageContext['event_id'] ?? null;
+        //   if ($eventId === null) {
+        //       return [];
+        //   }
+        //   return [$eventId];
+
+        return null;
+    }
+}

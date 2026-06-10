@@ -13,8 +13,7 @@ and lets users **pin results to a personal dashboard** that re-executes under th
 same permissions.
 
 Built as a personal side project. It is functional and test-covered, but still
-pre-`1.0`: the public API is being validated against a second host, so a MINOR
-bump may include breaking changes while on the `0.x` line.
+pre-`1.0`, so a MINOR bump may include breaking changes while on the `0.x` line.
 
 <p align="center">
   <img src="docs/images/widget-chat.png" alt="The floating chatbot widget answering a question with KPI blocks, embedded in a host admin app" width="900">
@@ -41,14 +40,12 @@ bump may include breaking changes while on the `0.x` line.
 | | |
 |---|---|
 | **Version** | `0.4.0` (pre-stable; a MINOR bump may break on the `0.x` line) |
-| **Hosts in production** | 0 |
-| **Hosts integrated for internal validation** | 1 (a private test app, no real users) |
 | **Test coverage** | Pest (PHP) + Vitest (JS); 487 vitest + ≥75% target on core PHP |
 | **CI** | `.github/workflows/ci.yml` (lint + test matrix + JS build) |
 | **Eval harness (LLM tool-calling quality)** | 8 YAML fixtures. Fake mode (verifies the orchestrator) runs in CI per PR. Live mode calls the real LLM and dumps a per-fixture trace to `tests/Evals/last-live-run.json`. Backlog: ≥20 fixtures + multi-model matrix + baseline tracking. See [`tests/Evals/README.md`](tests/Evals/README.md). |
 | **Per-user cost telemetry** | Persists `tokens_in`/`tokens_out` per message, `MessagePersisted` event for external sinks, `chatbot:cost-report --since=YYYY-MM-DD [--format=table\|json\|csv]` command. See [`docs/telemetry.md`](docs/telemetry.md). |
 | **Accessibility (WCAG)** | Not audited. Basic ARIA labels on widget buttons. WCAG 2.1 AA audit is in the `v0.5+` backlog. |
-| **Road to `1.0`** | A second real host integrated + one release cycle with no breaking changes to the 7 items in the "Versioning policy" (see `CHANGELOG.md`). |
+| **Road to `1.0`** | One release cycle with no breaking changes to the 7 items in the "Versioning policy" (see `CHANGELOG.md`). |
 
 ---
 
@@ -205,14 +202,13 @@ alongside the floating widget.
 
 ## Capabilities
 
-> Criterion: a capability is **stable** if it has been implemented and exercised
-> end-to-end against the internal test host (Laravel 11 + Backpack 6.7 + Spatie
-> Permission 6 + a LiteLLM proxy to Anthropic). The bar to promote to
-> **production-ready** is different and requires a second real host integrated —
-> see [Project status](#project-status). Any known scope or version limitation
-> goes in its own entry as a caveat.
+> Criterion: a capability is **stable** if it is implemented and exercised
+> end-to-end by the test suite (Pest + Vitest) with a documented contract.
+> Capabilities that are designed but not yet battle-tested are flagged
+> separately below. Any known scope or version limitation goes in its own entry
+> as a caveat.
 
-### Stable (implemented + exercised against the internal test host)
+### Stable (implemented + tested)
 
 - **SSE streaming** — `POST /chatbot/stream` with incremental tokens; frames
   `tool_call`/`tool_result`/`frontend_action`/`block`/`done`. Conversation and
@@ -258,8 +254,7 @@ alongside the floating widget.
   Client-side refresh without F5 via the `chatbot:dashboard-mutation` event.
   See [`docs/dashboard.md`](docs/dashboard.md). *Surface caveat: separate
   ~110 KB gz dashboard bundle + 5 CRUD tools; the 5 conversational tools are
-  the most recent features of the pre-0.4 cycle and deserve the most review
-  in a second host.*
+  the most recent features of the pre-0.4 cycle and the least battle-tested.*
 - **PHP → JS i18n bridge** — the blade emits `data-i18n` JSON-encoded from
   `__('chatbot::chatbot')` and the bundle drains each subtree
   (`dashboard.sidebar`, `dashboard.card`, etc.) to the corresponding mounter.
@@ -281,14 +276,13 @@ alongside the floating widget.
   verifies that critical tokens survive minification (REQUIRED per-bundle +
   SHARED cross-bundle).
 
-### Not exercised yet (designed, no real usage)
+### Designed, not yet battle-tested
 
 - **MCP bridge** — external MCP servers integrated as catalogue tools under
   the prefix `mcp.<server>.<tool>` via `prism-php/relay`. The same
-  authorization cascade would apply to remote tools. *No host uses it yet.
-  The contract is implemented and has unit tests; the end-to-end exercise
-  against a real MCP server will come with the first host that asks for the
-  capability.*
+  authorization cascade would apply to remote tools. *Not yet exercised
+  end-to-end: the contract is implemented and unit-tested, but it has not been
+  run against a real MCP server.*
 
 ---
 
@@ -296,9 +290,9 @@ alongside the floating widget.
 
 `rnkr69/lara-chatbot` follows [Semantic Versioning](https://semver.org), with an
 important nuance for the `0.x` line: **while pre-`1.0`, a MINOR bump may contain
-breaking changes**. The API is being validated against a second real host before
-committing to stability. For production on `0.x`, pin to a specific `0.4.N`
-version and review `CHANGELOG.md` before upgrading.
+breaking changes**. The API is still stabilising before `1.0`. For production on
+`0.x`, pin to a specific `0.4.N` version and review `CHANGELOG.md` before
+upgrading.
 
 After `1.0.0`, the 7 items listed in the "Versioning policy" section of
 [`CHANGELOG.md`](CHANGELOG.md) will require a MAJOR bump to break (HTTP routes,

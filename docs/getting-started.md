@@ -63,10 +63,42 @@ lo hace evidente al exponer un link directo a `/chatbot/dashboard` en el nav.
         }
     ],
     "require": {
-        "rnkr69/lara-chatbot": "^1.0"
+        "rnkr69/lara-chatbot": "^0.4"
     }
 }
 ```
+
+### Laravel 11
+
+El paquete **permite** Laravel 11 (`illuminate/* ^11.0|^12.0`), pero Laravel 11
+alcanzó su **fin de soporte de seguridad (~marzo 2026)**: toda la línea `11.x`
+arrastra un advisory sin parchear. Las versiones recientes de Composer bloquean
+por defecto la instalación de paquetes marcados con advisories (`audit.block-insecure`),
+así que **una instalación limpia sobre Laravel 11 falla** con un error tipo
+`… not loaded, because they are affected by security advisories`.
+
+Recomendación: **usa Laravel 12**. Si aun así necesitas correr sobre Laravel 11
+y aceptas el riesgo de un framework sin parches de seguridad, desactiva el bloqueo
+en tu app host antes de instalar:
+
+```bash
+# opción A — config de Composer del proyecto host
+composer config audit.block-insecure false
+composer update rnkr69/lara-chatbot
+```
+
+```json
+// opción B — en el composer.json del host
+{
+    "config": {
+        "audit": { "block-insecure": false }
+    }
+}
+```
+
+Esto es decisión del host, no del paquete: solo afecta a cómo Composer trata los
+advisories en tu proyecto. La CI del paquete prueba únicamente Laravel 12 por este
+motivo.
 
 ### 2.2 Instalar y ejecutar el wizard
 

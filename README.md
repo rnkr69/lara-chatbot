@@ -187,10 +187,19 @@ alongside the floating widget.
 ## Requirements
 
 - PHP **^8.2** (tested on 8.2 / 8.3 / 8.4).
-- Laravel **^11.0** or **^12.0**.
+- Laravel **^12.0** (actively tested in CI), or **^11.0** with a caveat — see below.
 - An LLM provider supported by [Prism](https://github.com/prism-php/prism):
   Anthropic, OpenAI, Groq, Gemini, Mistral, Ollama.
 - MySQL ≥ 8.0, PostgreSQL ≥ 13 or SQLite.
+
+> **Laravel 11 caveat.** The package still allows `^11.0`, but Laravel 11
+> reached security end-of-life (~March 2026) and its whole release line now
+> carries an unpatched advisory. Recent Composer refuses to install advisory-
+> flagged packages, so a **clean install on Laravel 11 fails** unless the host
+> opts out of the block. CI therefore only exercises Laravel 12. If you must run
+> on Laravel 11, see the install note in
+> [`docs/getting-started.md`](docs/getting-started.md#laravel-11). The
+> recommendation is to upgrade to Laravel 12.
 
 ---
 

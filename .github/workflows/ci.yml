@@ -13,22 +13,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # CI exercises Laravel 12 only. Laravel 11 reached security-EOL
-        # (~Mar 2026): its whole release line now carries an unpatched advisory,
-        # so Composer's `audit.block-insecure` refuses to install it from a clean
-        # checkout — the package still *allows* ^11.0 (see composer.json) for
-        # hosts that manage their own security posture, but we can't install it
-        # in CI. See docs/getting-started.md for the L11 install caveat.
+        # CI exercises Laravel 12 and 13. Laravel 11 is allowed by the package
+        # (see composer.json) but NOT tested here: it reached security-EOL
+        # (~Mar 2026) and its whole release line now carries an unpatched
+        # advisory, so Composer's `audit.block-insecure` refuses to install it
+        # from a clean checkout. See docs/getting-started.md for the L11 caveat.
+        #
+        # Laravel 13 requires PHP ^8.3 (drops 8.2), so it has no 8.2 leg.
         #
         # Each Laravel line is paired with its matching Testbench major
-        # (L12 → Testbench 10). Pinning only the illuminate/* constraints is not
-        # enough: prism-php/prism requires the full `laravel/framework`, which
-        # *replaces* illuminate/contracts, so the Testbench major must be pinned
-        # to keep the framework version aligned with the illuminate/* pins.
+        # (L12 → Testbench 10, L13 → Testbench 11). Pinning only the illuminate/*
+        # constraints is not enough: prism-php/prism requires the full
+        # `laravel/framework`, which *replaces* illuminate/contracts, so the
+        # Testbench major must be pinned to keep the framework version aligned
+        # with the illuminate/* pins.
         include:
           - { php: '8.2', laravel: '^12.0', testbench: '^10.0' }
           - { php: '8.3', laravel: '^12.0', testbench: '^10.0' }
           - { php: '8.4', laravel: '^12.0', testbench: '^10.0' }
+          - { php: '8.3', laravel: '^13.0', testbench: '^11.0' }
+          - { php: '8.4', laravel: '^13.0', testbench: '^11.0' }
     steps:
       - uses: actions/checkout@v4
 
@@ -58,7 +62,11 @@ jobs:
         run: composer install --prefer-dist --no-progress --no-interaction
 
       - name: Run Pest
-        run: vendor/bin/pest --colors=always
+        # --no-coverage: CI installs no coverage driver (coverage: none above).
+        # Pest 4 / PHPUnit 12 (pulled on the L13 leg) hard-fails when coverage
+        # reports are configured in phpunit.xml but no driver is present, where
+        # Pest 3 only warned. The flag keeps every leg driver-independent.
+        run: vendor/bin/pest --no-coverage --colors=always
 
   js:
     name: JS bundle build + tests + token parity

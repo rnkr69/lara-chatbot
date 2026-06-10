@@ -14,14 +14,14 @@
     ],
     "require": {
         "php": "^8.2",
-        "illuminate/contracts": "^11.0|^12.0",
-        "illuminate/support": "^11.0|^12.0",
+        "illuminate/contracts": "^11.0|^12.0|^13.0",
+        "illuminate/support": "^11.0|^12.0|^13.0",
         "prism-php/prism": "^0.100"
     },
     "require-dev": {
-        "orchestra/testbench": "^9.0|^10.0",
-        "pestphp/pest": "^3.0",
-        "pestphp/pest-plugin-laravel": "^3.0"
+        "orchestra/testbench": "^9.0|^10.0|^11.0",
+        "pestphp/pest": "^3.0|^4.0",
+        "pestphp/pest-plugin-laravel": "^3.0|^4.0"
     },
     "autoload": {
         "psr-4": {
@@ -47,7 +47,7 @@
         }
     },
     "scripts": {
-        "test": "pest",
+        "test": "pest --no-coverage",
         "test:coverage": "pest --coverage",
         "test:coverage-min": "pest --coverage --min=75"
     },

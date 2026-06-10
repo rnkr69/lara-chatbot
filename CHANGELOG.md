@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Laravel 13 support.** Dependency constraints widened to
+  `illuminate/* ^11.0|^12.0|^13.0`; the suite passes unchanged on Laravel 13
+  (588 tests). CI now runs Laravel 12 (PHP 8.2/8.3/8.4) and Laravel 13
+  (PHP 8.3/8.4 — Laravel 13 drops PHP 8.2).
+
+### Changed
+- Dev tooling allows Pest `^3.0|^4.0` and Testbench `^9.0|^10.0|^11.0` so each
+  Laravel line resolves its compatible test stack (Pest 3 on L12, Pest 4 on L13).
+- `composer test` now runs with `--no-coverage` (Pest 4 / PHPUnit 12 hard-fail
+  when coverage reports are configured but no driver is present; use
+  `composer test:coverage` for coverage runs).
+
+### Notes
+- **Laravel 11** is still allowed (`^11.0`) but is no longer tested in CI: it
+  reached security-EOL (~Mar 2026) and Composer's advisory blocking prevents a
+  clean install. See `docs/getting-started.md` for the install caveat.
+
 ## [0.4.0] - 2026-05-16
 
 First externally referenced release of `rnkr69/lara-chatbot`.

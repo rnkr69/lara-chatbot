@@ -16,6 +16,12 @@ Built as a personal side project. It is functional and test-covered, but still
 pre-`1.0`: the public API is being validated against a second host, so a MINOR
 bump may include breaking changes while on the `0.x` line.
 
+<p align="center">
+  <img src="docs/images/widget-chat.png" alt="The floating chatbot widget answering a question with KPI blocks, embedded in a host admin app" width="900">
+  <br>
+  <em>The floating widget calls a backend tool and renders typed blocks (KPIs, charts, tables) inline.</em>
+</p>
+
 ---
 
 ## Value proposition
@@ -131,6 +137,25 @@ flowchart LR
 ```
 
 Detail in [`docs/getting-started.md §4`](docs/getting-started.md#4-cómo-funciona).
+
+---
+
+## Screenshots
+
+**Personal Dashboard** — pin blocks from chat and re-execute them on open under
+the same authorization cascade. Built and rearranged entirely from natural
+language via the conversational dashboard tools.
+
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="Personal dashboard with a bar chart, two KPI cards and a table, all pinned from chat" width="900">
+</p>
+
+**Page mode** — the dedicated `GET /chatbot` view with a conversation sidebar,
+alongside the floating widget.
+
+<p align="center">
+  <img src="docs/images/page-mode.png" alt="Full-page chat mode with a conversation history sidebar" width="900">
+</p>
 
 ---
 

@@ -32,7 +32,7 @@ npm run build:check # falla si bundle gzip excede 80 KB
 npm run test:e2e   # Playwright (chromium-only); rebuilda el bundle vía pretest:e2e
 ```
 
-> El gate de bundle gzip a 80 KB está cubierto por `scripts/check-bundle-size.mjs`. El bundle está en ~13.75 KB gzip.
+> El gate de bundle gzip a 80 KB está cubierto por `scripts/check-bundle-size.mjs`. El bundle está en ~28 KB gzip.
 
 ---
 
@@ -139,7 +139,7 @@ Convenciones de Pest 3:
 | `TenantResolver` | `tests/Feature/Tools/BaseBackendToolTest.php` + `tests/Feature/Tools/ToolRegistryTest.php` + `tests/Unit/Authorization/AuthorizesToolAccessTest.php` | binding presente/ausente, `tenantScope=true` exige binding, `whereIn(tenant_column)` aplicado correctamente, salida `out_of_scope` cuando lista vacía. |
 | `DownloadFileTool` | `tests/Feature/Tools/Frontend/DownloadFileToolTest.php` | URL signing, fail-secure por defecto, allowed_disks, ownership override (`assertCanDownload`), clamp `expires_in`, rejection de http/https. |
 | Evento `ToolInvoked` | `tests/Unit/Events/ToolInvokedTest.php` + 3 dispatch en `tests/Feature/Services/ChatServiceTest.php` | propiedades readonly, dispatch en backend / frontend / cascada negada. |
-| `system_prompt_addendum` + i18n | `tests/Unit/Llm/SystemPromptBuilderTest.php` (16 tests) | sección programática, override del host, fallback a `app()->getLocale()`, sanitización de `## Current page`. |
+| `system_prompt_addendum` + i18n | `tests/Unit/Llm/SystemPromptBuilderTest.php` (30 tests) | sección programática, override del host, fallback a `app()->getLocale()`, sanitización de `## Current page`. |
 | Patrón bulk | docs (`docs/backend-tools.es.md`) | descrito como patrón, no requiere cambio de contrato. Tests host-side. |
 | Backpack | `tests/Feature/Integrations/BackpackIntegrationTest.php` + `BackpackProviderShapeTest.php` | opt-in via `class_exists`, directive Blade `@chatbotBackpackContext`, shape del provider (entity/selected_ids). |
 

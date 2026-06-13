@@ -27,7 +27,7 @@ but the experience is very different:
 | Route | UX | Tokens | Persistence |
 |---|---|---|---|
 | Chat-bound (`list_my_missions` → `render_block` table) | Table duplicated below the native table the user already sees. Visual clutter. | ~3000 tokens out + stored in `chatbot_messages` and returned to context on the next turn. | The block is persisted and will reload on future visits to the conversation. |
-| Page-bound (`fill_form(filtersForm)` + `refreshGrid`) | Filters the existing DataTable. Native UX. | ~50 tokens out. Data never enters the LLM context. | Reversible with a single user click. |
+| Page-bound (`navigate({url: '/admin/mission?...'})`) | Filters the existing DataTable via querystring. Native UX. | ~50 tokens out. Data never enters the LLM context. | Reversible with a single user click. |
 
 Without guidance, the LLM picks the first because it is the most obvious
 from the perspective of "which tool to use to answer this". The package
@@ -44,7 +44,12 @@ system prompt after `## Current page`. Its canonical content:
 ```
 ### Listings (`crud.action = list`)
 - User asks to filter / search the SAME entity → prefer modifying the
-  current grid (fill_form on filtersForm + invoke_host_action('refreshGrid')).
+  current grid. Backpack default list views do NOT expose a `<form>` for
+  filters (they render popover dropdowns wired by Ajax), so
+  `fill_form({form_id: 'filtersForm'})` silently fails. Instead build the
+  URL with the querystring and call
+  `navigate({url: '/admin/{entity}?{filter}={value}'})`. Only custom hosts
+  that DO expose a `<form>` can use `fill_form` + `invoke_host_action('refreshGrid')`.
 - User asks for a DIFFERENT entity → use the backend tool that returns
   the data and render in chat.
 - Summary (counts, top-N small) → chat block regardless of page.
@@ -170,7 +175,8 @@ financial actions always require double confirmation", etc.).
 **LLM decides (with rules active)**:
 1. Same entity (`Mission`) and action `list` → page-bound.
 2. Maps labels to values: `Mars → 2`, `approved → "approved"`.
-3. Calls `fill_form(filters)` then `invoke_host_action('refreshGrid')`.
+3. Backpack list views expose no `<form>`, so it builds the querystring and
+   calls `navigate({url: '/admin/mission?destination_planet_id=2&status=approved'})`.
 4. Confirms to the user in chat: "Filters applied. You can see the results above."
 
 **Without the rules**, the LLM tends to call `list_missions(destination_planet_id=2, status='approved')` and emit a `render_block` table that duplicates the native grid.
@@ -226,7 +232,7 @@ from a test host:
 
 | # | Page | Prompt | Expected |
 |---|---|---|---|
-| 1 | `/admin/mission` (list) | "filter status approved + risk high" | `fill_form(filtersForm) + refreshGrid` |
+| 1 | `/admin/mission` (list) | "filter status approved + risk high" | `navigate({url: '/admin/mission?status=approved&risk=high'})` |
 | 2 | `/dashboard` (no CRUD) | "filter status approved + risk high" | `list_my_missions(...)` + `render_block` |
 | 3 | `/admin/mission/25/show` | "cancel this one" | `cancel_mission(25)` (direct) |
 | 4 | `/admin/mission?status=draft` with 8 selected | "approve these" | `approve_missions_bulk(target_ids=[...])` |
@@ -264,7 +270,7 @@ The `chatbot:decision-rules:show` command prints the active rules:
 $ php artisan chatbot:decision-rules:show
 
   Source:  package default
-  Length:  1.8 KB
+  Length:  6.8 KB
 
   ----------------------------------------------------------------------
   ## Page context — decision strategy

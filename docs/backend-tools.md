@@ -46,11 +46,11 @@ class ListMyInvoicesTool extends BaseBackendTool
                 'status' => [
                     'type' => 'string',
                     'enum' => ['paid', 'pending', 'cancelled'],
-                    'description' => 'Filtra por estado de pago.',
+                    'description' => 'Filter by payment status.',
                 ],
                 'limit' => [
                     'type' => 'integer',
-                    'description' => 'Máximo de filas a devolver.',
+                    'description' => 'Maximum number of rows to return.',
                 ],
             ],
             'required' => [],
@@ -110,8 +110,8 @@ Three factory methods cover all states:
 
 ```php
 ToolResult::success(['items' => $rows]);                  // ok
-ToolResult::error('not_owner', 'Pedido no accesible.');   // error
-ToolResult::awaitingUser($pendingActionId, '¿Confirmar?'); // FE tools only
+ToolResult::error('not_owner', 'Order not accessible.');   // error
+ToolResult::awaitingUser($pendingActionId, 'Confirm?');    // FE tools only
 ```
 
 Recommended error categories (the list is open-ended, but the LLM understands
@@ -151,7 +151,7 @@ $order = $this->accessibleQuery(Order::query(), $ctx)
     ->first();
 
 if (! $order) {
-    return ToolResult::error('not_owner', 'Pedido no encontrado o no accesible.');
+    return ToolResult::error('not_owner', 'Order not found or not accessible.');
 }
 ```
 
@@ -205,7 +205,7 @@ class ApproveOrdersBulkTool extends BaseBackendTool
 
     public function description(): string
     {
-        return 'Aprueba en bloque varios pedidos por sus IDs.';
+        return 'Bulk-approve several orders by their IDs.';
     }
 
     public function parameters(): array
@@ -215,11 +215,11 @@ class ApproveOrdersBulkTool extends BaseBackendTool
             'properties' => [
                 'target_ids' => [
                     'type' => 'array',
-                    'description' => 'Lista de IDs de pedidos a aprobar (máx 100).',
+                    'description' => 'List of order IDs to approve (max 100).',
                 ],
                 'reason' => [
                     'type' => 'string',
-                    'description' => 'Razón opcional para auditoría.',
+                    'description' => 'Optional reason for auditing.',
                 ],
             ],
             'required' => ['target_ids'],
@@ -307,8 +307,8 @@ a single tool call when possible". Reinforce this rule in your addendum
 
 ```blade
 @if(in_array('approve_orders_bulk', $tools ?? []))
-- Para aprobar más de un pedido a la vez, usa `approve_orders_bulk` con la
-  lista de `target_ids`. No emitas `approve_order` en bucle.
+- To approve more than one order at once, use `approve_orders_bulk` with the
+  list of `target_ids`. Do not emit `approve_order` in a loop.
 @endif
 ```
 
@@ -647,7 +647,7 @@ class InvoiceStatsTool extends BaseBackendTool
         return ToolResult::success(blocks: [[
             'type' => 'kpi',
             'data' => [
-                'label'    => 'Facturación este mes',
+                'label'    => 'Invoiced this month',
                 'value'    => $total,
                 'format'   => 'currency',
                 'currency' => 'EUR',
@@ -665,26 +665,26 @@ class InvoiceStatsTool extends BaseBackendTool
   `pinnable()` is ignored even if you opt in.
 - Tools that send emails, generate PDFs, call external APIs with per-request
   costs, etc. Same reason.
-- Tools whose result depends heavily on a `page_context` you do not declare in
-  `pageContextKeys()`. The replay from `/chatbot/dashboard` has no page context
-  of its own; see §9.4.
+- Tools whose result depends heavily on a `page_context` that is no longer
+  present at replay time. The replay from `/chatbot/dashboard` has no page
+  context of its own; only the subset captured at pin time is replayed. See §9.4.
 
 ### 9.4 Page context at pin/replay
 
-If your tool depends on `page_context` keys to produce correct results, declare
-which keys it needs:
+There is **no** tool-side method to declare which `page_context` keys a tool
+needs — the capture is automatic. When a block is pinned, the page-context
+keys captured are **all string keys** of the tool's `$ctx->pageContext` at pin
+time, computed by `AddToDashboardTool` as:
 
 ```php
-public function pageContextKeys(): array
-{
-    return ['tenant_id', 'team_id'];
-}
+array_values(array_filter(array_keys($ctx->pageContext), 'is_string'))
 ```
 
-The orchestrator filters the active `page_context` to those keys when emitting
-the block (`source.page_context_keys`); the pin endpoint captures the filtered
-subset in `source.page_context_snapshot`; the `ReplayService` applies the
-snapshot to the `ToolContext` before invoking `handle()`. Full detail in
+These keys are persisted in `source.page_context_keys`, and only that subset of
+the page context is stored (after sanitization) in `source.page_context_snapshot`
+by `PinService`. At replay, the `ReplayService` re-applies that snapshot to the
+`ToolContext` before invoking `handle()`; the replay has no live page context of
+its own, so any key not present at pin time is simply absent. Full detail in
 [`page-context.md`](page-context.md).
 
 ---

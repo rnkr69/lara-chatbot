@@ -117,7 +117,7 @@ flowchart LR
     T --> S
     S -- tokens delta --> W
     S -- frontend_action --> W
-    W --> N[navigate / fill_form /<br/>highlight / download_file / ...]
+    W --> N[navigate / fill_form /<br/>download_file / open_modal / ...]
 ```
 
 Detalle en [`docs/getting-started.es.md §4`](docs/getting-started.es.md#4-cómo-funciona).
@@ -202,8 +202,8 @@ conversaciones, junto al widget flotante.
   tenant → ownership` aplicada antes de cada invocación. JSON Schema → Validator.
   Patrón bulk documentado. *Limitación actual: solo se ofrece `confirmation =
   Auto` al LLM; el flujo Confirm/Manual para backend está en el backlog.*
-- **Frontend Tools** — 9 primitivas integradas (`navigate`, `highlight`,
-  `fill_form`, `show_toast`, `download_file`, `open_modal`, `render_block`,
+- **Frontend Tools** — 8 primitivas integradas (`navigate`, `fill_form`,
+  `show_toast`, `download_file`, `open_modal`, `render_block`,
   `toggle_visibility`, `invoke_host_action`). Cada primitiva devuelve un
   `PrimitiveResult` estructurado — los fallos vuelven al LLM en vez de ser
   no-ops silenciosos. `DownloadFileTool` es fail-secure.

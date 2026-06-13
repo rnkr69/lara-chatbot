@@ -118,7 +118,7 @@ encontrarás:
         'timeout_seconds'                => 15,
         'rate_limit_per_user_per_minute' => 60,
     ],
-    'chart_renderer'         => env('CHATBOT_DASHBOARD_CHART_RENDERER', 'chartjs'),
+    'chart_renderer'         => 'chartjs',
     'default_refresh_policy' => 'on_open',
     'layout'                 => env('CHATBOT_DASHBOARD_LAYOUT'),
     'section'                => 'content',
@@ -138,7 +138,7 @@ encontrarás:
 | `replay.concurrency` | `8` | — | Máximo de tools paralelos en `replayBulk()`, chunkeado. Con el driver `sync` el cap sólo chunkea (no hay paralelismo real); con `process`/`fork` sí limita el paralelismo. |
 | `replay.timeout_seconds` | `15` | — | Timeout por tool individual durante replay. Excedido → `last_refresh_status='error'` + snapshot anterior intacto. |
 | `replay.rate_limit_per_user_per_minute` | `60` | — | Token-bucket por usuario sobre `POST .../refresh` y `POST .../widgets/{id}/refresh`. **No aplica al CRUD** (lista/crear/pin/borrar) — el coste real está en re-ejecutar tools, no en escribir filas. |
-| `chart_renderer` | `'chartjs'` | `CHATBOT_DASHBOARD_CHART_RENDERER` | `'chartjs'` instala Chart.js como renderer por defecto del bloque `chart` en el bundle del dashboard. `'none'` deja el bloque sin renderer (el host registra el suyo vía `window.Chatbot.registerBlockRenderer('chart', fn)` antes del bundle). Ver §8. |
+| `chart_renderer` | `'chartjs'` | — | `'chartjs'` instala Chart.js como renderer por defecto del bloque `chart` en el bundle del dashboard. `'none'` deja el bloque sin renderer (el host registra el suyo vía `window.Chatbot.registerBlockRenderer('chart', fn)` antes del bundle). Ver §8. |
 | `default_refresh_policy` | `'on_open'` | — | Política inicial al pinear: `on_open` re-ejecuta al abrir el dashboard, `manual` requiere click en ↻, `never` se queda en snapshot estático. El usuario puede cambiarla por widget vía PATCH. |
 | `layout` | `null` | `CHATBOT_DASHBOARD_LAYOUT` | Si es string Y la vista existe, `chatbot::dashboard_layout` extiende ese layout (`@extends($layout) @section($section)`). Si null o no existe, se sirve `chatbot::dashboard` standalone. Mismo patrón que `chatbot.page.layout`. **Sin un `layout` configurado el dashboard corre standalone — sin la navegación del host (ver §5.2).** |
 | `section` | `'content'` | `CHATBOT_DASHBOARD_SECTION` | Sección donde inyectar el contenido al extender el layout del host. |
@@ -317,21 +317,19 @@ WARN  invoice_dunning is pinnable() but confirmation() != Auto — pinnable will
 ### 4.5 Page context al pin
 
 Si la tool depende de `page_context` (porque está vinculada a una página
-concreta — un detalle de cliente, una vista de mercado), declara las
-claves que necesita en `pageContextKeys()`:
+concreta — un detalle de cliente, una vista de mercado), ese contexto se
+captura automáticamente al pinear. **No hay método para declarar claves**:
+al pinear un block, el server toma un snapshot de **todas las claves string**
+presentes en el `page_context` de la tool en ese momento y registra la lista
+de claves capturadas en `source.page_context_keys` del widget.
 
-```php
-public function pageContextKeys(): array
-{
-    return ['tenant_id', 'team_id'];
-}
-```
-
-El orquestador filtra el `page_context` activo a esas claves y las estampa
-en `source.page_context_keys` del block. Al pinear, el endpoint captura el
-subset filtrado en `source.page_context_snapshot`; al replay, el snapshot
-se aplica al `ToolContext` antes de ejecutar. Sin esto, el replay devuelve
-datos genéricos en lugar de los específicos al contexto.
+El subset filtrado se guarda en `source.page_context_snapshot`; al replay,
+solo ese subset capturado se aplica al `ToolContext` antes de ejecutar. Tras
+el filter aplica un cap binario de `chatbot.limits.page_context_kb`
+(default 16 KB) — si el JSON resultante lo excede, el snapshot completo se
+descarta (`Log::info`). El handler debe por tanto apoyarse en el contexto que
+la página expone al pinear; lo que no esté presente en `page_context` en ese
+momento no se captura y no estará disponible al replay.
 
 Detalle completo en [`page-context.es.md`](page-context.es.md).
 
@@ -351,8 +349,8 @@ El dashboard vive en un **bundle separado** del widget v1:
 Sólo se carga en `/chatbot/dashboard`. **No infla el widget**.
 
 Pesos típicos en v2.0 (gzip):
-- widget: ~26 KB / 80 cap (margen ~54 KB)
-- dashboard: ~108 KB / 150 cap (margen ~42 KB)
+- widget: ~28 KB / 80 cap (margen ~52 KB)
+- dashboard: ~110 KB / 150 cap (margen ~40 KB)
 
 El cap de CI se enforce en `scripts/build.mjs` — el build revienta con un
 error claro si excedes alguno.
@@ -836,8 +834,8 @@ $schedule->command('chatbot:dashboards:prune', [
 `process.exit(1)` si excede:
 
 ```
-Bundle public-build/chatbot-widget.js   :  25.88 KB gzip /  80 KB cap ✔
-Bundle public-build/chatbot-dashboard.js: 107.87 KB gzip / 150 KB cap ✔
+Bundle public-build/chatbot-widget.js   :  27.74 KB gzip /  80 KB cap ✔
+Bundle public-build/chatbot-dashboard.js: 110.22 KB gzip / 150 KB cap ✔
 ```
 
 Si un PR añade dependencias pesadas, el build falla **antes de mergear** —
@@ -870,7 +868,7 @@ php artisan vendor:publish --tag=chatbot-config
 | Tablas | `chatbot_*` v1 | + `chatbot_dashboards`, `chatbot_dashboard_widgets` | `php artisan migrate`. |
 | Rutas | `/chatbot/*` | + `/chatbot/dashboard*` (sólo si `chatbot.dashboard.enabled=true`) | Ninguna. |
 | Eventos SSE | Frames base | + campos extra en `block` y `tool_result` | Ninguna; widgets v1 los ignoran. |
-| Widget bundle | 18 KB gzip | ~26 KB gzip (con pin button + modal + setKpiLabels) | Re-publicar assets: `--tag=chatbot-assets --force`. |
+| Widget bundle | 18 KB gzip | ~28 KB gzip (con pin button + modal + setKpiLabels) | Re-publicar assets: `--tag=chatbot-assets --force`. |
 | i18n | Defaults inline en TS | `data-i18n` opcional + defaults inline como fallback | Si quieres traducir el bundle, añade `data-i18n` a `<chatbot-widget>` (ver §5.5). |
 
 ### 10.3 Activar el dashboard en un host existente
@@ -925,7 +923,7 @@ nada de lo suyo la rompe. Cobertura de cada punto vive en
 | 2 | **XSS en `dashboard.name` / `widget.title`** | El paquete persiste y devuelve los strings **raw** (sin escape server-side). El cliente (`sidebar.ts:181`, `widget-card.ts:287`) usa `textContent`, no `innerHTML` — el escape es responsabilidad del DOM API. | Si el host reescribe el bundle del dashboard o registra renderers propios, NO usar `innerHTML`/`insertAdjacentHTML` con strings del usuario. Para text/card el paquete usa `renderMarkdown` que ya HTML-escapa input + valida hrefs (`markdown.ts`). |
 | 3 | **XSS en snapshots persistidos** | Los renderers built-in del cascade (`renderTableBlock`, `renderCardBlock`, `renderListBlock`, `renderKpiBlock`, `renderChartBlockChartjs`) usan `textContent` para data del usuario; Chart.js dibuja en `<canvas>` (no HTML). El placeholder `text` y `card.description` van por `renderMarkdown` (HTML-escape + safeHref). | Si el host registra `window.Chatbot.registerBlockRenderer(...)`, verificar que ningún path inyecta `innerHTML` con data del block sin sanitizar primero. |
 | 4 | **Authorization 404-no-403** | Todos los endpoints aplican `Dashboard::forUser($user)` antes de `findOrFail`; widgets ajenos devuelven 404 incluso si el ID es válido. | Confirme que `$user` no escapa al `Authorizer` del paquete (chat/dashboard comparten la cascada). |
-| 5 | **`page_context_keys` filtering** | Al pinear, el server filtra `page_context` aplicando `source.page_context_keys` (estampado por el orquestador desde `pageContextKeys()` del tool). Claves NO declaradas son dropeadas; tras el filter aplica cap binario `chatbot.limits.page_context_kb` (default 16 KB, descarte completo + `Log::info`). | Si una tool declara `pageContextKeys()`, marque ahí TODAS las claves que el handler espera leer; el orquestador no infiere — lo que no esté declarado se pierde al replay. |
+| 5 | **`page_context_keys` filtering** | Al pinear, el server toma un snapshot de todas las claves string presentes en el `page_context` de la tool en ese momento y las registra en `source.page_context_keys`; el replay se restringe exactamente a ese subset capturado (`source.page_context_snapshot`). Tras el filter aplica cap binario `chatbot.limits.page_context_kb` (default 16 KB, descarte completo + `Log::info`). | El set capturado es lo que la página expone al pinear — no hay método de tool para declararlo. Las claves ausentes del `page_context` al pinear el block no se capturan y no estarán disponibles al replay. |
 | 6 | **`source.args` re-validation al replay** | El replay re-ejecuta `$tool->execute($args, $ctx)` cada vez; el JSON Schema del tool valida args en cada invocación. Si el cliente pinea con args válidos pero el tool tira al refresh (schema cambió, runtime error, edge case), el endpoint devuelve 200 con `last_refresh_status='error'` + `last_refresh_error` y conserva el snapshot anterior — **nunca 500**. | Si una tool cambia su JSON Schema, los widgets pinneados antes del cambio degradan a `status=error` automáticamente — la UI ya sugiere "repinear desde el chat". |
 | 7 | **Caps server-side (no opt-out)** | `max_dashboards_per_user` (default 20) y `max_widgets_per_dashboard` (default 50) se enforcen en los controllers — un cliente abusivo no puede crear infinitos rows. | Si su host atiende muchos usuarios, considere bajar los defaults vía config. |
 | 8 | **Rate limit del replay** | `RateLimiter` por usuario sobre `refresh` + `refreshAll`; bulk SSE cuenta como 1 hit (no N por widget). **El CRUD NO entra al throttle** — limítelo desde su capa de proxy si lo necesita. | — |

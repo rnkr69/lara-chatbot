@@ -468,13 +468,17 @@ Gate::define('invoices.view', fn ($user) => true); // política según tu app
 
 ### 5.4 ScopeResolver del host
 
-El stub generado en `chatbot:install` (`app/Chatbot/Authorization/AppScopeResolver.php`)
-ya resuelve `Self → [user.id]`. Para `Team` (managers), edita:
+El stub generado por `chatbot:install` (`app/Chatbot/ChatbotScopeResolver.php`)
+implementa el único método del contrato `resolveAccessibleUserIds($user, $scope)`
+y ya resuelve `Self → [user.id]`. Para `Team` (managers), rellena su helper
+`teamUserIds()`:
 
 ```php
-public function resolveTeam($user): array
+protected function teamUserIds(Authenticatable $user): array
 {
-    return $user->teamMembers()->pluck('id')->all();
+    return \App\Models\User::where('manager_id', $user->getAuthIdentifier())
+        ->orWhere('id', $user->getAuthIdentifier())
+        ->pluck('id')->all();
 }
 ```
 
@@ -587,8 +591,8 @@ Detalle completo en [`FRONTEND_TOOLS.es.md`](FRONTEND_TOOLS.es.md).
       assets + LLM + tools en una sola pasada — v1.1.1).
 - [ ] `chatbot:test-connection` responde `pong`.
 - [ ] Al menos una tool de host con `permissions()` declaradas.
-- [ ] `ScopeResolver` con `resolveTeam`/`resolveAll` implementados (no devolviendo
-      `[]`).
+- [ ] `ScopeResolver::resolveAccessibleUserIds()` implementado para `Team`/`All`
+      (no devolviendo `[]`).
 - [ ] Si tu app es multi-tenant: `TenantResolver` registrado y todas las tools
       sensibles con `tenantScope=true`.
 - [ ] `chatbot.system_prompt.addendum_view` apunta a una vista del host con tono

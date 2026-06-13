@@ -184,7 +184,7 @@ own throttling inside `handle()`.
 ## 5. Widget bundle distribution
 
 The precompiled bundle lives in `vendor/rnkr69/lara-chatbot/public-build/chatbot-widget.js`
-(13.75 KB gzip / 47.62 KB raw).
+(~28 KB gzip / ~101 KB raw).
 
 ### 5.1 Publish to `public/`
 
@@ -203,7 +203,7 @@ If your app serves static assets from a CDN (CloudFront, Cloudflare R2…):
 2. Change the `<script>` `src` to point to the CDN.
 3. **Cache headers**: `Cache-Control: public, max-age=31536000, immutable`
    (the bundle changes with each release, not each deploy).
-4. Version with a query string for cache busting: `?v={{ config('chatbot.version') }}`.
+4. Version with a query string for cache busting: `?v={{ filemtime(public_path('vendor/chatbot/chatbot-widget.js')) }}` — busts the cache automatically whenever the published asset changes.
 
 ### 5.3 Custom build from the host
 

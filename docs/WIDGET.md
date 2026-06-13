@@ -6,7 +6,7 @@ Bundle distributed by the package that mounts the chatbot on any Laravel page
 (or static HTML page) with no runtime dependencies.
 
 - **Entry**: `public-build/chatbot-widget.js` (ES module).
-- **Size**: ~7 KB gzip (cap: 80 KB).
+- **Size**: ~28 KB gzip (raw ~101 KB) (cap: 80 KB).
 - **Compatibility**: browsers with ES2020 + Custom Elements v1 support
   (Chrome ≥80, Firefox ≥75, Safari ≥13.1, Edge ≥80).
 
@@ -294,7 +294,7 @@ npm test           # vitest, single run
 npm run test:watch # vitest watch mode
 npm run typecheck  # tsc --noEmit strict
 npm run test:e2e   # Playwright (2 MPA + SPA scenarios)
-npm run build:check # bundle size guard (cap 80 KB gzip; current: 8.00 KB)
+npm run build:check # bundle size guard (cap 80 KB gzip; current: ~28 KB)
 ```
 
 E2E tests run against static fixtures served by

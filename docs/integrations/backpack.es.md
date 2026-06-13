@@ -90,7 +90,7 @@ Cuando estás en una página Backpack con un `CrudPanel` resuelto, esto
 renderiza algo como:
 
 ```html
-<meta name="chatbot:context" content='{"crud":{"entity":"App\\Models\\Order","action":"index","filters":{"status":"pending"},"selected_ids":[12,15,18]}}'>
+<meta name="chatbot:context" content='{"crud":{"entity":"Order","entity_class":"App\\Models\\Order","action":"list","filters":{"status":"pending"},"selected_ids":[12,15,18]}}'>
 ```
 
 En páginas no-Backpack, la directive no emite nada (el meta tag puede ser
@@ -106,7 +106,7 @@ añadido por otra fuente, e.g. una vista de listado pública).
                                 // se emite si NO es redundante con `entity`
                                 // (i.e. cuando entity_name custom de Backpack
                                 // difiere de class_basename(modelo)).
-        action?: string;        // 'list' | 'show' | 'create' | 'update' | 'destroy' | tu operación custom
+        action?: string;        // 'list' | 'show' | 'create' | 'update' | 'delete' | tu operación custom
         filters?:
             | Record<string, scalar>           // legacy / no-list: querystring aplicado
             | {                                 // list view con filters() declarados

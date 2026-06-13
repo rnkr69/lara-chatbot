@@ -33,7 +33,7 @@ anything else is silently ignored.
 For SPAs or dynamic screens that change context without a full reload:
 
 ```js
-// Replaces or adds keys; shallow merge.
+// Replaces or adds keys; one-level-deep merge.
 window.Chatbot.setPageContext({
   route: 'invoices.show',
   invoice_id: 999,
@@ -43,14 +43,24 @@ window.Chatbot.setPageContext({
 window.Chatbot.clearPageContext();
 ```
 
-`setPageContext()` performs a **shallow merge** (top-level): new keys are
-added, existing ones are overwritten, and keys absent from the argument are
-preserved.
+`setPageContext()` performs a **one-level-deep merge**. Top-level keys from
+the argument are added or overwritten, and keys absent from the argument are
+preserved. Additionally, when both the previous and the incoming value at a
+top-level key are **plain objects** (not arrays, not `null`), their sub-keys
+are merged rather than the whole object being replaced. Arrays and primitives
+still replace wholesale.
 
 ```js
 window.Chatbot.setPageContext({ route: '/orders', tenant: 7 });
 window.Chatbot.setPageContext({ tenant: 9, locale: 'es' });
 // Effective state: { route: '/orders', tenant: 9, locale: 'es' }
+
+// Nested plain objects merge one level deep:
+window.Chatbot.setPageContext({ crud: { entity: 'Mission', filters: {} } });
+window.Chatbot.setPageContext({ crud: { selected_ids: [1, 2] } });
+// Effective state:
+// { crud: { entity: 'Mission', filters: {}, selected_ids: [1, 2] } }
+// (crud.entity and crud.filters survive — the crud object was NOT replaced)
 ```
 
 ---
@@ -219,7 +229,7 @@ fires FE tool on the selected rows) lives in
 | Pest feature `tests/Feature/Integrations/BackpackProviderShapeTest.php` | provider with CrudPanel mock (entity/action/filters/selected_ids) |
 | Pest feature `tests/Feature/Integrations/BackpackIntegrationTest.php` | `@chatbotBackpackContext` directive and graceful degradation without Backpack |
 | Vitest `tests/js/page-context.test.ts` | meta tag reading and event dispatch |
-| Vitest `tests/js/api.test.ts` | shallow merge + `chatbot:context-changed` emission on set/clear |
+| Vitest `tests/js/api.test.ts` | one-level-deep merge + `chatbot:context-changed` emission on set/clear |
 | Vitest `tests/js/widget.test.ts` | initial seed from meta tag + re-read on `inertia:navigate` |
 
 ---
@@ -235,23 +245,19 @@ results on refresh.
 
 v2.0 resolves this in three steps:
 
-### 7.1 Declaring context-sensitive keys
+### 7.1 No keys to declare — capture is automatic
 
-The tool declares which `page_context` keys it needs to produce correct results:
+There is **no tool method to declare context-sensitive keys**. When a block is
+pinned, the server snapshots **all the string keys** present in the tool's
+`page_context` at that moment. The auto-pin tool (`AddToDashboardTool`) derives
+the list with `array_values(array_filter(array_keys($ctx->pageContext),
+'is_string'))`; the captured list is recorded as `source.page_context_keys`, and
+replay restricts the context to exactly that subset. A tool cannot opt into a
+narrower set.
 
-```php
-public function pageContextKeys(): array
-{
-    return ['tenant_id', 'team_id'];
-}
-```
+### 7.2 Stamping onto the block at pin time
 
-Default `[]` — tools that do not depend on context need no override.
-
-### 7.2 Stamping onto the block at chat time
-
-The SSE orchestrator filters the active `page_context` to those keys when
-stamping the block's `source`:
+The captured key list is stored in the block's `source`:
 
 ```jsonc
 {
@@ -266,16 +272,21 @@ stamping the block's `source`:
 }
 ```
 
+For the HTTP pin path (`POST /chatbot/dashboards/{slug}/widgets`), the JS client
+sends `source.page_context_keys`; the server reads that list verbatim. For the
+chat auto-pin path, the server computes it from the live context as described
+above. Either way the value reflects the keys actually present at pin time, not
+a tool-declared whitelist.
+
 ### 7.3 Capturing on pin, applying on replay
 
-When the user clicks 📌, the endpoint
-`POST /chatbot/dashboards/{slug}/widgets` receives the full `page_context` from
-the client and:
+When a block is pinned, the server receives the full `page_context` and:
 
 1. Applies `PageContextSanitizer` (drops closures/objects/etc.).
-2. **Filters to the keys declared in `source.page_context_keys`**.
-3. Applies the binary cap `chatbot.limits.page_context_kb` — if it still
-   exceeds the limit after filtering, it is discarded entirely with a
+2. **Filters to the captured `source.page_context_keys`** (the string keys that
+   were present at pin time).
+3. Applies the binary cap `chatbot.limits.page_context_kb` (default 16 KB) — if
+   it still exceeds the limit after filtering, it is discarded entirely with a
    `Log::info` (losing context is preferable to breaking the pin).
 4. Persists the filtered subset in `source.page_context_snapshot` in
    `chatbot_dashboard_widgets`.
@@ -296,9 +307,10 @@ was present when the pin was made.
   was deleted), the authorization cascade returns unauthorized and the status
   is `unauthorized` — previous snapshot preserved.
 
-The strict rationale for filtering via `pageContextKeys()` is to avoid
-persisting sensitive keys that the tool author never intended to travel to the
-dashboard. **If a tool does not declare `pageContextKeys()`, its
-`page_context_snapshot` will be empty** — equivalent to re-executing without
-context. Tools that depend on context **must** declare their keys or they will
-not work correctly after pinning.
+The rationale for filtering to `source.page_context_keys` is to replay each
+widget with exactly the context subset that was captured at pin time, rather
+than the dashboard's (absent) ambient context. **If the tool's `page_context`
+is empty when the block is pinned, its `page_context_snapshot` will be empty** —
+equivalent to re-executing without context. Tools that depend on context will
+only refresh correctly if the relevant keys are present in `page_context` at the
+moment of pinning.

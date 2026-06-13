@@ -278,7 +278,10 @@ implement `Team` correctly, on the first LLM turn you will see:
 
 ```
 Rnkr69\LaraChatbot\Authorization\Exceptions\ScopeResolverNotConfiguredException:
-  ScopeResolver no soporta el scope Team. Implementa AppScopeResolver::resolveTeam.
+  The `team` scope requires a registered ScopeResolver. Implement
+  `Rnkr69\LaraChatbot\Authorization\Contracts\ScopeResolver` and declare the
+  class in `chatbot.authorization.scope_resolver`. Shortcut:
+  `php artisan chatbot:make:scope-resolver MyScopeResolver`.
 ```
 
 ---
@@ -367,8 +370,11 @@ If a registered tool declares `tenantScope=true` but
 
 ```
 Rnkr69\LaraChatbot\Tools\Exceptions\MissingTenantResolverException:
-  La tool 'list_event_attendees' declara tenantScope=true pero no hay
-  TenantResolver registrado en chatbot.authorization.tenant_resolver.
+  Tool `list_event_attendees` declares `tenantScope=true` but no TenantResolver
+  is registered in the container. Bind a class that implements
+  Rnkr69\LaraChatbot\Authorization\Contracts\TenantResolver via
+  `chatbot.authorization.tenant_resolver` or from your AppServiceProvider
+  before boot().
 ```
 
 This happens at provider **boot** (`php artisan serve` will not start), not at
@@ -404,7 +410,7 @@ public function handle(array $args, ToolContext $ctx): ToolResult
         ->first();
 
     if (! $invoice) {
-        return ToolResult::error('not_owner', 'Factura no encontrada o no accesible.');
+        return ToolResult::error('not_owner', 'Invoice not found or not accessible.');
     }
 
     $invoice->markAsPaid();
@@ -423,7 +429,7 @@ If your host already has Laravel policies:
 
 ```php
 if (! $ctx->user->can('update', $invoice)) {
-    return ToolResult::error('unauthorized', 'No tienes permiso de update.');
+    return ToolResult::error('unauthorized', 'You do not have update permission.');
 }
 ```
 

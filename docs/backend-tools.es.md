@@ -345,13 +345,13 @@ class CreateMissionTool extends BaseBackendTool
 
     public function description(): string
     {
-        return 'Create a new mission. Required: origin_planet_id, '
+        return 'Crea una nueva mission. Obligatorios: origin_planet_id, '
             . 'destination_planet_id, departure_at, eta, ship_id, priority. '
-            . 'Optional: risk, hazmat_certified, crew_size, notes. '
-            . '**Ask the user for any required field before calling.** Use '
-            . '`list_planets` / `list_ships` to resolve names to IDs. '
-            . 'Validation errors come back as `error.validation` — re-prompt '
-            . 'the user for the offending field, don\'t abort the turn.';
+            . 'Opcionales: risk, hazmat_certified, crew_size, notes. '
+            . '**Pregunta al usuario por cualquier campo obligatorio antes de llamar.** Usa '
+            . '`list_planets` / `list_ships` para resolver nombres a IDs. '
+            . 'Los errores de validación vuelven como `error.validation` — vuelve a pedir '
+            . 'al usuario el campo problemático, no abortes el turn.';
     }
 
     public function parameters(): array
@@ -359,10 +359,10 @@ class CreateMissionTool extends BaseBackendTool
         return [
             'type' => 'object',
             'properties' => [
-                'origin_planet_id'      => ['type' => 'integer', 'description' => 'Planet ID. Use list_planets to resolve names.'],
+                'origin_planet_id'      => ['type' => 'integer', 'description' => 'ID del planeta. Usa list_planets para resolver nombres.'],
                 'destination_planet_id' => ['type' => 'integer'],
-                'departure_at'          => ['type' => 'string', 'description' => 'ISO datetime, must be in the future.'],
-                'eta'                   => ['type' => 'string', 'description' => 'ISO datetime, must be after departure_at.'],
+                'departure_at'          => ['type' => 'string', 'description' => 'Datetime ISO, debe ser en el futuro.'],
+                'eta'                   => ['type' => 'string', 'description' => 'Datetime ISO, debe ser posterior a departure_at.'],
                 'ship_id'               => ['type' => 'integer'],
                 'priority'              => ['type' => 'string', 'enum' => ['standard', 'express', 'critical']],
                 'risk'                  => ['type' => 'string', 'enum' => ['low', 'medium', 'high']],
@@ -380,26 +380,26 @@ class CreateMissionTool extends BaseBackendTool
 
     public function confirmation(): ConfirmationLevel
     {
-        // Non-destructive create (mission lands in draft, fully editable).
-        // The LLM is expected to summarize and ask the user before calling.
+        // Create no destructivo (la mission queda en draft, totalmente editable).
+        // Se espera que el LLM resuma y pregunte al usuario antes de llamar.
         return ConfirmationLevel::Auto;
     }
 
     public function handle(array $args, ToolContext $ctx): ToolResult
     {
-        // 1) Policy gate — reuse the host's MissionPolicy::create.
+        // 1) Policy gate — reutiliza el MissionPolicy::create del host.
         if (! $ctx->user->can('create', Mission::class)) {
-            return ToolResult::error('unauthorized', 'You cannot create missions.');
+            return ToolResult::error('unauthorized', 'No puedes crear missions.');
         }
 
-        // 2) Validation — reuse the StoreMissionRequest rules via a static class
-        //    (see §6.3) so the FormRequest and the tool stay in sync.
+        // 2) Validación — reutiliza las rules de StoreMissionRequest vía una clase static
+        //    (ver §6.3) para que el FormRequest y la tool queden sincronizados.
         $validator = Validator::make($args, MissionRules::store());
         if ($validator->fails()) {
             return ToolResult::error('validation', $validator->errors()->first());
         }
 
-        // 3) Mutation — the tool decides which fields to auto-fill.
+        // 3) Mutación — la tool decide qué campos auto-rellenar.
         $mission = Mission::create([
             ...$args,
             'pilot_id' => $ctx->user->getAuthIdentifier(),
@@ -407,11 +407,11 @@ class CreateMissionTool extends BaseBackendTool
             'status'   => 'draft',
         ]);
 
-        // 4) Result — id + short summary so the LLM can confirm and chain.
+        // 4) Resultado — id + resumen corto para que el LLM confirme y encadene.
         return ToolResult::success([
             'mission_id' => $mission->id,
             'summary'    => sprintf(
-                'Mission #%d (priority %s) created in draft.',
+                'Mission #%d (prioridad %s) creada en draft.',
                 $mission->id,
                 $mission->priority,
             ),
@@ -674,26 +674,29 @@ class InvoiceStatsTool extends BaseBackendTool
   o `Manual` — y como consecuencia `pinnable()` se ignora aunque tu opt-in.
 - Tools que envían emails, generan PDFs, llaman a APIs externas con coste
   por request, etc. Igual razón.
-- Tools cuyo resultado depende fuertemente de un `page_context` que no
-  declaras en `pageContextKeys()`. El replay desde `/chatbot/dashboard`
-  no tiene contexto de página propio; ver §9.4.
+- Tools cuyo resultado depende fuertemente de un `page_context` que ya no
+  está presente en el momento del replay. El replay desde `/chatbot/dashboard`
+  no tiene contexto de página propio; sólo se reproduce el subset capturado en
+  el momento del pin. Ver §9.4.
 
 ### 9.4 Page context al pin/replay
 
-Si tu tool depende de claves de `page_context` para producir resultados
-correctos, declara qué claves necesita:
+**No** existe ningún método del lado de la tool para declarar qué claves de
+`page_context` necesita — la captura es automática. Cuando se fija un block,
+las claves de page-context capturadas son **todas las claves de tipo string**
+del `$ctx->pageContext` de la tool en el momento del pin, calculadas por
+`AddToDashboardTool` como:
 
 ```php
-public function pageContextKeys(): array
-{
-    return ['tenant_id', 'team_id'];
-}
+array_values(array_filter(array_keys($ctx->pageContext), 'is_string'))
 ```
 
-El orquestador filtra `page_context` activo a esas claves al emitir el
-block (`source.page_context_keys`); el endpoint de pin captura el subset
-filtrado en `source.page_context_snapshot`; el `ReplayService` aplica el
-snapshot al `ToolContext` antes de invocar `handle()`. Detalle completo en
+Esas claves se persisten en `source.page_context_keys`, y sólo ese subset del
+page context se guarda (tras sanitizarlo) en `source.page_context_snapshot` vía
+`PinService`. En el replay, el `ReplayService` reaplica ese snapshot al
+`ToolContext` antes de invocar `handle()`; el replay no tiene contexto de página
+propio, así que cualquier clave que no estuviera presente en el momento del pin
+simplemente no existe. Detalle completo en
 [`page-context.es.md`](page-context.es.md).
 
 ---

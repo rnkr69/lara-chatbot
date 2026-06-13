@@ -192,8 +192,8 @@ Targeting:
 2. **`form_id`** — alternativa: id de un `<form>` o de un wrapper con
    `data-chatbot-form`. Útil cuando el host etiqueta los forms.
 3. **Auto-discovery** — si no se pasa nada, busca el primer `<form>`
-   plausible (`main form`, `form#crudTable`, `form.form`, then any
-   `form`). Drop un `console.warn` para diagnóstico.
+   plausible (`main form`, `form#crudTable`, `form.form`, luego cualquier
+   `form`). Emite un `console.warn` de diagnóstico.
 
 Los `fields[].name` matchean tanto el atributo HTML `name` como el alias
 amigable `data-chatbot-field` (el alias gana cuando ambos existen). Si el

@@ -34,7 +34,7 @@ top-level); cualquier otra cosa se ignora silenciosamente.
 Para SPAs o pantallas dinámicas que cambian el contexto sin recargar:
 
 ```js
-// Sustituye o añade claves; merge superficial.
+// Sustituye o añade claves; merge de un nivel de profundidad.
 window.Chatbot.setPageContext({
   route: 'invoices.show',
   invoice_id: 999,
@@ -44,14 +44,24 @@ window.Chatbot.setPageContext({
 window.Chatbot.clearPageContext();
 ```
 
-`setPageContext()` realiza un **merge superficial** (top-level): claves
-nuevas se añaden, las existentes se sobrescriben, y las que no aparecen
-en el argumento se preservan.
+`setPageContext()` realiza un **merge de un nivel de profundidad**. Las claves
+top-level del argumento se añaden o sobrescriben, y las que no aparecen en el
+argumento se preservan. Además, cuando tanto el valor previo como el entrante
+de una clave top-level son **objetos planos** (no arrays, no `null`), sus
+sub-claves se fusionan en lugar de reemplazar el objeto entero. Los arrays y
+los primitivos siguen reemplazándose por completo.
 
 ```js
 window.Chatbot.setPageContext({ route: '/orders', tenant: 7 });
 window.Chatbot.setPageContext({ tenant: 9, locale: 'es' });
 // Estado efectivo: { route: '/orders', tenant: 9, locale: 'es' }
+
+// Los objetos planos anidados se fusionan un nivel:
+window.Chatbot.setPageContext({ crud: { entity: 'Mission', filters: {} } });
+window.Chatbot.setPageContext({ crud: { selected_ids: [1, 2] } });
+// Estado efectivo:
+// { crud: { entity: 'Mission', filters: {}, selected_ids: [1, 2] } }
+// (crud.entity y crud.filters sobreviven — el objeto crud NO se reemplazó)
 ```
 
 ---
@@ -223,7 +233,7 @@ bulk → bot dispara FE tool sobre los seleccionados) vivirá en
 | Pest feature `tests/Feature/Integrations/BackpackProviderShapeTest.php` | provider con CrudPanel mock (entity/action/filters/selected_ids) |
 | Pest feature `tests/Feature/Integrations/BackpackIntegrationTest.php` | directive `@chatbotBackpackContext` y degradación sin Backpack |
 | Vitest `tests/js/page-context.test.ts` | lectura del meta tag y dispatch del evento |
-| Vitest `tests/js/api.test.ts` | merge superficial + emisión `chatbot:context-changed` en set/clear |
+| Vitest `tests/js/api.test.ts` | merge de un nivel + emisión `chatbot:context-changed` en set/clear |
 | Vitest `tests/js/widget.test.ts` | seed inicial desde meta tag + re-lectura en `inertia:navigate` |
 
 ---
@@ -239,24 +249,20 @@ resultados genéricos o vacíos al refresh.
 
 v2.0 resuelve esto en tres pasos:
 
-### 7.1 Declarar las claves sensibles al contexto
+### 7.1 No hay claves que declarar — la captura es automática
 
-La tool declara qué claves de `page_context` necesita para producir
-resultados correctos:
+**No existe método de tool para declarar las claves sensibles al contexto.**
+Al pinear un block, el server toma un snapshot de **todas las claves string**
+presentes en el `page_context` de la tool en ese momento. La tool de auto-pin
+(`AddToDashboardTool`) deriva la lista con
+`array_values(array_filter(array_keys($ctx->pageContext), 'is_string'))`; la
+lista capturada se registra como `source.page_context_keys`, y el replay
+restringe el contexto exactamente a ese subset. Una tool no puede acotarlo a un
+set más estrecho.
 
-```php
-public function pageContextKeys(): array
-{
-    return ['tenant_id', 'team_id'];
-}
-```
+### 7.2 Estampar en el block al pin
 
-Default `[]` — tools que no dependen del contexto no necesitan override.
-
-### 7.2 Estampar en el block al chat
-
-El orquestador SSE filtra el `page_context` activo a esas claves cuando
-estampa el `source` del block:
+La lista de claves capturada se guarda en el `source` del block:
 
 ```jsonc
 {
@@ -271,16 +277,21 @@ estampa el `source` del block:
 }
 ```
 
+En el path HTTP (`POST /chatbot/dashboards/{slug}/widgets`), el cliente JS
+envía `source.page_context_keys` y el server lo lee tal cual. En el path de
+auto-pin desde el chat, el server lo computa del contexto en vivo como se
+describe arriba. En ambos casos el valor refleja las claves realmente presentes
+al pinear, no un whitelist declarado por la tool.
+
 ### 7.3 Capturar al pin, aplicar al replay
 
-Cuando el usuario hace click en 📌, el endpoint
-`POST /chatbot/dashboards/{slug}/widgets` recibe el `page_context` íntegro
-del cliente y:
+Cuando se pinea un block, el server recibe el `page_context` íntegro y:
 
 1. Aplica el `PageContextSanitizer` (drop closures/objects/etc.).
-2. **Filtra a las claves declaradas en `source.page_context_keys`**.
-3. Aplica el cap binario `chatbot.limits.page_context_kb` — si excede tras
-   filtrar, se descarta entero con un `Log::info` (preferimos perder
+2. **Filtra a las claves capturadas en `source.page_context_keys`** (las claves
+   string que estaban presentes al pinear).
+3. Aplica el cap binario `chatbot.limits.page_context_kb` (default 16 KB) — si
+   excede tras filtrar, se descarta entero con un `Log::info` (preferimos perder
    contexto a romper el pin).
 4. Persiste el subset filtrado en `source.page_context_snapshot` en
    `chatbot_dashboard_widgets`.
@@ -302,9 +313,10 @@ estaba presente cuando se pineó.
   fue eliminada), la cascada de autorización devuelve unauthorized y el
   status es `unauthorized` — snapshot anterior preservado.
 
-La razón estricta del filtrado por `pageContextKeys()` es evitar persistir
-claves sensibles que el author no se diseñó para que viajaran al
-dashboard. **Si una tool no declara `pageContextKeys()`, su
-`page_context_snapshot` queda vacío** — equivale a re-ejecutar sin
-contexto. Tools que dependen del contexto **deben** declarar las claves o
-no funcionarán bien tras el pin.
+La razón del filtrado a `source.page_context_keys` es replayear cada widget con
+exactamente el subset de contexto capturado al pinear, en lugar del contexto
+ambiente (ausente) del dashboard. **Si el `page_context` de la tool está vacío
+al pinear el block, su `page_context_snapshot` queda vacío** — equivale a
+re-ejecutar sin contexto. Las tools que dependen del contexto solo refrescarán
+bien si las claves relevantes están presentes en `page_context` en el momento
+del pin.

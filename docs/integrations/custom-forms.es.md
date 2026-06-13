@@ -5,10 +5,10 @@
 > Cómo integrar `fill_form` con `<form>` que no vienen de Backpack
 > (Blade plano, Livewire, Inertia, Filament — cualquier stack).
 >
-> Pre-lectura: [`page-context.md`](../page-context.es.md) +
-> [`FRONTEND_TOOLS.md`](../FRONTEND_TOOLS.es.md). Para hosts que SÍ usan
+> Pre-lectura: [`page-context.es.md`](../page-context.es.md) +
+> [`FRONTEND_TOOLS.es.md`](../FRONTEND_TOOLS.es.md). Para hosts que SÍ usan
 > Backpack la integración es out-of-the-box — ver
-> [`integrations/backpack.md`](backpack.es.md).
+> [`integrations/backpack.es.md`](backpack.es.md).
 
 ---
 
@@ -176,7 +176,7 @@ usuario esté en `/contact`. Patrón:
    prerellene el form).
 2. Crea una backend write tool `submit_contact_form` que valida con
    `ContactRequest::rules()` (ver
-   [`backend-tools.md`](../backend-tools.es.md)) y persiste.
+   [`backend-tools.es.md`](../backend-tools.es.md)) y persiste.
 3. El LLM decide ruta a ruta: si el usuario está en `/contact` →
    `fill_form` (mejor UX, usuario revisa); si está en otra página →
    `submit_contact_form` directo.
@@ -311,6 +311,6 @@ Backpack.
 - Directiva: `src/View/Directives/ChatbotFormDirective.php`
 - Mapper rules: `src/Validation/RulesToFormSchema.php`
 - Comandos: `src/Console/Commands/ScanFormsCommand.php` + `IntegrateFormCommand.php`
-- `fill_form` primitive: [`FRONTEND_TOOLS.md`](../FRONTEND_TOOLS.es.md)
-- Backpack (comparativa): [`integrations/backpack.md`](backpack.es.md)
-- Write tools (combo): [`backend-tools.md`](../backend-tools.es.md)
+- `fill_form` primitive: [`FRONTEND_TOOLS.es.md`](../FRONTEND_TOOLS.es.md)
+- Backpack (comparativa): [`integrations/backpack.es.md`](backpack.es.md)
+- Write tools (combo): [`backend-tools.es.md`](../backend-tools.es.md)

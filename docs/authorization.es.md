@@ -279,7 +279,10 @@ implementa `Team` correctamente, en el primer turno del LLM verás:
 
 ```
 Rnkr69\LaraChatbot\Authorization\Exceptions\ScopeResolverNotConfiguredException:
-  ScopeResolver no soporta el scope Team. Implementa AppScopeResolver::resolveTeam.
+  The `team` scope requires a registered ScopeResolver. Implement
+  `Rnkr69\LaraChatbot\Authorization\Contracts\ScopeResolver` and declare the
+  class in `chatbot.authorization.scope_resolver`. Shortcut:
+  `php artisan chatbot:make:scope-resolver MyScopeResolver`.
 ```
 
 ---
@@ -369,8 +372,11 @@ es `null`, el `ToolRegistry` lanza:
 
 ```
 Rnkr69\LaraChatbot\Tools\Exceptions\MissingTenantResolverException:
-  La tool 'list_event_attendees' declara tenantScope=true pero no hay
-  TenantResolver registrado en chatbot.authorization.tenant_resolver.
+  Tool `list_event_attendees` declares `tenantScope=true` but no TenantResolver
+  is registered in the container. Bind a class that implements
+  Rnkr69\LaraChatbot\Authorization\Contracts\TenantResolver via
+  `chatbot.authorization.tenant_resolver` or from your AppServiceProvider
+  before boot().
 ```
 
 Esto sucede en el **boot** del provider (`php artisan serve` no arranca), no

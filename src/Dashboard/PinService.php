@@ -18,7 +18,7 @@ use Rnkr69\LaraChatbot\Tools\Contracts\BackendTool;
  * v2.2 — Pins a block as a `DashboardWidget`. Extracts all the orchestration
  * logic that lived inline in `ApiDashboardWidgetController::store`:
  * pinnable defense, widget cap, snapshot truncation, sanitization +
- * filtering of the page_context to the subset declared by the tool, default
+ * filtering of the page_context to the keys captured at pin time, default
  * position by `block_type`, source signature, persist + touch of the dashboard.
  *
  * Two callers share the service:
@@ -55,7 +55,7 @@ class PinService
      *                                                                             are optional (audit + replay matching).
      * @param array<string, mixed>|null $pageContext     RAW page_context from the request (unsanitized, unfiltered);
      *                                                   this service applies both steps.
-     * @param array<int, string>|null   $pageContextKeys keys declared by the source tool — only this subset
+     * @param array<int, string>|null   $pageContextKeys page_context keys captured at pin time — only this subset
      *                                                   of the page_context is persisted in `source.page_context_snapshot`.
      * @param array<string, mixed>|null $position        client-provided position (clamped); `null` = default position
      *                                                   `(x:0, y:9999)` with `w/h` heuristics by block_type.

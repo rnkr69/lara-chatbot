@@ -6,7 +6,7 @@ Bundle distribuido por el paquete que monta el chatbot en cualquier página Lara
 (o página HTML estática) sin dependencias en runtime.
 
 - **Entry**: `public-build/chatbot-widget.js` (ES module).
-- **Tamaño**: ~7 KB gzip (cap: 80 KB).
+- **Tamaño**: ~28 KB gzip (raw ~101 KB) (cap: 80 KB).
 - **Compatibilidad**: navegadores con soporte ES2020 + Custom Elements v1
   (Chrome ≥80, Firefox ≥75, Safari ≥13.1, Edge ≥80).
 
@@ -299,7 +299,7 @@ npm test           # vitest, corrida única
 npm run test:watch # vitest watch mode
 npm run typecheck  # tsc --noEmit estricto
 npm run test:e2e   # Playwright (2 escenarios MPA + SPA)
-npm run build:check # bundle size guard (cap 80 KB gzip; actual: 8.00 KB)
+npm run build:check # bundle size guard (cap 80 KB gzip; actual: ~28 KB)
 ```
 
 Los E2E corren contra fixtures estáticas servidas por

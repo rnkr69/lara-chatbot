@@ -16,26 +16,26 @@ use Rnkr69\LaraChatbot\Http\Resources\DashboardResource;
 use Rnkr69\LaraChatbot\Models\Dashboard;
 
 /**
- * CRUD JSON de `Dashboard` (v2.0 / E4, plan §4.7).
+ * JSON CRUD for `Dashboard` (v2.0 / E4, plan §4.7).
  *
- *   - `index`   listado del usuario con `widget_count` agregado para la
- *               sidebar (E5). Ordenado por is_default desc, updated_at desc.
- *   - `store`   crea con slug derivado server-side (`Str::slug(name)` +
- *               sufijo numérico al colisionar dentro del scope del usuario).
- *               Rechaza con 422 si supera `max_dashboards_per_user`.
- *   - `show`    devuelve dashboard + widgets inline (ordenados por
- *               `order_index, id`). Política 404-no-403 para slugs ajenos.
- *   - `update`  rename + set is_default + metadata. Al renombrar regenera
- *               el slug (links viejos rompen pero el comportamiento es la
- *               opción menos sorprendente). El hook `saving` del modelo
- *               auto-demote al resto cuando is_default=true.
- *   - `destroy` soft-delete + auto-promote del próximo (más reciente)
- *               cuando se borra el is_default. Garantiza que el usuario
- *               siempre tiene un default (mientras le quede algún dashboard).
+ *   - `index`   user listing with aggregated `widget_count` for the
+ *               sidebar (E5). Ordered by is_default desc, updated_at desc.
+ *   - `store`   creates with a server-side derived slug (`Str::slug(name)` +
+ *               numeric suffix on collision within the user's scope).
+ *               Rejects with 422 if it exceeds `max_dashboards_per_user`.
+ *   - `show`    returns dashboard + widgets inline (ordered by
+ *               `order_index, id`). 404-not-403 policy for foreign slugs.
+ *   - `update`  rename + set is_default + metadata. On rename it regenerates
+ *               the slug (old links break but this is the least surprising
+ *               behavior). The model's `saving` hook auto-demotes the rest
+ *               when is_default=true.
+ *   - `destroy` soft-delete + auto-promote of the next (most recent) one
+ *               when the is_default is deleted. Guarantees the user
+ *               always has a default (as long as they have any dashboard left).
  *
- * Política policy: cualquier slug ajeno o de un dashboard soft-deleted
- * devuelve 404 — `Dashboard::query()->forUser($user)->where('slug',...)
- * ->firstOrFail()` (mismo patrón que `ConversationController`).
+ * Policy: any foreign slug or that of a soft-deleted dashboard returns
+ * 404 — `Dashboard::query()->forUser($user)->where('slug',...)
+ * ->firstOrFail()` (same pattern as `ConversationController`).
  */
 class ApiDashboardController extends Controller
 {
@@ -123,9 +123,9 @@ class ApiDashboardController extends Controller
 
         $dashboard = $this->findOwnedOr404($user, $slug);
 
-        // Semántica PATCH: sólo las claves PRESENTES entran al diff. El
-        // service regenera slug al renombrar (auto-demote al resto del
-        // usuario sigue viviendo en el hook `saving` del modelo).
+        // PATCH semantics: only the keys PRESENT enter the diff. The
+        // service regenerates the slug on rename (auto-demote of the user's
+        // other dashboards still lives in the model's `saving` hook).
         $changes = [];
         if ($request->has('name')) {
             $changes['name'] = (string) $request->input('name');
@@ -155,8 +155,8 @@ class ApiDashboardController extends Controller
     }
 
     /**
-     * Política 404-no-403: cualquier slug ajeno o soft-deleted devuelve
-     * 404, no 403. El método `forUser()` + `firstOrFail()` lo aplica.
+     * 404-not-403 policy: any foreign or soft-deleted slug returns
+     * 404, not 403. The `forUser()` + `firstOrFail()` method applies it.
      */
     protected function findOwnedOr404(mixed $user, string $slug): Dashboard
     {

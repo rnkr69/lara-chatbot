@@ -1,21 +1,21 @@
 {{--
-    E17 — Página dedicada de chat extendiendo un layout del host.
+    E17 — Dedicated chat page extending a host layout.
 
-    Se usa cuando `chatbot.page.layout` apunta a una vista que existe
-    (verificada por `PageController::resolveLayout()`). El nombre de sección
-    en la que se inyecta el contenido es configurable via
+    Used when `chatbot.page.layout` points to a view that exists
+    (verified by `PageController::resolveLayout()`). The name of the section
+    into which the content is injected is configurable via
     `chatbot.page.section` (default `content`).
 
-    El `<script>` del bundle del widget se incluye INLINE dentro de la
-    sección (no en `@push('head')`) para que funcione con layouts que no
-    expongan `@stack('head')` — es seguro mantenerlo `defer`d en el body.
+    The widget bundle's `<script>` is included INLINE within the
+    section (not in `@push('head')`) so it works with layouts that do not
+    expose `@stack('head')` — it is safe to keep it `defer`d in the body.
 
-    Variables esperadas (las inyecta `PageController`):
-      - $layout            string   Nombre del layout del host (ya validado).
-      - $section           string   Sección donde inyectar el contenido.
-      - $assetUrl          string   URL del bundle <chatbot-widget.js>.
-      - $streamUrl         string   URL del endpoint SSE de chat.
-      - $conversationsUrl  string   URL base del CRUD de conversaciones (E10).
+    Expected variables (injected by `PageController`):
+      - $layout            string   Name of the host layout (already validated).
+      - $section           string   Section where the content is injected.
+      - $assetUrl          string   URL of the <chatbot-widget.js> bundle.
+      - $streamUrl         string   URL of the chat SSE endpoint.
+      - $conversationsUrl  string   Base URL of the conversations CRUD (E10).
       - $theme             string   'light' | 'dark' | 'auto'.
 --}}
 @extends($layout)

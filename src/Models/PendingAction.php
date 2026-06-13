@@ -66,9 +66,9 @@ class PendingAction extends Model
     }
 
     /**
-     * Filtra por pending actions cuya conversación pertenece a `$user`.
-     * El paquete sigue la doctrina 404-no-403 (E10 D12): cualquier intento
-     * de tocar un pending action ajeno se traduce en `findOrFail` → 404.
+     * Filters by pending actions whose conversation belongs to `$user`.
+     * The package follows the 404-not-403 doctrine (E10 D12): any attempt
+     * to touch someone else's pending action translates to `findOrFail` → 404.
      */
     public function scopeForUser(Builder $query, Model $user): Builder
     {

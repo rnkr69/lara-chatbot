@@ -11,32 +11,32 @@ use Rnkr69\LaraChatbot\Tools\ConfirmationLevel;
 use Rnkr69\LaraChatbot\Tools\ToolRegistry;
 
 /**
- * Lista todas las backend tools registradas (locales + MCP) y diagnostica
- * el estado del bridge MCP.
+ * Lists all registered backend tools (local + MCP) and diagnoses the
+ * state of the MCP bridge.
  *
- * El comando sirve dos propósitos:
+ * The command serves two purposes:
  *
- *   1. Operativa: ver qué le ofrece el chatbot al LLM en este host. Útil
- *      tras añadir una tool nueva o cambiar `chatbot.tools.paths`.
+ *   1. Operations: see what the chatbot offers the LLM on this host. Useful
+ *      after adding a new tool or changing `chatbot.tools.paths`.
  *
- *   2. Diagnóstico (DoD ROADMAP §5/E07): si `chatbot.mcp.servers` tiene
- *      entradas pero `prism-php/relay` no está instalado, lo señala con
- *      un warning accionable. Si Relay está y un server falló, el bridge
- *      ya logueó al boot — aquí no se vuelve a llamar a Relay para evitar
- *      side effects en el comando.
+ *   2. Diagnostics (DoD ROADMAP §5/E07): if `chatbot.mcp.servers` has
+ *      entries but `prism-php/relay` is not installed, it flags it with
+ *      an actionable warning. If Relay is present and a server failed, the
+ *      bridge already logged it at boot — here Relay is not called again to
+ *      avoid side effects in the command.
  */
 class ToolsListCommand extends Command
 {
     protected $signature = 'chatbot:tools:list';
 
-    protected $description = 'Lista las backend tools registradas (locales y MCP) en el ToolRegistry.';
+    protected $description = 'List the registered backend tools (local and MCP) in the ToolRegistry.';
 
     public function handle(ToolRegistry $registry, McpToolBridge $bridge): int
     {
         $tools = $registry->all();
 
         if ($tools === []) {
-            $this->components->info('No hay tools registradas.');
+            $this->components->info('No tools registered.');
         } else {
             $rows = [];
             /** @var list<string> $misconfigured */
@@ -98,10 +98,10 @@ class ToolsListCommand extends Command
         if (! $bridge->isAvailable()) {
             $this->newLine();
             $this->components->warn(
-                'Hay ' . count($servers) . ' server(s) MCP configurado(s) en chatbot.mcp.servers '
-                . '(' . implode(', ', $servers) . ') pero `prism-php/relay` no está instalado. '
-                . 'Las tools MCP no se cargarán. Ejecuta `composer require prism-php/relay` para '
-                . 'activarlas, o vacía la sección para silenciar este aviso.'
+                'There are ' . count($servers) . ' MCP server(s) configured in chatbot.mcp.servers '
+                . '(' . implode(', ', $servers) . ') but `prism-php/relay` is not installed. '
+                . 'MCP tools will not load. Run `composer require prism-php/relay` to '
+                . 'enable them, or empty the section to silence this warning.'
             );
 
             return;
@@ -109,7 +109,7 @@ class ToolsListCommand extends Command
 
         $this->newLine();
         $this->components->info(
-            'Bridge MCP activo. Servers configurados: ' . implode(', ', $servers) . '.'
+            'MCP bridge active. Configured servers: ' . implode(', ', $servers) . '.'
         );
     }
 

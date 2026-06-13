@@ -29,11 +29,11 @@ it('falls back to category as message when no message is given', function () {
 });
 
 it('creates an awaiting_user result with pending action id', function () {
-    $result = ToolResult::awaitingUser('action_123', '¿Confirmar?');
+    $result = ToolResult::awaitingUser('action_123', 'Confirm?');
 
     expect($result->isAwaitingUser())->toBeTrue()
         ->and($result->pendingActionId)->toBe('action_123')
-        ->and($result->errorMessage)->toBe('¿Confirmar?');
+        ->and($result->errorMessage)->toBe('Confirm?');
 });
 
 it('serializes a success result with status, data and blocks', function () {
@@ -57,11 +57,11 @@ it('serializes an error result with status, error and message', function () {
 });
 
 it('serializes an awaiting_user result with pending_action_id and message', function () {
-    $payload = ToolResult::awaitingUser('act_42', '¿Vamos?')->toArray();
+    $payload = ToolResult::awaitingUser('act_42', 'Shall we?')->toArray();
 
     expect($payload)->toMatchArray([
         'status'            => 'awaiting_user',
         'pending_action_id' => 'act_42',
-        'message'           => '¿Vamos?',
+        'message'           => 'Shall we?',
     ]);
 });

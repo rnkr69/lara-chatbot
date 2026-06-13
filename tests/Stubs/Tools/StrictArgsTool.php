@@ -9,8 +9,8 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * Tool con `target_id` integer obligatorio. Sirve para validar que args
- * inválidos disparan `ToolResult::error('validation', ...)` SIN invocar
+ * Tool with a mandatory integer `target_id`. Used to validate that invalid
+ * args trigger `ToolResult::error('validation', ...)` WITHOUT invoking
  * `handle()`.
  */
 class StrictArgsTool extends BaseBackendTool

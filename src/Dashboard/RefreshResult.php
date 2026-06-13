@@ -8,24 +8,24 @@ use Carbon\CarbonImmutable;
 use Rnkr69\LaraChatbot\Models\WidgetRefreshStatus;
 
 /**
- * Resultado inmutable de un replay sobre un `DashboardWidget` (v2.0 / E3).
+ * Immutable result of a replay over a `DashboardWidget` (v2.0 / E3).
  *
- * Cada llamada a `ReplayService::replay()` produce uno. Lo consume:
- *   - El propio `ReplayService`, que persiste `last_refreshed_at`,
- *     `last_refresh_status`, `last_refresh_error` y opcionalmente el
- *     `snapshot` (sólo en `Fresh`) en el widget.
- *   - El controller del E4, que lo serializa en el response del refresh
- *     manual + bulk SSE para que el frontend pinte el estado.
+ * Each call to `ReplayService::replay()` produces one. It is consumed by:
+ *   - `ReplayService` itself, which persists `last_refreshed_at`,
+ *     `last_refresh_status`, `last_refresh_error` and optionally the
+ *     `snapshot` (only on `Fresh`) on the widget.
+ *   - The E4 controller, which serializes it in the response of the manual
+ *     refresh + bulk SSE so the frontend can paint the state.
  *
- * Diseño:
- *   - `snapshot` siempre presente: en `Fresh` es el nuevo, en el resto
- *     es el preservado (no se pierden datos viejos jamás).
- *   - `error` sólo en `Stale`/`Error`/`Unauthorized`/`SourceMissing`. El
- *     shape `{category, message, captured_at}` coincide con
+ * Design:
+ *   - `snapshot` always present: on `Fresh` it is the new one, otherwise
+ *     it is the preserved one (old data is never lost).
+ *   - `error` only on `Stale`/`Error`/`Unauthorized`/`SourceMissing`. The
+ *     shape `{category, message, captured_at}` matches
  *     `chatbot_dashboard_widgets.last_refresh_error`.
- *   - `lastRefreshedAt` siempre se setea: indica CUÁNDO se intentó el
- *     replay, no si tuvo éxito. La UI lee este timestamp para mostrar
- *     "hace 0 s" en el header.
+ *   - `lastRefreshedAt` is always set: it indicates WHEN the replay was
+ *     attempted, not whether it succeeded. The UI reads this timestamp to show
+ *     "0 s ago" in the header.
  */
 final class RefreshResult
 {
@@ -41,8 +41,8 @@ final class RefreshResult
     ) {}
 
     /**
-     * El tool devolvió un block del mismo type que el widget. El snapshot
-     * nuevo reemplaza al anterior; sin error.
+     * The tool returned a block of the same type as the widget. The new
+     * snapshot replaces the previous one; no error.
      *
      * @param  array<string, mixed>  $newSnapshot
      */
@@ -57,8 +57,8 @@ final class RefreshResult
     }
 
     /**
-     * El tool ejecutó pero devolvió un block de otro type (o ninguno). El
-     * snapshot anterior se conserva; la UI marca el widget para repinear.
+     * The tool executed but returned a block of another type (or none). The
+     * previous snapshot is kept; the UI flags the widget to re-pin.
      *
      * @param  array<string, mixed>  $previousSnapshot
      */
@@ -76,8 +76,8 @@ final class RefreshResult
     }
 
     /**
-     * Cascada permission/scope/tenant/ownership falló. Snapshot anterior
-     * se conserva — JAMÁS se entregan datos frescos no autorizados.
+     * The permission/scope/tenant/ownership cascade failed. The previous
+     * snapshot is kept — unauthorized fresh data is NEVER delivered.
      *
      * @param  array<string, mixed>  $previousSnapshot
      */
@@ -96,8 +96,8 @@ final class RefreshResult
     }
 
     /**
-     * Error runtime/validation o cualquier rechazo no-autorizatorio del
-     * tool. Snapshot anterior se conserva.
+     * Runtime/validation error or any non-authorization rejection from the
+     * tool. The previous snapshot is kept.
      *
      * @param  array<string, mixed>  $previousSnapshot
      */
@@ -116,9 +116,9 @@ final class RefreshResult
     }
 
     /**
-     * El tool referenciado por `widget.source.tool` ya no existe en el
-     * ToolRegistry (host la borró o renombró). Snapshot frozen; la UI
-     * invita a unpin.
+     * The tool referenced by `widget.source.tool` no longer exists in the
+     * ToolRegistry (the host deleted or renamed it). Snapshot frozen; the UI
+     * invites the user to unpin.
      *
      * @param  array<string, mixed>  $previousSnapshot
      */
@@ -132,7 +132,7 @@ final class RefreshResult
             snapshot: $previousSnapshot,
             error: self::makeError(
                 'source_missing',
-                sprintf('Tool `%s` no está registrada.', $tool),
+                sprintf('Tool `%s` is not registered.', $tool),
                 $at,
             ),
             lastRefreshedAt: $at,

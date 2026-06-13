@@ -10,58 +10,58 @@ use Rnkr69\LaraChatbot\Validation\RulesToFormSchema;
 use Throwable;
 
 /**
- * Directiva Blade `@chatbotForm($id, $schemaSource = null)` (v1.1.1,
+ * Blade directive `@chatbotForm($id, $schemaSource = null)` (v1.1.1,
  * finding #13.a).
  *
- * Inyecta dos cosas en una sola declaración:
+ * Injects two things in a single declaration:
  *
- *   1. El atributo `data-chatbot-form="<id>"` en el `<form>` que la
- *      precede.
- *   2. Un fragment de page context con el schema del form vía
- *      `<meta name="chatbot:context-form" content='...'>`. El widget lo
- *      mergea al page context principal cuando boot.
+ *   1. The `data-chatbot-form="<id>"` attribute on the `<form>` that
+ *      precedes it.
+ *   2. A page context fragment with the form schema via
+ *      `<meta name="chatbot:context-form" content='...'>`. The widget
+ *      merges it into the main page context on boot.
  *
- * Tres variantes del schema:
+ * Three schema variants:
  *
  *   - FormRequest FQCN: `@chatbotForm('contact-form', App\Http\Requests\ContactRequest::class)`
- *     → introspecta `rules()` y `attributes()` del request y mapea a
- *       schema con `RulesToFormSchema`.
+ *     → introspects the request's `rules()` and `attributes()` and maps to
+ *       a schema with `RulesToFormSchema`.
  *
- *   - Array inline:    `@chatbotForm('contact-form', [
+ *   - Inline array:    `@chatbotForm('contact-form', [
  *         ['name' => 'email', 'type' => 'email', 'required' => true],
  *         ...
  *     ])`
- *     → schema explícito. La forma más simple y predecible.
+ *     → explicit schema. The simplest and most predictable form.
  *
- *   - Sin argumento:   `@chatbotForm('contact-form')`
- *     → la directive emite el atributo y un `<script>` ligero que,
- *       post-DOM-ready, escanea el `<form>` y reporta los `[name]`/
- *       `[data-chatbot-field]` presentes via `Chatbot.setPageContext`.
+ *   - No argument:     `@chatbotForm('contact-form')`
+ *     → the directive emits the attribute and a lightweight `<script>` that,
+ *       post-DOM-ready, scans the `<form>` and reports the present `[name]`/
+ *       `[data-chatbot-field]` via `Chatbot.setPageContext`.
  *
- * Limitación de v1.1.1: la directive imprime el `data-chatbot-form` como
- * fragment HTML que el integrador coloca dentro del tag `<form>` (después
- * del atributo `method`, antes del `>` de cierre). Ejemplo:
+ * v1.1.1 limitation: the directive prints `data-chatbot-form` as an
+ * HTML fragment that the integrator places inside the `<form>` tag (after
+ * the `method` attribute, before the closing `>`). Example:
  *
  *     <form method="post" action="..." @chatbotForm('contact-form')>
  *
- * Para una versión que parsee el `<form>` automáticamente se necesitaría
- * un pre-processor Blade más invasivo; se difiere a v2.
+ * A version that parses the `<form>` automatically would require
+ * a more invasive Blade pre-processor; deferred to v2.
  */
 class ChatbotFormDirective
 {
     public static function register(): void
     {
         Blade::directive('chatbotForm', static function (string $expression): string {
-            // Expression llega como string Blade — el render runtime
-            // evalúa la expresión PHP y la pasa al renderer.
+            // The expression arrives as a Blade string — the render runtime
+            // evaluates the PHP expression and passes it to the renderer.
             return '<?php echo \\' . static::class . '::render(' . $expression . '); ?>';
         });
     }
 
     /**
-     * Renderiza el output de la directive.
+     * Renders the directive output.
      *
-     * @param  string  $id  ID estable del form (`contact-form`, etc.).
+     * @param  string  $id  stable form ID (`contact-form`, etc.).
      * @param  string|array<int|string, mixed>|null  $schemaSource
      */
     public static function render(string $id, string|array|null $schemaSource = null): string
@@ -171,9 +171,9 @@ class ChatbotFormDirective
     }
 
     /**
-     * Script ligero que escanea el `<form>` tagueado y publica su schema
-     * runtime. Solo se inyecta UNA vez por página (idempotencia via flag
-     * en `window`).
+     * Lightweight script that scans the tagged `<form>` and publishes its
+     * runtime schema. It is injected only ONCE per page (idempotency via a flag
+     * on `window`).
      */
     protected static function runtimeHelperScript(): string
     {

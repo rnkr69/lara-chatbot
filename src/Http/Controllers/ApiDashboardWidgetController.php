@@ -25,29 +25,29 @@ use Rnkr69\LaraChatbot\Tools\ToolRegistry;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * CRUD JSON + replay endpoints de `DashboardWidget` (v2.0 / E4, plan §4.7).
+ * JSON CRUD + replay endpoints for `DashboardWidget` (v2.0 / E4, plan §4.7).
  *
- *   - `store`      Pin: crea widget desde `{block_id, snapshot, source,
- *                  suggested_title?, page_context?, position?}`. Cascada de
- *                  validación: cap widgets → tool existente → tool
- *                  pinnable+Auto → snapshot truncado si excede cap →
- *                  source_signature → page_context_snapshot filtrado y
- *                  sanitizado → insert con last_refresh_status='fresh'.
- *   - `update`     Move/resize/retitle/cambio de refresh_policy. fill()
- *                  selectivo por `$request->has(...)`.
- *   - `refresh`    Replay manual: rate-limited, delega a `ReplayService::replay`.
+ *   - `store`      Pin: creates a widget from `{block_id, snapshot, source,
+ *                  suggested_title?, page_context?, position?}`. Validation
+ *                  cascade: widget cap → tool exists → tool
+ *                  pinnable+Auto → snapshot truncated if it exceeds the cap →
+ *                  source_signature → filtered and sanitized
+ *                  page_context_snapshot → insert with last_refresh_status='fresh'.
+ *   - `update`     Move/resize/retitle/change of refresh_policy. Selective
+ *                  fill() via `$request->has(...)`.
+ *   - `refresh`    Manual replay: rate-limited, delegates to `ReplayService::replay`.
  *   - `destroy`    Soft-delete (unpin). 204.
- *   - `refreshAll` SSE bulk: rate-limited, ejecuta `ReplayService::replayBulk`
- *                  (parallelism + chunk en E3) y emite un frame
- *                  `widget_refreshed` por cada resultado + un `done` final.
+ *   - `refreshAll` Bulk SSE: rate-limited, runs `ReplayService::replayBulk`
+ *                  (parallelism + chunking in E3) and emits one
+ *                  `widget_refreshed` frame per result + a final `done`.
  *
- * Política 404-no-403: cualquier slug/widget ajeno o soft-deleted → 404.
+ * 404-not-403 policy: any foreign or soft-deleted slug/widget → 404.
  *
  * Rate limit: `chatbot.dashboard.replay.rate_limit_per_user_per_minute`
- * (default 60) aplica SÓLO a `refresh` + `refreshAll`. El CRUD (pin/unpin/
- * move) no entra al throttle: el coste real está en re-ejecutar tools, no
- * en escribir filas. Bulk cuenta como 1 hit (la concurrency cap del E3
- * protege internamente).
+ * (default 60) applies ONLY to `refresh` + `refreshAll`. The CRUD (pin/unpin/
+ * move) does not enter the throttle: the real cost is in re-running tools, not
+ * in writing rows. Bulk counts as 1 hit (the E3 concurrency cap protects
+ * internally).
  */
 class ApiDashboardWidgetController extends Controller
 {
@@ -80,12 +80,12 @@ class ApiDashboardWidgetController extends Controller
             ], 422);
         }
 
-        // Enforcement aguas arriba (paridad con E3): pinnable() === true Y
-        // confirmation() === Auto. Tools que mutan jamás llegan al
-        // dashboard, aunque overrideen pinnable() por descuido. Mantenemos
-        // el pre-check inline para preservar el shape histórico del 422
-        // (el cliente JS asume `errors['source.tool']`); `PinService` lo
-        // re-chequea como defense-in-depth.
+        // Upstream enforcement (parity with E3): pinnable() === true AND
+        // confirmation() === Auto. Mutating tools never reach the
+        // dashboard, even if they override pinnable() by mistake. We keep
+        // the inline pre-check to preserve the historical 422 shape
+        // (the JS client assumes `errors['source.tool']`); `PinService`
+        // re-checks it as defense-in-depth.
         if (! $tool->pinnable() || $tool->confirmation() !== ConfirmationLevel::Auto) {
             return response()->json([
                 'message' => sprintf(
@@ -105,11 +105,11 @@ class ApiDashboardWidgetController extends Controller
         $sourceArgs = is_array($source['args'] ?? null) ? $source['args'] : [];
         $pageContextKeys = is_array($source['page_context_keys'] ?? null) ? $source['page_context_keys'] : [];
 
-        // El descriptor `block` que pasa a `PinService` es el mismo shape
-        // que la tool emite en `ToolResult::blocks`: `type` + `data` +
-        // opcionales `id` (audit) y `ordinal` (replay matching de tools
-        // multi-block, v2.1.2 #27). El cliente JS suministra los dos
-        // últimos cuando los conoce; ausentes, el replay cae a ordinal 0.
+        // The `block` descriptor passed to `PinService` has the same shape
+        // the tool emits in `ToolResult::blocks`: `type` + `data` +
+        // optional `id` (audit) and `ordinal` (replay matching for
+        // multi-block tools, v2.1.2 #27). The JS client supplies the last
+        // two when it knows them; if absent, replay falls back to ordinal 0.
         $block = [
             'type' => $blockType,
             'data' => $blockData,
@@ -148,10 +148,10 @@ class ApiDashboardWidgetController extends Controller
     }
 
     /**
-     * Mapea las categorías de `PinException` al shape histórico de JSON 422
-     * del controller. El service propaga la excepción con
-     * `category` + `context`; aquí preservamos los mensajes idénticos al
-     * controller v2.1.x para que tests y clientes JS no detecten cambio.
+     * Maps `PinException` categories to the controller's historical JSON 422
+     * shape. The service propagates the exception with
+     * `category` + `context`; here we preserve messages identical to the
+     * v2.1.x controller so that tests and JS clients detect no change.
      */
     protected function mapPinException(PinException $e): JsonResponse
     {
@@ -188,10 +188,10 @@ class ApiDashboardWidgetController extends Controller
         $dashboard = $this->findOwnedOr404($user, $slug);
         $widget    = $this->findWidgetOr404($dashboard, $id);
 
-        // Sólo las claves PRESENTES en el request entran al diff — semántica
-        // PATCH idéntica al controller v2.1.x: ausentes preservan, `title:
-        // null` limpia. `WidgetCrudService::update()` normaliza position y
-        // valida `refresh_policy` contra el enum.
+        // Only the keys PRESENT in the request enter the diff — PATCH
+        // semantics identical to the v2.1.x controller: absent ones are
+        // preserved, `title: null` clears. `WidgetCrudService::update()`
+        // normalizes position and validates `refresh_policy` against the enum.
         $changes = [];
         if ($request->has('position')) {
             $changes['position'] = $request->input('position');
@@ -302,10 +302,10 @@ class ApiDashboardWidgetController extends Controller
     }
 
     /**
-     * Mirror del rate limiter de `/chatbot/stream` (E09): clave por usuario,
-     * ventana 60 s, max configurable. Devuelve Response 429 si excedido o
-     * null si dentro del límite (y registra hit). Aplica SÓLO a refresh +
-     * refreshAll — el CRUD no entra al throttle (decisión §4.10 / E4).
+     * Mirror of the `/chatbot/stream` rate limiter (E09): key per user,
+     * 60 s window, configurable max. Returns a 429 Response if exceeded or
+     * null if within the limit (and records the hit). Applies ONLY to refresh +
+     * refreshAll — the CRUD does not enter the throttle (decision §4.10 / E4).
      */
     protected function checkRefreshRateLimit(mixed $user): ?Response
     {

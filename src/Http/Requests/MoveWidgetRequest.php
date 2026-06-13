@@ -8,18 +8,18 @@ use Illuminate\Foundation\Http\FormRequest;
 use Rnkr69\LaraChatbot\Models\WidgetRefreshPolicy;
 
 /**
- * Valida el payload de `PATCH /chatbot/dashboards/{slug}/widgets/{id}`
- * (v2.0 / E4). Cubre reubicación + redimensionado + retitle + cambio de
- * refresh policy en un único endpoint (mismo verbo que mover en Notion/Grafana).
+ * Validates the payload of `PATCH /chatbot/dashboards/{slug}/widgets/{id}`
+ * (v2.0 / E4). Covers relocation + resize + retitle + change of
+ * refresh policy in a single endpoint (same verb as move in Notion/Grafana).
  *
- *   - `position`         opcional. Sólo si presente — el cliente debe
- *                         mandar el shape completo `{x,y,w,h}` para evitar
- *                         estados intermedios inconsistentes.
- *   - `title`            opcional. null permitido (volver al título inferido).
- *   - `refresh_policy`   opcional. Enum string: `on_open` | `manual` | `never`.
+ *   - `position`         optional. Only if present — the client must
+ *                         send the full shape `{x,y,w,h}` to avoid
+ *                         inconsistent intermediate states.
+ *   - `title`            optional. null allowed (revert to the inferred title).
+ *   - `refresh_policy`   optional. Enum string: `on_open` | `manual` | `never`.
  *
- * El controller decide qué campos del body están presentes (vía
- * `$request->has(...)`) y aplica `fill()` selectivo.
+ * The controller decides which body fields are present (via
+ * `$request->has(...)`) and applies a selective `fill()`.
  */
 class MoveWidgetRequest extends FormRequest
 {

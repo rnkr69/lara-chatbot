@@ -8,20 +8,20 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Rnkr69\LaraChatbot\Authorization\AccessScope;
 
 /**
- * Contrato del componente que mapea un `AccessScope` (self/team/all) a la
- * lista de IDs de usuario cuyas filas son visibles para la tool. El host
- * lo implementa una sola vez en su proyecto siguiendo la jerarquía propia
- * (manager → equipo, tenant → users, etc.).
+ * Contract for the component that maps an `AccessScope` (self/team/all) to
+ * the list of user IDs whose rows are visible to the tool. The host
+ * implements it once in its project following its own hierarchy
+ * (manager → team, tenant → users, etc.).
  *
- * El paquete provee `NullScopeResolver` como default: sabe responder
- * `Self` con `[user.id]` y lanza `ScopeResolverNotConfiguredException`
- * para `Team`/`All`, forzando al host a implementar el suyo si quiere
- * usar esos scopes.
+ * The package provides `NullScopeResolver` as the default: it knows how to
+ * answer `Self` with `[user.id]` and throws
+ * `ScopeResolverNotConfiguredException` for `Team`/`All`, forcing the host
+ * to implement its own if it wants to use those scopes.
  */
 interface ScopeResolver
 {
     /**
-     * @return array<int, int|string>  IDs de los usuarios cuya data el invocador puede ver.
+     * @return array<int, int|string>  IDs of the users whose data the invoker can see.
      */
     public function resolveAccessibleUserIds(Authenticatable $user, AccessScope $scope): array;
 }

@@ -1,21 +1,21 @@
 /**
- * v2.0 / E5 — wrapper de `gridstack` para el dashboard.
+ * v2.0 / E5 — `gridstack` wrapper for the dashboard.
  *
- * Aísla el bundle de gridstack detrás de una superficie pequeña:
- *   - `mount(host)` — `GridStack.init` con la config del paquete (12 cols).
- *   - `addWidget(card)` — envuelve la `.cb-dashboard-card` de `widget-card.ts`
- *     en `.grid-stack-item > .grid-stack-item-content` y la registra en
- *     gridstack con su `position {x,y,w,h}`. Devuelve el `.grid-stack-item`
- *     para que el caller pueda extraerlo en `remove`.
- *   - `onLayoutChange(cb)` — escucha el evento `change` y notifica con
- *     `{widgetId, x, y, w, h}` por cada nodo movido (debouncing lo hace el
- *     caller; gridstack ya agrupa cambios del mismo gesto).
- *   - `removeWidget(item)` — saca el nodo de gridstack y del DOM.
+ * Isolates the gridstack bundle behind a small surface:
+ *   - `mount(host)` — `GridStack.init` with the package config (12 cols).
+ *   - `addWidget(card)` — wraps the `.cb-dashboard-card` from `widget-card.ts`
+ *     in `.grid-stack-item > .grid-stack-item-content` and registers it with
+ *     gridstack at its `position {x,y,w,h}`. Returns the `.grid-stack-item`
+ *     so the caller can extract it on `remove`.
+ *   - `onLayoutChange(cb)` — listens for the `change` event and notifies with
+ *     `{widgetId, x, y, w, h}` for each moved node (debouncing is done by the
+ *     caller; gridstack already groups changes from the same gesture).
+ *   - `removeWidget(item)` — removes the node from gridstack and from the DOM.
  *   - `destroy()` — `GridStack.destroy(true)`.
  *
- * Toma `GridStack` por defecto del import top-level, pero acepta `factory`
- * inyectado para Vitest (gridstack hace queries de layout que jsdom no
- * implementa). El bundle de producción usa el módulo real.
+ * Takes `GridStack` by default from the top-level import, but accepts an
+ * injected `factory` for Vitest (gridstack runs layout queries that jsdom does
+ * not implement). The production bundle uses the real module.
  */
 
 import { GridStack, type GridStackNode, type GridStackOptions } from 'gridstack';
@@ -65,8 +65,8 @@ export function mountGrid(
 
   let listener: ((changes: GridLayoutChange[]) => void) | null = null;
 
-  // gridstack emite 'change' con nodos cuyo widgetId vive en `el.dataset.widgetId`.
-  // Extraemos el id desde ahí para no acoplarnos a su API interna.
+  // gridstack emits 'change' with nodes whose widgetId lives in `el.dataset.widgetId`.
+  // We extract the id from there so we don't couple to its internal API.
   grid.on('change', (_event, items) => {
     if (listener === null) return;
     const nodes = Array.isArray(items) ? items as GridStackNode[] : [items as GridStackNode];

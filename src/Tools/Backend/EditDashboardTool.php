@@ -12,21 +12,21 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * v2.2 / PR-B — Edita propiedades de un dashboard del usuario (rename,
- * set_default). Lo invoca el LLM cuando el usuario pide "renombra el panel
- * a Operaciones Q1" o "hazlo mi panel por defecto".
+ * v2.2 / PR-B — Edits properties of a user's dashboard (rename,
+ * set_default). The LLM invokes it when the user asks "rename the dashboard
+ * to Operaciones Q1" or "make it my default dashboard".
  *
- * Slug del dashboard viene en `page_context.dashboard.slug` (auto-inyectado
- * por DashboardController en `/chatbot/dashboard`) o el LLM lo busca via
- * el listado de dashboards si el usuario nombra otro.
+ * The dashboard slug comes in `page_context.dashboard.slug` (auto-injected
+ * by DashboardController on `/chatbot/dashboard`) or the LLM looks it up via
+ * the dashboard listing if the user names another.
  *
- * Al renombrar, `DashboardCrudService` regenera el slug; el response
- * incluye `new_slug` para que el bundle JS pueda
- * `history.replaceState` y la URL actual del user no quede obsoleta.
+ * On rename, `DashboardCrudService` regenerates the slug; the response
+ * includes `new_slug` so the JS bundle can `history.replaceState` and the
+ * user's current URL does not become stale.
  *
- * `confirmation = Auto` — el rename / set_default es reversible y no
- * destruye datos. El auto-demote del resto del usuario al marcar
- * is_default=true vive en el hook `saving` del modelo (no aquí).
+ * `confirmation = Auto` — the rename / set_default is reversible and does
+ * not destroy data. The auto-demote of the user's other dashboards when
+ * setting is_default=true lives in the model's `saving` hook (not here).
  */
 class EditDashboardTool extends BaseBackendTool
 {
@@ -144,11 +144,11 @@ class EditDashboardTool extends BaseBackendTool
             $data['new_slug'] = $newSlug;
         }
 
-        // v2.2.1 (PR-B) — un rename regenera el slug; el bundle del dashboard
-        // hace `history.replaceState` para mantener la URL alineada y actualiza
-        // el `<h1>` y la sidebar. Sin `new_slug` la mutación fue sólo
-        // `set_default`/`unset_default`; el bundle refresca la sidebar y los
-        // badges sin tocar la URL.
+        // v2.2.1 (PR-B) — a rename regenerates the slug; the dashboard bundle
+        // does `history.replaceState` to keep the URL aligned and updates
+        // the `<h1>` and the sidebar. Without `new_slug` the mutation was only
+        // `set_default`/`unset_default`; the bundle refreshes the sidebar and
+        // the badges without touching the URL.
         $sideEffects = [
             'type'           => 'dashboard_updated',
             'dashboard_slug' => $originalSlug,
@@ -186,12 +186,12 @@ class EditDashboardTool extends BaseBackendTool
     {
         $parts = [];
         if (isset($applied['name'])) {
-            $parts[] = sprintf("nombre → '%s'", (string) $applied['name']);
+            $parts[] = sprintf("name → '%s'", (string) $applied['name']);
         }
         if (array_key_exists('is_default', $applied)) {
-            $parts[] = $applied['is_default'] ? 'marcado como por defecto' : 'desmarcado como por defecto';
+            $parts[] = $applied['is_default'] ? 'set as default' : 'unset as default';
         }
 
-        return $parts === [] ? '(sin cambios)' : implode(', ', $parts);
+        return $parts === [] ? '(no changes)' : implode(', ', $parts);
     }
 }

@@ -13,36 +13,36 @@ use Prism\Prism\Tool as PrismTool;
 use Throwable;
 
 /**
- * Puente entre el ecosistema MCP (Model Context Protocol) — provisto por
- * `prism-php/relay` — y el `ToolRegistry` del paquete (E06).
+ * Bridge between the MCP ecosystem (Model Context Protocol) — provided by
+ * `prism-php/relay` — and the package's `ToolRegistry` (E06).
  *
- * Responsabilidades:
+ * Responsibilities:
  *
- *   1. Detectar si Relay está instalado en el host (`isAvailable()`).
- *      Relay es una dependencia opcional: el paquete NO lo lista en
- *      `composer.json` para no obligar a su instalación. El host añade
- *      `composer require prism-php/relay` cuando quiere activarlo.
+ *   1. Detect whether Relay is installed in the host (`isAvailable()`).
+ *      Relay is an optional dependency: the package does NOT list it in
+ *      `composer.json` so as not to force its installation. The host adds
+ *      `composer require prism-php/relay` when it wants to enable it.
  *
- *   2. Leer `chatbot.mcp.servers[]`, filtrar los `enabled = true`, y para
- *      cada uno: pedir a Relay la lista de `Prism\Prism\Tool`, cachearla
- *      por server con TTL configurable, envolver cada tool en
- *      `McpBackendTool` y registrarla en el `ToolRegistry` con el prefijo
+ *   2. Read `chatbot.mcp.servers[]`, filter the `enabled = true` ones, and for
+ *      each one: ask Relay for the list of `Prism\Prism\Tool`, cache it
+ *      per server with a configurable TTL, wrap each tool in
+ *      `McpBackendTool` and register it in the `ToolRegistry` with the prefix
  *      `mcp.<server>.<tool>`.
  *
- *   3. Aislar fallos: un server caído / mal configurado no debe abortar
- *      el boot del paquete entero. Se loguea warning por server y se
- *      continúa con el resto. El comando `chatbot:tools:list` (E07) muestra
- *      al operador qué se cargó.
+ *   3. Isolate failures: a server that is down / misconfigured must not abort
+ *      the boot of the entire package. A warning is logged per server and we
+ *      continue with the rest. The `chatbot:tools:list` command (E07) shows
+ *      the operator what was loaded.
  *
- * El `Relay` facade (`Prism\Relay\Facades\Relay`) se llama vía `app()`
- * para que los tests puedan reemplazarlo con `Mockery` sin que el bridge
- * dependa del facade global a tiempo de carga.
+ * The `Relay` facade (`Prism\Relay\Facades\Relay`) is called via `app()`
+ * so that tests can replace it with `Mockery` without the bridge
+ * depending on the global facade at load time.
  */
 class McpToolBridge
 {
     /**
-     * FQCN del facade de Relay. Usar la string evita que el autoloader
-     * intente resolver la clase cuando el paquete no está instalado.
+     * FQCN of the Relay facade. Using the string prevents the autoloader
+     * from trying to resolve the class when the package is not installed.
      */
     public const RELAY_FACADE = 'Prism\\Relay\\Facades\\Relay';
 
@@ -53,7 +53,7 @@ class McpToolBridge
     ) {}
 
     /**
-     * `true` si `prism-php/relay` está disponible en el classpath.
+     * `true` if `prism-php/relay` is available on the classpath.
      */
     public function isAvailable(): bool
     {
@@ -61,8 +61,8 @@ class McpToolBridge
     }
 
     /**
-     * Mapeo `name => config` de los servers declarados en
-     * `chatbot.mcp.servers`. Devuelve un array vacío si no hay ninguno.
+     * `name => config` mapping of the servers declared in
+     * `chatbot.mcp.servers`. Returns an empty array if there are none.
      *
      * @return array<string, array<string, mixed>>
      */
@@ -88,8 +88,8 @@ class McpToolBridge
     }
 
     /**
-     * Lista los nombres de los servers configurados, independientemente de
-     * si están `enabled`. Útil para diagnóstico desde `chatbot:tools:list`.
+     * Lists the names of the configured servers, regardless of
+     * whether they are `enabled`. Useful for diagnostics from `chatbot:tools:list`.
      *
      * @return array<int, string>
      */
@@ -99,13 +99,13 @@ class McpToolBridge
     }
 
     /**
-     * Punto de entrada principal: registra todas las tools de los servers
-     * activos en el `ToolRegistry` recibido.
+     * Main entry point: registers all the tools of the active servers
+     * in the received `ToolRegistry`.
      *
-     * Idempotente — si una tool con el mismo `name()` ya existía en el
-     * registry, se sobrescribe (el comportamiento del registry).
+     * Idempotent — if a tool with the same `name()` already existed in the
+     * registry, it is overwritten (the registry's behavior).
      *
-     * @return array<string, int>  conteo de tools registradas por server
+     * @return array<string, int>  count of tools registered per server
      */
     public function registerInto(ToolRegistry $registry): array
     {
@@ -124,7 +124,7 @@ class McpToolBridge
                 $tools = $this->fetchTools($name, $cfg);
             } catch (Throwable $e) {
                 Log::warning(sprintf(
-                    '[chatbot] Falló la carga de tools del server MCP "%s": %s',
+                    '[chatbot] Failed to load tools from MCP server "%s": %s',
                     $name,
                     $e->getMessage(),
                 ));
@@ -150,8 +150,8 @@ class McpToolBridge
     }
 
     /**
-     * Devuelve las tools del server, cacheadas por `cache_ttl` segundos.
-     * TTL = 0 desactiva la cache.
+     * Returns the server's tools, cached for `cache_ttl` seconds.
+     * TTL = 0 disables the cache.
      *
      * @param  array<string, mixed>  $cfg
      * @return array<int, PrismTool>
@@ -170,9 +170,9 @@ class McpToolBridge
     }
 
     /**
-     * Invocación al facade de Relay. Se aísla en su propio método para que
-     * los tests puedan mockearla con `Mockery` sin tocar el resto del
-     * bridge. Devuelve siempre array (Relay devuelve array<Tool>).
+     * Invocation of the Relay facade. It is isolated in its own method so that
+     * tests can mock it with `Mockery` without touching the rest of the
+     * bridge. Always returns an array (Relay returns array<Tool>).
      *
      * @return array<int, PrismTool>
      */

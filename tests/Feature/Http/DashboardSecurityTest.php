@@ -15,28 +15,28 @@ use Rnkr69\LaraChatbot\Tests\Stubs\TestUser;
 use Rnkr69\LaraChatbot\Tools\ToolRegistry;
 
 /**
- * E10 — Tests defensivos de seguridad para el Personal Dashboard (v2.0).
+ * E10 — Defensive security tests for the Personal Dashboard (v2.0).
  *
- * Esta suite complementa la sección §11 de `docs/dashboard.md`: cubre los
- * huecos que la auditoría detectó sobre el resto de la batería (E2-E8),
- * sin duplicar lo que tests previos ya cubren (404-no-403, caps, page
- * context filtering — todos en `ApiDashboard{,Widget}ControllerTest`).
+ * This suite complements §11 of `docs/dashboard.md`: it covers the gaps the
+ * audit detected across the rest of the battery (E2-E8), without duplicating
+ * what previous tests already cover (404-not-403, caps, page context
+ * filtering — all in `ApiDashboard{,Widget}ControllerTest`).
  *
- * Cubre:
- *   - CSRF: las rutas `/chatbot/dashboards*` heredan el middleware `web`
- *     del grupo (config `chatbot.route.middleware`), que incluye
- *     `VerifyCsrfToken`. Laravel testing auto-bypassa CSRF en
- *     `$this->post()` para no romper tests, así que verificamos la
- *     propiedad inspeccionando el stack del Router en vez de simular
- *     un POST sin token.
- *   - XSS persistence: `dashboard.name` con payload `<script>` se
- *     persiste y se devuelve raw — el cliente (`sidebar.ts:181`) usa
- *     `textContent`, no `innerHTML`, así que el server-side no necesita
- *     escapar. Verificación: idempotencia binaria entre input y output.
- *   - Replay tolerante a args maliciosos: si un cliente pinea con args
- *     válidos al pinear pero el tool tira al refresh (caso "argumento
- *     edge no contemplado en el JSON Schema del tool"), el endpoint
- *     refresh devuelve 200 con `last_refresh_status='error'`, NO 500.
+ * Covers:
+ *   - CSRF: the `/chatbot/dashboards*` routes inherit the group's `web`
+ *     middleware (config `chatbot.route.middleware`), which includes
+ *     `VerifyCsrfToken`. Laravel testing auto-bypasses CSRF on
+ *     `$this->post()` so as not to break tests, so we verify the property
+ *     by inspecting the Router stack instead of simulating a POST without a
+ *     token.
+ *   - XSS persistence: `dashboard.name` with a `<script>` payload is
+ *     persisted and returned raw — the client (`sidebar.ts:181`) uses
+ *     `textContent`, not `innerHTML`, so the server-side does not need to
+ *     escape it. Verification: binary idempotence between input and output.
+ *   - Replay tolerant to malicious args: if a client pins with valid args
+ *     but the tool throws on refresh (the "edge argument not contemplated in
+ *     the tool's JSON Schema" case), the refresh endpoint returns 200 with
+ *     `last_refresh_status='error'`, NOT 500.
  */
 
 beforeEach(function () {
@@ -105,10 +105,10 @@ it('persists dashboard name verbatim even with HTML-like payload (no server-side
     $persisted = Dashboard::query()->forUser($u)->firstOrFail();
     expect($persisted->name)->toBe($hostile);
 
-    // El show endpoint también devuelve el name sin tocarlo — el cliente
-    // usa `textContent` (sidebar.ts:181 + widget-card title) y nunca
-    // `innerHTML`, así que el escape es responsabilidad del DOM API,
-    // no del JSON.
+    // The show endpoint also returns the name untouched — the client uses
+    // `textContent` (sidebar.ts:181 + widget-card title) and never
+    // `innerHTML`, so escaping is the DOM API's responsibility, not the
+    // JSON's.
     $show = $this->actingAs($u, 'web')
         ->getJson("/chatbot/dashboards/{$persisted->slug}");
     $show->assertOk();

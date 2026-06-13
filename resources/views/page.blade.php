@@ -1,25 +1,25 @@
 {{--
-    E17 — Página dedicada de chat (`GET /chatbot`) en modo standalone.
+    E17 — Dedicated chat page (`GET /chatbot`) in standalone mode.
 
-    Esta vista se sirve cuando `chatbot.page.layout` es null o apunta a una
-    vista que no existe. Renderiza HTML completo desde el paquete; no extiende
-    ningún layout del host. Cuando el host configura un layout válido, el
-    controller usa `chatbot::page_layout` (que sí hace `@extends`).
+    This view is served when `chatbot.page.layout` is null or points to a
+    view that does not exist. It renders complete HTML from the package; it
+    does not extend any host layout. When the host configures a valid layout,
+    the controller uses `chatbot::page_layout` (which does `@extends`).
 
-    v2.1.1 (#26) — el modo standalone no tiene chrome del host. Si
-    `chatbot.page.back_url` está seteado, la vista pinta arriba un enlace
-    "← volver a la app" para que la página no sea una isla sin salida.
+    v2.1.1 (#26) — standalone mode has no host chrome. If
+    `chatbot.page.back_url` is set, the view paints a link at the top
+    "← back to app" so the page is not a dead-end island.
 
-    Variables esperadas (las inyecta `PageController`):
-      - $assetUrl          string   URL del bundle <chatbot-widget.js>.
-      - $streamUrl         string   URL del endpoint SSE de chat.
-      - $conversationsUrl  string   URL base del CRUD de conversaciones (E10).
+    Expected variables (injected by `PageController`):
+      - $assetUrl          string   URL of the <chatbot-widget.js> bundle.
+      - $streamUrl         string   URL of the chat SSE endpoint.
+      - $conversationsUrl  string   Base URL of the conversations CRUD (E10).
       - $theme             string   'light' | 'dark' | 'auto'.
-      - $backUrl           ?string  v2.1.1 (#26) — URL del enlace "volver a la
-                                     app". null = sin enlace.
+      - $backUrl           ?string  v2.1.1 (#26) — URL of the "back to app"
+                                     link. null = no link.
 
-    Para personalizar: `php artisan vendor:publish --tag=chatbot-views` y
-    edita `resources/views/vendor/chatbot/page.blade.php`.
+    To customize: `php artisan vendor:publish --tag=chatbot-views` and
+    edit `resources/views/vendor/chatbot/page.blade.php`.
 --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">

@@ -5,26 +5,26 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Tools\Contracts;
 
 /**
- * Marker que distingue las tools que el LLM "llama" pero que en realidad
- * delegan su ejecución al widget frontend (navegar, abrir modal, rellenar
- * formulario, etc.). El paquete las trata en E08 igual que cualquier
- * `BackendTool` para la cascada de autorización (permission/scope/tenant);
- * la diferencia es exclusivamente el shape del evento SSE que el
- * `ChatService` emite cuando el LLM las invoca:
+ * Marker that distinguishes the tools the LLM "calls" but that actually
+ * delegate their execution to the frontend widget (navigate, open modal, fill
+ * form, etc.). The package treats them in E08 just like any
+ * `BackendTool` for the authorization cascade (permission/scope/tenant);
+ * the difference is exclusively the shape of the SSE event that
+ * `ChatService` emits when the LLM invokes them:
  *
- *   - Backend tool → `event: tool_call` + ejecución en backend → `event: tool_result`.
- *   - Frontend tool → `event: frontend_action` con `{tool, args, action_id, confirmation}`
- *                     y al LLM se le devuelve "queued" para que pueda continuar.
+ *   - Backend tool → `event: tool_call` + backend execution → `event: tool_result`.
+ *   - Frontend tool → `event: frontend_action` with `{tool, args, action_id, confirmation}`
+ *                     and the LLM is returned "queued" so it can continue.
  *
- * El contrato sigue siendo `BackendTool` puro en E08: `handle()` valida
- * args y autoriza, pero no toca el host (el widget hará el side-effect
- * real). E11 expandirá este contrato con primitivas concretas
- * (`NavigateTool`, `HighlightTool`, ...) y una `BaseFrontendTool` que
- * automatiza el "shim" devolviendo `ToolResult::success(['status' => 'queued'])`.
+ * The contract remains pure `BackendTool` in E08: `handle()` validates
+ * args and authorizes, but doesn't touch the host (the widget will do the
+ * real side-effect). E11 will expand this contract with concrete primitives
+ * (`NavigateTool`, `HighlightTool`, ...) and a `BaseFrontendTool` that
+ * automates the "shim" by returning `ToolResult::success(['status' => 'queued'])`.
  *
- * En E08 el orquestador detecta frontend tools por `instanceof FrontendTool`,
- * no por una bandera string en el nombre — la decisión se tomó para que
- * E11 pueda enriquecer la interfaz sin tener que rehacer el branching.
+ * In E08 the orchestrator detects frontend tools by `instanceof FrontendTool`,
+ * not by a string flag in the name — the decision was made so that
+ * E11 can enrich the interface without having to redo the branching.
  */
 interface FrontendTool extends BackendTool
 {

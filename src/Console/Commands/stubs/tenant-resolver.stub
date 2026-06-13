@@ -9,22 +9,22 @@ use Rnkr69\LaraChatbot\Authorization\Contracts\TenantResolver;
 use Rnkr69\LaraChatbot\Tools\Contracts\BackendTool;
 
 /**
- * 4ª dimensión de autorización del paquete (gap de hosts multi-tenant).
+ * The package's 4th authorization dimension (multi-tenant host gap).
  *
- * Mapea (usuario, tool, page context) a la lista de tenant/entity IDs a
- * los que el invocador tiene acceso. El paquete inyecta el resultado en
- * la cascada `permiso → scope → tenant → ownership` cuando una tool
- * declara `tenantScope=true` (E06).
+ * Maps (user, tool, page context) to the list of tenant/entity IDs the
+ * caller has access to. The package injects the result into the
+ * `permission → scope → tenant → ownership` cascade when a tool declares
+ * `tenantScope=true` (E06).
  *
- * Convención de retornos:
- *  - `null`            ⇒ acceso a todos los tenants (bypass del filtro).
- *  - `[]` (array vac.) ⇒ sin acceso a ningún tenant (la tool devolverá
- *                        lista vacía o ToolUnauthorizedException).
- *  - `[id1, id2, ...]` ⇒ aplicar `whereIn(tenant_field, $ids)` en la query.
+ * Return convention:
+ *  - `null`             ⇒ access to all tenants (filter bypass).
+ *  - `[]` (empty array) ⇒ no access to any tenant (the tool will return an
+ *                         empty list or a ToolUnauthorizedException).
+ *  - `[id1, id2, ...]`  ⇒ apply `whereIn(tenant_field, $ids)` in the query.
  *
- * El `pageContext` viene saneado por `PageContextSanitizer` (E14) — sólo
- * tipos primitivos, profundidad acotada. Útil para lecturas tipo
- * `corporation_id` (host multi-tenant) o `event_id` (host entity-scoped).
+ * The `pageContext` is sanitized by `PageContextSanitizer` (E14) — only
+ * primitive types, bounded depth. Useful for reads such as
+ * `corporation_id` (multi-tenant host) or `event_id` (entity-scoped host).
  */
 class {{ class }} implements TenantResolver
 {
@@ -37,19 +37,19 @@ class {{ class }} implements TenantResolver
         BackendTool $tool,
         array $pageContext,
     ): ?array {
-        // TODO: implementa según tu modelo. Ejemplos:
+        // TODO: implement for your model. Examples:
         //
-        // 1) Restricción tenant fija por usuario (p.ej. corporation_id):
+        // 1) Fixed per-user tenant restriction (e.g. corporation_id):
         //
         //   return [$user->corporation_id];
         //
-        // 2) Sin restricción para roles globales:
+        // 2) No restriction for global roles:
         //
         //   if ($user->hasRole('super_admin')) {
         //       return null;
         //   }
         //
-        // 3) Tenant que viene del contexto de página (p.ej. event_id):
+        // 3) Tenant coming from the page context (e.g. event_id):
         //
         //   $eventId = $pageContext['event_id'] ?? null;
         //   if ($eventId === null) {

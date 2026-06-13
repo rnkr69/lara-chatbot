@@ -11,14 +11,14 @@ use Rnkr69\LaraChatbot\Services\ChatService;
 use Rnkr69\LaraChatbot\Sse\SseEvent;
 
 /**
- * Spy de ChatService usado por los feature tests de E14 para capturar el
- * `page_context` que el controller forwarda tras la sanitización (D13). No
- * hace llamada al LLM: persiste un assistant message canned y emite un
- * único `done` SSE event para cerrar la respuesta limpiamente.
+ * ChatService spy used by the E14 feature tests to capture the
+ * `page_context` the controller forwards after sanitization (D13). It makes
+ * no LLM call: it persists a canned assistant message and emits a single
+ * `done` SSE event to close the response cleanly.
  *
- * No extiende `ChatService` para evitar arrastrar sus dependencias en el
- * constructor; el bind del container con `instance()` reemplaza al servicio
- * real para el ciclo de vida del request del test.
+ * It does not extend `ChatService` to avoid pulling in its constructor
+ * dependencies; the container bind with `instance()` replaces the real
+ * service for the lifetime of the test request.
  */
 class PageContextSpyChatService extends ChatService
 {

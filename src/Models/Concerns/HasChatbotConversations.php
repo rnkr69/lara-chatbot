@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Rnkr69\LaraChatbot\Models\Conversation;
 
 /**
- * Trait opcional para el modelo `User` del host. Expone la relación inversa
- * de la asociación polimórfica que `Conversation` declara con `morphTo()`.
+ * Optional trait for the host's `User` model. Exposes the inverse side of
+ * the polymorphic association that `Conversation` declares with `morphTo()`.
  *
- * Uso:
+ * Usage:
  *
  *     // app/Models/User.php
  *     use Rnkr69\LaraChatbot\Models\Concerns\HasChatbotConversations;
@@ -21,11 +21,11 @@ use Rnkr69\LaraChatbot\Models\Conversation;
  *         use HasChatbotConversations;
  *     }
  *
- *     // En un controlador del host:
+ *     // In a host controller:
  *     $user->chatbotConversations()->latest()->paginate();
  *
- * No es obligatorio: el paquete funciona sin que el host añada el trait
- * porque las consultas internas usan `Conversation::forUser($user)`.
+ * Not required: the package works without the host adding the trait
+ * because internal queries use `Conversation::forUser($user)`.
  */
 trait HasChatbotConversations
 {

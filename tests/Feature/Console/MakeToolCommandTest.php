@@ -42,6 +42,6 @@ it('generates a write tool stub when --type=write is given', function () {
     expect($contents)
         ->toContain('class ApproveOrder extends BaseBackendTool')
         ->and($contents)->toContain("return 'approve_order';")
-        // Diferenciador del stub write: comentario sobre idempotencia.
-        ->and($contents)->toContain('Idempotencia');
+        // Write-stub differentiator: a comment about idempotency.
+        ->and($contents)->toContain('Idempotency');
 });

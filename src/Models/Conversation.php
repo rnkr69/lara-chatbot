@@ -63,9 +63,9 @@ class Conversation extends Model
     }
 
     /**
-     * Filtra conversaciones por el usuario propietario. Acepta cualquier
-     * Eloquent Model (User del host) — usa morphClass + key, no requiere
-     * el contrato Authenticatable.
+     * Filters conversations by their owning user. Accepts any Eloquent
+     * Model (the host's User) — uses morphClass + key, does not require
+     * the Authenticatable contract.
      */
     public function scopeForUser(Builder $query, Model $user): Builder
     {

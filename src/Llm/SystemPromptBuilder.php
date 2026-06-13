@@ -12,30 +12,30 @@ use Rnkr69\LaraChatbot\Models\PendingActionStatus;
 use Rnkr69\LaraChatbot\Tools\Contracts\BackendTool;
 
 /**
- * Construye el system prompt final que se envía al LLM.
+ * Builds the final system prompt sent to the LLM.
  *
- * El prompt resultante es la concatenación de:
- *   1. La vista base (publishable) renderizada con $user, $pageContext,
- *      $tools, $locale y $addendum.
- *   2. La sección `## Current page` con el page_context sanitizado (E14).
- *      Se emite **programáticamente desde el builder**, NO desde la vista
- *      Blade, para que el contrato del paquete (qué ve el LLM cuando hay
- *      page_context) sobreviva a un override de la vista por el host.
- *   3. Una instrucción de idioma derivada del locale, emitida aquí (no en
- *      la vista) para que el host pueda customizar la base sin romper el
- *      contrato i18n del paquete.
+ * The resulting prompt is the concatenation of:
+ *   1. The base (publishable) view rendered with $user, $pageContext,
+ *      $tools, $locale and $addendum.
+ *   2. The `## Current page` section with the sanitized page_context (E14).
+ *      It is emitted **programmatically from the builder**, NOT from the
+ *      Blade view, so that the package's contract (what the LLM sees when
+ *      there is page_context) survives a view override by the host.
+ *   3. A language instruction derived from the locale, emitted here (not in
+ *      the view) so that the host can customize the base without breaking the
+ *      package's i18n contract.
  *
- * El "addendum" es el gap cross-host de E05: el host
- * declara `chatbot.system_prompt.addendum_view`, el builder lo renderiza
- * por separado y lo pasa como variable a la vista base; la vista base lo
- * incluye donde estime (la stub que se publica lo coloca al final).
+ * The "addendum" is the E05 cross-host gap: the host
+ * declares `chatbot.system_prompt.addendum_view`, the builder renders it
+ * separately and passes it as a variable to the base view; the base view
+ * includes it wherever it sees fit (the published stub places it at the end).
  */
 class SystemPromptBuilder
 {
     /**
-     * Mapa BCP47/ISO639 → nombre humano usado en la instrucción de idioma.
-     * El host puede ampliarlo publicando un override de esta clase si lo
-     * necesita (en v1 cubrimos los idiomas más comunes en la UE).
+     * BCP47/ISO639 → human-readable name map used in the language instruction.
+     * The host can extend it by publishing an override of this class if
+     * needed (in v1 we cover the most common languages in the EU).
      *
      * @var array<string, string>
      */
@@ -85,17 +85,17 @@ class SystemPromptBuilder
     }
 
     /**
-     * Construye el system prompt en dos bloques (v1.1.1, finding #14.g).
+     * Builds the system prompt in two blocks (v1.1.1, finding #14.g).
      *
-     * - `cacheable`: secciones inmutables a lo largo de la conversación
-     *   (base con tools + decision strategy + locale). En Anthropic se
-     *   marca con `cache_control: ephemeral` para aprovechar el cache de
-     *   ~5 min (90% descuento en hits + 50% menos latencia).
-     * - `dynamic`: secciones que cambian turn a turn (page context +
-     *   pending actions). Nunca cacheable.
+     * - `cacheable`: sections that are immutable throughout the conversation
+     *   (base with tools + decision strategy + locale). On Anthropic it is
+     *   marked with `cache_control: ephemeral` to take advantage of the
+     *   ~5 min cache (90% discount on hits + 50% less latency).
+     * - `dynamic`: sections that change turn to turn (page context +
+     *   pending actions). Never cacheable.
      *
-     * Las dos partes concatenadas con "\n\n" reproducen exactamente lo que
-     * `build()` devuelve — la división es transparente para el LLM.
+     * The two parts concatenated with "\n\n" reproduce exactly what
+     * `build()` returns — the split is transparent to the LLM.
      *
      * @param  array{
      *     user?: ?Authenticatable,
@@ -191,11 +191,11 @@ class SystemPromptBuilder
     }
 
     /**
-     * Sección `## Current page` que el builder añade programáticamente al
-     * system prompt cuando hay page_context. Se emite aquí y NO en la vista
-     * base (E14): la vista es publishable y un override del host podría
-     * eliminarla sin querer; el contrato del paquete (el LLM siempre recibe
-     * el page_context cuando llega) debe ser estable.
+     * `## Current page` section that the builder adds programmatically to the
+     * system prompt when there is page_context. It is emitted here and NOT in
+     * the base view (E14): the view is publishable and a host override could
+     * remove it by accident; the package's contract (the LLM always receives
+     * the page_context when it arrives) must be stable.
      *
      * @param  array<string, mixed>  $pageContext
      */
@@ -222,24 +222,23 @@ class SystemPromptBuilder
     }
 
     /**
-     * Sección `## Pending actions` (E16). El builder lista los pending
-     * actions de la conversación cuyo estado importa para el siguiente turno
-     * del LLM:
+     * `## Pending actions` section (E16). The builder lists the conversation's
+     * pending actions whose state matters for the LLM's next turn:
      *
-     *  - `pending`  → "te queda pendiente decidir el usuario";
-     *  - `rejected` → "el usuario te dijo NO en este turno o uno reciente";
-     *  - `expired`  → "se te acabó el tiempo de espera; reintenta o sigue";
-     *  - `executed` *sólo si* `result.ok === false` (v1.1.3 #16) → "ejecuté
-     *    la primitiva en el widget pero falló". Le permite al LLM corregir
-     *    el rumbo en su siguiente turno (ej. fall back a `navigate({url:?})`
-     *    cuando un `fill_form` no encontró el form).
+     *  - `pending`  → "you are still waiting for the user to decide";
+     *  - `rejected` → "the user told you NO this turn or a recent one";
+     *  - `expired`  → "your wait time ran out; retry or move on";
+     *  - `executed` *only if* `result.ok === false` (v1.1.3 #16) → "I ran
+     *    the primitive in the widget but it failed". It lets the LLM correct
+     *    course on its next turn (e.g. fall back to `navigate({url:?})`
+     *    when a `fill_form` did not find the form).
      *
-     * `confirmed` y los `executed` exitosos se omiten: los efectos positivos
-     * ya están en el mundo, mencionarlos sólo añade ruido al prompt.
+     * `confirmed` and successful `executed` ones are omitted: the positive
+     * effects are already in the world, mentioning them only adds noise to the prompt.
      *
-     * El listado se ordena por `id desc` y se trunca a
-     * `chatbot.limits.pending_actions_in_prompt` (default 10) para no inflar
-     * el system prompt cuando una conversación acumule muchas iteraciones.
+     * The listing is ordered by `id desc` and truncated to
+     * `chatbot.limits.pending_actions_in_prompt` (default 10) so as not to inflate
+     * the system prompt when a conversation accumulates many iterations.
      */
     protected function pendingActionsSection(?Conversation $conversation): string
     {
@@ -355,13 +354,13 @@ class SystemPromptBuilder
     }
 
     /**
-     * Sección `## Current date/time` (v1.1.3, finding #23). Ancla temporal
-     * para el LLM: sin esto el modelo tiende a alucinar fechas relativas
-     * desde su training cutoff (e.g. el usuario pide "en 7 días" en 2026
-     * pero el modelo emite fechas de 2025).
+     * `## Current date/time` section (v1.1.3, finding #23). Temporal anchor
+     * for the LLM: without this the model tends to hallucinate relative dates
+     * from its training cutoff (e.g. the user asks for "in 7 days" in 2026
+     * but the model emits dates from 2025).
      *
-     * Se emite en el segmento DINÁMICO (no cacheable): `now()` cambia turn
-     * a turn y entraría en conflicto con el cache ephemeral de Anthropic.
+     * It is emitted in the DYNAMIC segment (not cacheable): `now()` changes
+     * turn to turn and would conflict with Anthropic's ephemeral cache.
      */
     protected function currentDateTimeSection(): string
     {
@@ -369,25 +368,25 @@ class SystemPromptBuilder
 
         return "## Current date/time\n"
             . $now->toIso8601String() . ' (' . $now->format('l, F j, Y') . ")\n\n"
-            . 'When you compute relative dates from user input ("mañana", "in 7 days", '
+            . 'When you compute relative dates from user input ("tomorrow", "in 7 days", '
             . '"next month"), derive them from this timestamp, not from your training cutoff.';
     }
 
     /**
-     * Sección "Page context — decision strategy" (v1.1.1, finding #12.a).
+     * "Page context — decision strategy" section (v1.1.1, finding #12.a).
      *
-     * Enseña al LLM a aprovechar la página actual: cuando el usuario está
-     * en un grid Backpack y pide filtrar la misma entidad, mejor modificar
-     * el grid existente (page-bound action) que duplicar la tabla en el
-     * chat. Reglas transversales a cualquier host con page_context.
+     * Teaches the LLM to take advantage of the current page: when the user is
+     * on a Backpack grid and asks to filter the same entity, it is better to
+     * modify the existing grid (page-bound action) than to duplicate the table
+     * in the chat. Rules that cut across any host with page_context.
      *
-     * Configurable: `chatbot.system_prompt.decision_strategy` puede ser
-     * `false` para deshabilitarla, o el nombre de una vista Blade que el
-     * host publique para usar su propia variante. Default: `true` (emite
-     * las reglas estándar del package).
+     * Configurable: `chatbot.system_prompt.decision_strategy` can be
+     * `false` to disable it, or the name of a Blade view that the
+     * host publishes to use its own variant. Default: `true` (emits
+     * the package's standard rules).
      *
-     * Se devuelve cadena vacía cuando está deshabilitada o cuando la vista
-     * declarada no existe.
+     * An empty string is returned when it is disabled or when the declared
+     * view does not exist.
      */
     protected function decisionStrategySection(): string
     {
@@ -412,14 +411,14 @@ class SystemPromptBuilder
     }
 
     /**
-     * v2.2 — Bullets que mapean intents conversacionales a las nuevas backend
-     * tools del dashboard. Cada bullet aparece sólo si el toggle por-tool
-     * está activo (`chatbot.tools.{name}.enabled`, default `true`); un host
-     * que desactive `delete_dashboard` (por ejemplo) verá la sección sin esa
-     * línea, evitando que el LLM la "sugiera" al usuario.
+     * v2.2 — Bullets that map conversational intents to the dashboard's new
+     * backend tools. Each bullet appears only if the per-tool toggle
+     * is active (`chatbot.tools.{name}.enabled`, default `true`); a host
+     * that disables `delete_dashboard` (for example) will see the section
+     * without that line, preventing the LLM from "suggesting" it to the user.
      *
-     * Se omite enteramente cuando los 5 toggles están en `false` o cuando la
-     * sección de decision_strategy está deshabilitada / customizada.
+     * It is omitted entirely when all 5 toggles are `false` or when the
+     * decision_strategy section is disabled / customized.
      */
     protected function dashboardToolsHintsSection(): string
     {
@@ -452,11 +451,11 @@ class SystemPromptBuilder
     }
 
     /**
-     * Texto canónico de decision strategy emitido cuando
-     * `chatbot.system_prompt.decision_strategy=true` (default). Las reglas
-     * son transversales a cualquier host con page context — el contenido
-     * está pensado para que el LLM pueda razonar sobre la sección
-     * `## Current page` que precede inmediatamente.
+     * Canonical decision strategy text emitted when
+     * `chatbot.system_prompt.decision_strategy=true` (default). The rules
+     * cut across any host with page context — the content is designed so that
+     * the LLM can reason about the `## Current page` section that immediately
+     * precedes it.
      */
     public const DEFAULT_DECISION_STRATEGY = <<<'PROMPT'
 ## Page context — decision strategy
@@ -532,14 +531,14 @@ call.
   at Save time. Do NOT poll the user `required`-by-`required` before
   calling the primitive: that wastes a turn and applies write-tool
   semantics to what is really a UI primitive.
-- Example (do this): user on `/admin/mission/create` says "crea una
-  mission de Tierra a Marte mañana, prioridad express, hazmat sí" and
+- Example (do this): user on `/admin/mission/create` says "create a
+  mission from Earth to Mars tomorrow, express priority, hazmat yes" and
   the form has `required` fields `ship_id` and `eta` that the user did
   NOT mention. Correct: call `fill_form({selector: crud.form.selector,
   fields: {origin_planet_id: 1, destination_planet_id: 2, departure_at:
   '<tomorrow ISO>', priority: 'express', hazmat: true}})` immediately —
   the browser will mark `ship_id`/`eta` red at Save and the user will
-  complete them. Incorrect: ask "¿qué ship?" turn-by-turn before
+  complete them. Incorrect: ask "which ship?" turn-by-turn before
   filling anything.
 - Contrast with backend `create_*` / `update_*` tools: there you MUST
   collect every `required` before invoking, because the server validates
@@ -552,13 +551,13 @@ call.
   names are NOT enumerated in this prompt — they live in the host's JS
   glue. Treat `invoke_host_action` as a fallback tool whenever the user
   asks for a UI operation that no other tool obviously covers:
-  - "refresca el grid" / "recarga la tabla" / "reload" →
+  - "refresh the grid" / "reload the table" / "reload" →
     `invoke_host_action({action_name: 'refreshGrid'})`.
-  - "exporta a CSV" / "descarga el listado" →
+  - "export to CSV" / "download the list" →
     `invoke_host_action({action_name: 'exportCsv', ...filters})`.
-  - "imprime el albarán/manifest" →
+  - "print the delivery note/manifest" →
     `invoke_host_action({action_name: 'printManifest', shipment_id: …})`.
-- Do NOT say "no tengo capacidad de hacer eso" before trying
+- Do NOT say "I can't do that" before trying
   `invoke_host_action` first when the request maps to a plausible
   registered name. The tool returns a structured `PrimitiveResult` — on
   failure (`ok:false, error:'unknown_tool'`) you can fall back and tell
@@ -573,8 +572,8 @@ call.
 
 ### When ambiguous, ASK
 If you're not sure whether the user wants chat-bound or page-bound, ask
-once in one sentence ("Te lo aplico al listado actual o te lo pinto aquí
-en el chat?"). Don't ask every turn; remember the preference for the
+once in one sentence ("Should I apply this to the current listing or
+show it here in the chat?"). Don't ask every turn; remember the preference for the
 remaining turns of this conversation.
 PROMPT;
 

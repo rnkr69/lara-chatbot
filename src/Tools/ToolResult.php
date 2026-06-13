@@ -5,30 +5,30 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Tools;
 
 /**
- * Resultado de invocar una tool. Inmutable.
+ * Result of invoking a tool. Immutable.
  *
- * Tres estados:
+ * Three states:
  *
- *  - `ok`             — éxito. `data` contiene el payload que vuelve al LLM
- *                       como `tool_result` (también consumible por el host
- *                       vía evento `ToolInvoked` — gap E08). `blocks`
- *                       opcional: bloques tipados que el widget renderiza
- *                       directamente (E15) sin pasar por el LLM.
- *  - `error`          — la invocación no se completó. `errorCategory`
- *                       categoriza el fallo para el LLM (`validation`,
+ *  - `ok`             — success. `data` contains the payload that returns to
+ *                       the LLM as a `tool_result` (also consumable by the
+ *                       host via the `ToolInvoked` event — E08 gap). `blocks`
+ *                       optional: typed blocks that the widget renders
+ *                       directly (E15) without going through the LLM.
+ *  - `error`          — the invocation did not complete. `errorCategory`
+ *                       categorizes the failure for the LLM (`validation`,
  *                       `unauthorized`, `out_of_scope`, `not_owner`,
- *                       `runtime`, ...) y `errorMessage` añade contexto
- *                       seguro (sin filtrar internals). El LLM ve ambos
- *                       campos y puede pedir corrección al usuario.
- *  - `awaiting_user`  — la tool requiere confirmación del usuario antes de
- *                       ejecutarse de verdad (E16). Aplica a frontend tools
- *                       en v1; backend tools quedan en `Auto` hasta v2.
- *                       `pendingActionId` guarda la PK de
- *                       `chatbot_pending_actions` que E16 crea.
+ *                       `runtime`, ...) and `errorMessage` adds safe
+ *                       context (without leaking internals). The LLM sees both
+ *                       fields and can ask the user for a correction.
+ *  - `awaiting_user`  — the tool requires user confirmation before
+ *                       actually executing (E16). Applies to frontend tools
+ *                       in v1; backend tools stay at `Auto` until v2.
+ *                       `pendingActionId` holds the PK of the
+ *                       `chatbot_pending_actions` row that E16 creates.
  *
- * Patrón bulk (gap cross-host E06): para tools que aceptan `target_ids[]`
- * con partial-success, devolver `success()` con `data` que incluya
- * `succeeded[]` + `failed[]` + counts. Documentado en
+ * Bulk pattern (E06 cross-host gap): for tools that accept `target_ids[]`
+ * with partial-success, return `success()` with `data` that includes
+ * `succeeded[]` + `failed[]` + counts. Documented in
  * `docs/backend-tools.md`.
  */
 final class ToolResult
@@ -73,8 +73,8 @@ final class ToolResult
     }
 
     /**
-     * Estado intermedio para frontend tools `confirmation=confirm` (E16).
-     * Backend tools en v1 no deberían devolver este estado.
+     * Intermediate state for frontend tools with `confirmation=confirm` (E16).
+     * Backend tools in v1 should not return this state.
      */
     public static function awaitingUser(string $pendingActionId, string $message = ''): self
     {
@@ -101,9 +101,9 @@ final class ToolResult
     }
 
     /**
-     * Serializa para el evento SSE `tool_result` (ROADMAP §3.4) y para el
-     * payload que vuelve al LLM. Los listeners del evento `ToolInvoked`
-     * (gap E08) reciben este mismo array.
+     * Serializes for the `tool_result` SSE event (ROADMAP §3.4) and for the
+     * payload that returns to the LLM. Listeners of the `ToolInvoked` event
+     * (E08 gap) receive this same array.
      *
      * @return array<string, mixed>
      */

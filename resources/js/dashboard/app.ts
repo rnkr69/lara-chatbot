@@ -1,19 +1,19 @@
 /**
- * v2.0 / E5 — orquestador `DashboardApp`.
+ * v2.0 / E5 — `DashboardApp` orchestrator.
  *
  * Boot:
- *   1. Lee `data-*` del root (E4 los inyecta).
- *   2. Aplica tema (`light`/`dark`/`auto` con `prefers-color-scheme`).
- *   3. Monta `mountDashboardSidebar` y arranca la lista.
- *   4. Resuelve el slug activo: localStorage (D16 mirror) → `data-default-slug` →
- *      primer dashboard de la lista cuando la API responda → null si no hay
- *      ninguno.
- *   5. Carga el dashboard activo (`api.showDashboard`) y monta el grid +
+ *   1. Reads the root's `data-*` (E4 injects them).
+ *   2. Applies theme (`light`/`dark`/`auto` with `prefers-color-scheme`).
+ *   3. Mounts `mountDashboardSidebar` and starts the list.
+ *   4. Resolves the active slug: localStorage (D16 mirror) → `data-default-slug` →
+ *      first dashboard in the list once the API responds → null if there are
+ *      none.
+ *   5. Loads the active dashboard (`api.showDashboard`) and mounts the grid +
  *      cards.
- *   6. Dispara `streamRefreshAll` (SSE bulk) si hay algún widget con
- *      `refresh_policy='on_open'`. Cada frame `widget_refreshed` actualiza
- *      la card correspondiente in-place.
- *   7. Listener `change` del grid → debounced PATCH por widget movido.
+ *   6. Fires `streamRefreshAll` (bulk SSE) if any widget has
+ *      `refresh_policy='on_open'`. Each `widget_refreshed` frame updates the
+ *      corresponding card in-place.
+ *   7. Grid `change` listener → debounced PATCH per moved widget.
  *
  * Layout DOM final:
  *   #chatbot-dashboard-root.cb-dashboard-root
@@ -41,7 +41,7 @@ import type { DashboardDetail, DashboardWidget } from './types.js';
 export interface DashboardAppOptions {
   /** Root element produced by the blade (`#chatbot-dashboard-root`). */
   root: HTMLElement;
-  /** Inyectables para tests (mockean fetch/gridstack/window.confirm). */
+  /** Injectables for tests (mock fetch/gridstack/window.confirm). */
   fetcher?: typeof fetch;
   gridFactory?: GridStackFactory;
   confirmer?: (msg: string) => boolean;

@@ -24,8 +24,8 @@ beforeEach(function () {
 });
 
 /**
- * Crea un TestUser con `id` y atributos crudos sincronizados — sin tabla
- * real (los tests del orquestador usan el mismo patrón en ChatServiceTest).
+ * Creates a TestUser with `id` and synced raw attributes — without a real
+ * table (the orchestrator tests use the same pattern in ChatServiceTest).
  */
 function makeAuthedUser(int $id = 1): TestUser
 {
@@ -36,8 +36,8 @@ function makeAuthedUser(int $id = 1): TestUser
 }
 
 /**
- * Parsea el body SSE en una lista de `['event' => string, 'data' => array]`.
- * Tolerante a `\r\n` y a líneas en blanco al final.
+ * Parses the SSE body into a list of `['event' => string, 'data' => array]`.
+ * Tolerant of `\r\n` and trailing blank lines.
  *
  * @return list<array{event: string, data: array<string, mixed>}>
  */
@@ -100,7 +100,7 @@ it('streams text + done as SSE frames in order for a happy-path POST', function 
     expect($kinds)->toContain('text')
         ->and(end($kinds))->toBe('done');
 
-    // Concatenación de los deltas debe reconstituir el texto del LLM.
+    // Concatenating the deltas should reconstitute the LLM text.
     $combined = '';
     foreach ($events as $ev) {
         if ($ev['event'] === 'text') {
@@ -158,7 +158,7 @@ it('reuses an existing conversation when conversation_id is provided', function 
 
     $response = $this->actingAs($user, 'web')
         ->post('/chatbot/stream', [
-            'message'         => 'continúa',
+            'message'         => 'continue',
             'conversation_id' => $existing->id,
         ]);
 
@@ -215,7 +215,7 @@ it('returns 422 when conversation_id belongs to another user', function () {
     $response->assertStatus(422);
     $response->assertJsonValidationErrors(['conversation_id']);
 
-    // No se persiste user message para un payload inválido.
+    // No user message is persisted for an invalid payload.
     expect(Message::query()->count())->toBe(0);
 });
 
@@ -251,13 +251,13 @@ it('returns 429 with Retry-After when the user exceeds the per-minute rate limit
     $user = makeAuthedUser();
     $key  = "chatbot:stream:{$user->getKey()}";
 
-    // Pre-acumula 2 attempts → la próxima petición debe 429.
+    // Pre-accumulate 2 attempts → the next request should 429.
     RateLimiter::hit($key, 60);
     RateLimiter::hit($key, 60);
 
     Prism::fake([
         TextResponseFake::make()
-            ->withText('no debería usarse')
+            ->withText('should not be used')
             ->withFinishReason(FinishReason::Stop),
     ]);
 
@@ -283,7 +283,7 @@ it('does not enforce rate limit when chatbot.limits.rate_limit.enabled=false', f
     $user = makeAuthedUser();
     $key  = "chatbot:stream:{$user->getKey()}";
 
-    // Aunque haya muchos hits previos, deshabilitado = no se chequea.
+    // Even with many previous hits, disabled = not checked.
     for ($i = 0; $i < 99; $i++) {
         RateLimiter::hit($key, 60);
     }
@@ -294,7 +294,7 @@ it('does not enforce rate limit when chatbot.limits.rate_limit.enabled=false', f
 });
 
 it('breaks the SSE loop early when the client connection is aborted, leaving the assistant message unpersisted', function () {
-    // Texto largo → varios chunks de TextDelta antes de done.
+    // Long text → several TextDelta chunks before done.
     Prism::fake([
         TextResponseFake::make()
             ->withText(str_repeat('abc def ghi ', 30))
@@ -310,8 +310,8 @@ it('breaks the SSE loop early when the client connection is aborted, leaving the
 
     $user = makeAuthedUser();
 
-    // Bypass del routing para tener control determinista del callback. El
-    // routing happy-path ya está cubierto por los otros tests.
+    // Bypass routing to get deterministic control of the callback. The
+    // happy-path routing is already covered by the other tests.
     $service    = app(ChatService::class);
     $controller = app(ChatController::class);
 
@@ -322,11 +322,11 @@ it('breaks the SSE loop early when the client connection is aborted, leaving the
 
     $response = $controller->stream($request, $service);
 
-    // Captura del stream usando un buffer-callback (igual patrón que
-    // `Illuminate\Testing\TestResponse::streamedContent()`): el `ob_flush()`
-    // interno del controller dispara este callback, que acumula en
-    // `$collected` y retorna '' para no propagar al outer SAPI. Esto evita
-    // que los frames se pierdan al ser flushed durante el test.
+    // Capture the stream using a buffer callback (same pattern as
+    // `Illuminate\Testing\TestResponse::streamedContent()`): the controller's
+    // internal `ob_flush()` fires this callback, which accumulates into
+    // `$collected` and returns '' so nothing propagates to the outer SAPI.
+    // This prevents the frames from being lost when flushed during the test.
     $collected = '';
     ob_start(function (string $chunk) use (&$collected): string {
         $collected .= $chunk;
@@ -338,17 +338,17 @@ it('breaks the SSE loop early when the client connection is aborted, leaving the
 
     $events = parseSseBody($body);
 
-    // El loop emite el frame ANTES de checar abort; con threshold K, salen
-    // K+1 frames y luego el break. Verificamos que sea muy inferior al
-    // total que produciría el stream completo (texto largo → muchos chunks).
+    // The loop emits the frame BEFORE checking abort; with threshold K, K+1
+    // frames come out and then the break. We verify it is far below the total
+    // the full stream would produce (long text → many chunks).
     expect(count($events))->toBeLessThanOrEqual($maxBeforeAbort + 1)
         ->and(count($events))->toBeGreaterThan(0);
 
-    // No `done` (Generator se suspendió a mitad — el postloop NO corrió).
+    // No `done` (the Generator was suspended midway — the postloop did NOT run).
     $kinds = array_map(fn (array $e) => $e['event'], $events);
     expect($kinds)->not->toContain('done');
 
-    // User msg persistido (handle lo crea ANTES del foreach), assistant NO.
+    // User msg persisted (handle creates it BEFORE the foreach), assistant NOT.
     expect(Message::query()->where('role', MessageRole::User->value)->count())->toBe(1)
         ->and(Message::query()->where('role', MessageRole::Assistant->value)->count())->toBe(0);
 });

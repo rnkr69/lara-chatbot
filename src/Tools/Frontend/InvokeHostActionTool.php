@@ -8,21 +8,21 @@ use Rnkr69\LaraChatbot\Tools\BaseFrontendTool;
 use Rnkr69\LaraChatbot\Tools\ConfirmationLevel;
 
 /**
- * "Escape hatch": invoca una acción JavaScript registrada por el host vía
- * `window.Chatbot.registerAction(name, fn)` (E12). Se usa cuando el host
- * quiere exponer una acción específica de su SPA (refrescar una grid,
- * disparar un modal propio, llamar a un evento Livewire) que las primitivas
- * estándar no cubren.
+ * "Escape hatch": invokes a JavaScript action registered by the host via
+ * `window.Chatbot.registerAction(name, fn)` (E12). Used when the host
+ * wants to expose a specific action of its SPA (refresh a grid,
+ * trigger its own modal, call a Livewire event) that the standard
+ * primitives don't cover.
  *
- * Confirmation: `auto` por defecto (desde v1.1.3, finding #19). La mayoría
- * de los host actions registrados en hosts reales son reversibles
- * (refreshGrid, exportCsv, printManifest) y exigir "Mark as done" del
- * usuario degrada la UX. Los host actions destructivos deben exponerse
- * como backend tools dedicadas con `confirm`/`manual` propios; el escape
- * hatch frontend asume "el host sabe lo que está exponiendo".
+ * Confirmation: `auto` by default (since v1.1.3, finding #19). Most
+ * host actions registered in real hosts are reversible
+ * (refreshGrid, exportCsv, printManifest) and requiring "Mark as done" from
+ * the user degrades the UX. Destructive host actions should be exposed
+ * as dedicated backend tools with their own `confirm`/`manual`; the frontend
+ * escape hatch assumes "the host knows what it's exposing".
  *
- * Hosts que registren acciones mutativas pueden subclasear para devolver
- * `confirm` o `manual`.
+ * Hosts that register mutating actions can subclass to return
+ * `confirm` or `manual`.
  */
 class InvokeHostActionTool extends BaseFrontendTool
 {

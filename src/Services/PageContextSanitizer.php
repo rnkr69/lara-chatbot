@@ -5,21 +5,21 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Services;
 
 /**
- * Sanitiza el `page_context` declarado por el host antes de inyectarlo en
- * el system prompt (E14 ROADMAP §5/E14).
+ * Sanitizes the `page_context` declared by the host before injecting it into
+ * the system prompt (E14 ROADMAP §5/E14).
  *
- * Contrato público de tipos (D13, decidido al iniciar E14):
- *   - Sobreviven: `string`, `int`, `float` finito, `bool`, `array` (asociativo
- *     o lista) cuyo contenido a su vez sobreviva.
- *   - Se descartan: `null` (a nivel de valor), `Closure`, cualquier `object`,
- *     recursos, `NaN`/`±INF`, valores cuya profundidad supere `$maxDepth`.
- *   - Las llaves de un array asociativo se coercen a string (`int` → `(string)`);
- *     las listas mantienen claves enteras.
+ * Public type contract (D13, decided at the start of E14):
+ *   - Survive: `string`, `int`, finite `float`, `bool`, `array` (associative
+ *     or list) whose content in turn survives.
+ *   - Discarded: `null` (at value level), `Closure`, any `object`,
+ *     resources, `NaN`/`±INF`, values whose depth exceeds `$maxDepth`.
+ *   - The keys of an associative array are coerced to string (`int` → `(string)`);
+ *     lists keep integer keys.
  *
- * El sanitizador NO aplica truncado por tamaño JSON — eso es responsabilidad
- * de `ChatController@stream` (D11: descarte binario fallback). Aquí
- * trabajamos sólo a nivel de tipos para producir un payload "seguro" que el
- * system prompt pueda volcar sin filtrar HTML, closures o referencias.
+ * The sanitizer does NOT apply truncation by JSON size — that is the
+ * responsibility of `ChatController@stream` (D11: binary discard fallback). Here
+ * we work only at the type level to produce a "safe" payload that the
+ * system prompt can dump without leaking HTML, closures or references.
  */
 class PageContextSanitizer
 {
@@ -37,8 +37,8 @@ class PageContextSanitizer
             return [];
         }
 
-        // El root SIEMPRE es asociativo (string keys). Si llegó una lista,
-        // convertimos a asociativo conservando los índices como string.
+        // The root is ALWAYS associative (string keys). If a list arrived,
+        // we convert it to associative keeping the indices as strings.
         $assoc = [];
         foreach ($cleaned as $key => $value) {
             $assoc[(string) $key] = $value;
@@ -48,8 +48,8 @@ class PageContextSanitizer
     }
 
     /**
-     * Recorre recursivamente el valor y devuelve la versión saneada o `null`
-     * para indicar "descártame" al caller. `null` en el caller se ignora.
+     * Recursively walks the value and returns the sanitized version or `null`
+     * to tell the caller "discard me". `null` in the caller is ignored.
      */
     protected function walk(mixed $value, int $depthLeft): mixed
     {
@@ -73,7 +73,7 @@ class PageContextSanitizer
             return $this->walkArray($value, $depthLeft - 1);
         }
 
-        // null, object (incluido Closure), resource, etc. → drop.
+        // null, object (including Closure), resource, etc. → drop.
         return null;
     }
 

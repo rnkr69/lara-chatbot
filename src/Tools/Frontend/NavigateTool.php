@@ -13,20 +13,20 @@ use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Throwable;
 
 /**
- * Navega la UI del host a una URL o a una ruta nombrada de Laravel.
+ * Navigates the host UI to a URL or to a named Laravel route.
  *
- * En SPA (Inertia/Livewire/etc., E13) el widget delega en el adaptador de
- * navegación registrado para no perder el estado de la app. En MPA cae a
- * `window.location.assign(url)`.
+ * In a SPA (Inertia/Livewire/etc., E13) the widget delegates to the
+ * registered navigation adapter so as not to lose the app's state. In an MPA
+ * it falls back to `window.location.assign(url)`.
  *
- * Confirmation: `auto` (la navegación es la acción menos destructiva del
- * catálogo; el LLM la usa para llevar al usuario a la pantalla pertinente).
+ * Confirmation: `auto` (navigation is the least destructive action in the
+ * catalog; the LLM uses it to take the user to the relevant screen).
  *
- * v1.1: cuando el LLM pide `route` (ruta nombrada de Laravel) la resolvemos
- * server-side y mergemos la `url` resultante en `frontend_action.args`. La
- * primitiva JS sólo conoce `url`; sin esta resolución la doc del tool decía
- * "prefer named routes" pero el widget hacía silent no-op si llegaba `route`
- * sin `url` (findings doc #3).
+ * v1.1: when the LLM requests `route` (a named Laravel route) we resolve it
+ * server-side and merge the resulting `url` into `frontend_action.args`. The
+ * JS primitive only knows `url`; without this resolution the tool's doc said
+ * "prefer named routes" but the widget did a silent no-op if `route` arrived
+ * without `url` (findings doc #3).
  */
 class NavigateTool extends BaseFrontendTool
 {
@@ -60,7 +60,7 @@ class NavigateTool extends BaseFrontendTool
     {
         $url = isset($args['url']) && is_string($args['url']) ? trim($args['url']) : '';
         if ($url !== '') {
-            // El LLM pasó url directa: la primitiva JS la consume tal cual.
+            // The LLM passed a direct url: the JS primitive consumes it as-is.
             return ToolResult::success([]);
         }
 
@@ -76,8 +76,8 @@ class NavigateTool extends BaseFrontendTool
         }
 
         try {
-            // absolute=false ⇒ devuelve path relativo (`/orders/42`) que la
-            // primitiva acepta sin tocar el origen actual.
+            // absolute=false ⇒ returns a relative path (`/orders/42`) that the
+            // primitive accepts without touching the current origin.
             $resolved = route($route, $params, false);
         } catch (UrlGenerationException $e) {
             return ToolResult::error(

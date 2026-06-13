@@ -1,27 +1,27 @@
 /**
- * v2.0 / E5 — card genérica de un widget del dashboard.
+ * v2.0 / E5 — generic card for a dashboard widget.
  *
- * El cuerpo de la card se delega a `renderBlock()` (resources/js/blocks.ts):
- * cero duplicación de renderers entre el widget flotante y el dashboard.
+ * The card body is delegated to `renderBlock()` (resources/js/blocks.ts):
+ * zero duplication of renderers between the floating widget and the dashboard.
  *
- * El header expone:
- *   - Título editable (override `widget.title` o `block_type` por defecto).
+ * The header exposes:
+ *   - Editable title (override `widget.title`, or `block_type` by default).
  *   - Status pill (`fresh`/`stale`/`error`/`unauthorized`/`source_missing`).
- *   - Menú con: ↻ refrescar, ✕ quitar.
+ *   - Menu with: ↻ refresh, ✕ remove.
  *
- * v2.1.3 (#33 + cleanup) — el "last refreshed" relativo ("just now"/"5m"/…)
- * y el botón 👁 "View source" se han retirado del header. El primero porque
- * inflaba el ancho fijo del header (~50–60 px) y hacía que en cards estrechas
- * el `h3` del título quedase sin sitio (medido en vivo: 8 px para una card
- * `gs-w:3` por defecto — ver #32); el segundo era un afford. de debug que
- * dejaba el botón huérfano cuando `app.debug=false` y que, encendido, robaba
- * espacio al header del mismo modo. La info que daban está en `source`/
- * `last_refreshed_at` del propio widget para quien quiera reconstruirla.
+ * v2.1.3 (#33 + cleanup) — the relative "last refreshed" ("just now"/"5m"/…)
+ * and the 👁 "View source" button have been removed from the header. The
+ * former because it inflated the header's fixed width (~50–60 px) and left the
+ * title `h3` with no room on narrow cards (measured live: 8 px for a default
+ * `gs-w:3` card — see #32); the latter was a debug affordance that left the
+ * button orphaned when `app.debug=false` and that, when on, stole header space
+ * the same way. The info they gave is in the widget's own `source`/
+ * `last_refreshed_at` for anyone who wants to reconstruct it.
  *
- * El renderer del block recibe un `BlockHost.send` que noop-ea con un toast —
- * en el dashboard no hay un chat al que mandar prompts; los buttons embebidos
- * en `actions`/`list` quedan visibles pero inertes. E9 puede enriquecerlo
- * abriendo `/chatbot?prompt=…` en una nueva conversación.
+ * The block renderer receives a `BlockHost.send` that no-ops with a toast —
+ * on the dashboard there is no chat to send prompts to; the buttons embedded
+ * in `actions`/`list` stay visible but inert. E9 may enrich this by opening
+ * `/chatbot?prompt=…` in a new conversation.
  */
 
 import type { BlockPayload } from '../types.js';
@@ -67,13 +67,13 @@ export interface WidgetCardOptions {
 }
 
 export interface WidgetCardHandle {
-  /** DOM root (`.cb-dashboard-card`) que gridstack mete dentro de `.grid-stack-item-content`. */
+  /** DOM root (`.cb-dashboard-card`) that gridstack places inside `.grid-stack-item-content`. */
   readonly el: HTMLElement;
-  /** Reemplaza el snapshot + estado tras un refresh. */
+  /** Replaces the snapshot + status after a refresh. */
   update(snapshot: WidgetSnapshot | null, status: RefreshStatus, error: WidgetRefreshError | null, lastRefreshedAt: string | null): void;
-  /** Spinner sutil en el header. */
+  /** Subtle spinner in the header. */
   setRefreshing(on: boolean): void;
-  /** Edita el título visualmente (no llama a `onRetitle`). */
+  /** Edits the title visually (does not call `onRetitle`). */
   setTitle(title: string | null): void;
   destroy(): void;
 }
@@ -171,7 +171,7 @@ export function mountWidgetCard(opts: WidgetCardOptions): WidgetCardHandle {
   body.className = 'cb-dashboard-card-body';
   root.appendChild(body);
 
-  // ── Error banner (oculto cuando fresh) ────────────────────────────────
+  // ── Error banner (hidden when fresh) ──────────────────────────────────
   const errorBanner = document.createElement('div');
   errorBanner.className = 'cb-dashboard-card-error';
   errorBanner.hidden = true;

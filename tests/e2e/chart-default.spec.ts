@@ -1,17 +1,17 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * v2.0 / E7 — Playwright para el chart renderer por defecto del dashboard.
+ * v2.0 / E7 — Playwright for the dashboard's default chart renderer.
  *
- * Vitest stubs Chart.js (jsdom no implementa canvas). Aquí ejecutamos el
- * bundle real en chromium headless: el canvas se monta de verdad, Chart.js
- * dibuja, y verificamos los dos paths del cascade:
+ * Vitest stubs Chart.js (jsdom does not implement canvas). Here we run the
+ * real bundle in headless chromium: the canvas mounts for real, Chart.js
+ * draws, and we verify the two cascade paths:
  *
- *   1. default: el bundle registra `renderChartBlockChartjs` y el canvas
- *      aparece poblado.
- *   2. host-override: el host instala `window.Chatbot` con su propio
- *      renderer ANTES del bundle; el bundle respeta el override y Chart.js
- *      NUNCA se invoca para este block.
+ *   1. default: the bundle registers `renderChartBlockChartjs` and the canvas
+ *      appears populated.
+ *   2. host-override: the host installs `window.Chatbot` with its own
+ *      renderer BEFORE the bundle; the bundle respects the override and Chart.js
+ *      is NEVER invoked for this block.
  */
 
 test.beforeEach(async ({ page }) => {

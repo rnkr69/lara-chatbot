@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * DoD ROADMAP §5/E17: "Abrir conversación X en el widget, navegar a /chatbot:
- * se ve la misma conversación".
+ * DoD ROADMAP §5/E17: "Open conversation X in the widget, navigate to /chatbot:
+ * the same conversation is shown".
  *
  * Flow:
  *   1. Open `/widget-floating.html` — the widget mounts floating mode with

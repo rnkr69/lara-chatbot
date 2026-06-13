@@ -7,22 +7,22 @@ namespace Rnkr69\LaraChatbot\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Valida el payload de `POST /chatbot/dashboards` (v2.0 / E4).
+ * Validates the payload of `POST /chatbot/dashboards` (v2.0 / E4).
  *
- *   - `name`        requerido. Hasta 120 chars (matches `chatbot_dashboards.name`).
- *                   El servidor deriva el `slug` con `Str::slug($name)` + sufijo
- *                   numérico si colisiona dentro del scope del usuario.
- *                   `name` NO es único por usuario; el `slug` sí lo es a nivel
- *                   schema (`unique (user_type, user_id, slug)`).
- *   - `is_default`  opcional. Si true, el hook `saving` del modelo auto-demote
- *                   al resto de dashboards del usuario.
- *   - `metadata`    opcional. JSON libre que el frontend (E5) usa para tema,
- *                   refresh_default_policy y colores.
+ *   - `name`        required. Up to 120 chars (matches `chatbot_dashboards.name`).
+ *                   The server derives the `slug` with `Str::slug($name)` + a
+ *                   numeric suffix if it collides within the user's scope.
+ *                   `name` is NOT unique per user; the `slug` is, at the
+ *                   schema level (`unique (user_type, user_id, slug)`).
+ *   - `is_default`  optional. If true, the model's `saving` hook auto-demotes
+ *                   the user's other dashboards.
+ *   - `metadata`    optional. Free-form JSON that the frontend (E5) uses for theme,
+ *                   refresh_default_policy and colors.
  *
- * El cap `chatbot.dashboard.max_dashboards_per_user` (default 20) se enforce
- * en el controller (no aquí) porque el Form Request no sabe qué usuario está
- * autenticado en el momento del `rules()` resolver — la query de count vive
- * en el controller donde `$this->user()` ya está resuelto.
+ * The cap `chatbot.dashboard.max_dashboards_per_user` (default 20) is enforced
+ * in the controller (not here) because the Form Request does not know which user is
+ * authenticated at the time the `rules()` resolves — the count query lives
+ * in the controller where `$this->user()` is already resolved.
  */
 class CreateDashboardRequest extends FormRequest
 {

@@ -7,23 +7,23 @@ namespace Rnkr69\LaraChatbot\Tools\Frontend;
 use Rnkr69\LaraChatbot\Tools\BaseFrontendTool;
 
 /**
- * Inserta un bloque tipado dentro del hilo del chat (a diferencia de
- * `OpenModalTool`, que lo presenta overlay encima de la página).
+ * Inserts a typed block within the chat thread (unlike
+ * `OpenModalTool`, which presents it as an overlay above the page).
  *
- * Es la primitiva canónica para que el LLM responda con contenido rico
- * — tablas de pedidos, tarjetas de producto, listas — en lugar de
- * markdown plano. Los renderers concretos los registra el widget en E15
+ * It is the canonical primitive for the LLM to respond with rich content
+ * — order tables, product cards, lists — instead of plain
+ * markdown. The concrete renderers are registered by the widget in E15
  * (`text`, `card`, `table`, `list`, `actions`, `chart`).
  *
- * Confirmation: `auto`. Sólo pinta contenido en el chat.
+ * Confirmation: `auto`. It only renders content in the chat.
  *
- * Nota arquitectural: ROADMAP §5/E15 indica dos fuentes posibles para los
- * bloques: el LLM emitiendo `<block type="...">{...}</block>` parseado por
- * el `ChatService`, o esta tool emitiendo el bloque a través del SSE como
- * `event: frontend_action`. Ambas conviven; `RenderBlockTool` es útil
- * cuando el LLM razona explícitamente sobre cuándo emitir un bloque (ej.
- * "muestra esta tabla SI el usuario pidió un listado") y prefiere una
- * tool nominada antes que un span inline.
+ * Architectural note: ROADMAP §5/E15 indicates two possible sources for the
+ * blocks: the LLM emitting `<block type="...">{...}</block>` parsed by
+ * `ChatService`, or this tool emitting the block through the SSE as
+ * `event: frontend_action`. Both coexist; `RenderBlockTool` is useful
+ * when the LLM explicitly reasons about when to emit a block (e.g.
+ * "show this table IF the user asked for a listing") and prefers a
+ * named tool over an inline span.
  */
 class RenderBlockTool extends BaseFrontendTool
 {

@@ -13,13 +13,13 @@ use Rnkr69\LaraChatbot\Tools\Backend\DeleteWidgetTool;
 use Rnkr69\LaraChatbot\Tools\ToolContext;
 
 /**
- * v2.2 / PR-B — `EditWidgetTool` y `DeleteWidgetTool`.
+ * v2.2 / PR-B — `EditWidgetTool` and `DeleteWidgetTool`.
  *
- * Cubre: happy path con cada subset de args (single field, multiple
- * combinados), widget_not_found cross-user (política 404-no-403),
- * validation ranges (x/y/w/h, title length, refresh_policy enum),
- * nothing_to_change cuando el LLM no pasa args opcionales, y
- * `delete_widget` con soft-delete confirmado.
+ * Covers: happy path with each subset of args (single field, multiple
+ * combined), widget_not_found cross-user (404-no-403 policy), validation
+ * ranges (x/y/w/h, title length, refresh_policy enum), nothing_to_change
+ * when the LLM passes no optional args, and `delete_widget` with confirmed
+ * soft-delete.
  */
 
 beforeEach(function () {

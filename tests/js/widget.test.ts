@@ -842,25 +842,25 @@ describe('ChatbotWidgetElement i18n bridge (E9)', () => {
     el.setAttribute('data-endpoint', '/chatbot/stream');
     el.setAttribute('data-i18n', JSON.stringify({
       title: 'Asistente',
-      open_full_page: 'Abrir página completa',
+      open_full_page: 'Open full page',
     }));
     document.body.appendChild(el);
     const link = el.shadowRoot!.querySelector<HTMLAnchorElement>('.cb-header-title-link');
     expect(link).not.toBeNull();
     expect(link!.textContent).toBe('Asistente');
-    expect(link!.title).toBe('Abrir página completa');
-    expect(link!.getAttribute('aria-label')).toBe('Abrir página completa');
+    expect(link!.title).toBe('Open full page');
+    expect(link!.getAttribute('aria-label')).toBe('Open full page');
   });
 
   it('applies new_conversation to the ✎ header button', () => {
     const el = document.createElement('chatbot-widget') as ChatbotWidgetElement;
     el.setAttribute('data-endpoint', '/chatbot/stream');
-    el.setAttribute('data-i18n', JSON.stringify({ new_conversation: 'Nueva conversación' }));
+    el.setAttribute('data-i18n', JSON.stringify({ new_conversation: 'New conversation' }));
     document.body.appendChild(el);
     const btn = el.shadowRoot!.querySelector<HTMLButtonElement>('.cb-header-new');
     expect(btn).not.toBeNull();
-    expect(btn!.title).toBe('Nueva conversación');
-    expect(btn!.getAttribute('aria-label')).toBe('Nueva conversación');
+    expect(btn!.title).toBe('New conversation');
+    expect(btn!.getAttribute('aria-label')).toBe('New conversation');
   });
 
   it('falls back to inline English defaults when data-i18n is absent', () => {
@@ -1050,7 +1050,7 @@ describe('ChatbotWidgetElement theme resolution (v2.2.2 PR-C)', () => {
     document.body.appendChild(el);
     expect(el.getAttribute('data-theme-effective')).toBe('light');
 
-    // OS conmuta a dark — el listener del MQL re-aplica. Fire on every MQL
+    // OS switches to dark — the MQL listener re-applies. Fire on every MQL
     // (the widget creates a couple — one for the synchronous read in
     // applyTheme() and one for the persistent observer); only the latter
     // has a listener.

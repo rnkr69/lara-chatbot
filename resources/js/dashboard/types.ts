@@ -1,10 +1,10 @@
 /**
- * v2.0 / E5 — shapes JSON consumidos por el bundle del dashboard.
+ * v2.0 / E5 — JSON shapes consumed by the dashboard bundle.
  *
- * Los Resources de E4 (`DashboardResource`, `DashboardWidgetResource`) son la
- * fuente de la verdad; estas interfaces los reflejan en TS. Mantienen `unknown`
- * para los campos opacos (snapshot.data, source.args, metadata) que cada
- * renderer interpreta a su manera.
+ * The E4 Resources (`DashboardResource`, `DashboardWidgetResource`) are the
+ * source of truth; these interfaces reflect them in TS. They keep `unknown`
+ * for the opaque fields (snapshot.data, source.args, metadata) that each
+ * renderer interprets in its own way.
  */
 
 export type RefreshPolicy = 'on_open' | 'manual' | 'never';
@@ -18,7 +18,7 @@ export interface DashboardRow {
   is_default: boolean;
   layout_version: number;
   metadata: Record<string, unknown> | null;
-  /** Sólo presente en /dashboards (index) — `show` lo omite. */
+  /** Only present in /dashboards (index) — `show` omits it. */
   widget_count?: number;
   created_at: string | null;
   updated_at: string | null;
@@ -73,10 +73,10 @@ export interface DashboardDetail extends DashboardRow {
 }
 
 /**
- * Frame emitido por `POST /dashboards/{slug}/refresh` (SSE bulk).
+ * Frame emitted by `POST /dashboards/{slug}/refresh` (bulk SSE).
  *
- * El controller E4 emite un `event: widget_refreshed` por cada widget que
- * `replayBulk` procesa, y un `event: done` final con el total.
+ * The E4 controller emits an `event: widget_refreshed` for each widget that
+ * `replayBulk` processes, and a final `event: done` with the total.
  */
 export interface WidgetRefreshedFrame {
   widget_id: number;

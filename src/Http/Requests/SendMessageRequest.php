@@ -10,27 +10,27 @@ use Illuminate\Validation\Rule;
 use Rnkr69\LaraChatbot\Models\Conversation;
 
 /**
- * Valida el payload del endpoint `POST /chatbot/stream` (E09).
+ * Validates the payload of the endpoint `POST /chatbot/stream` (E09).
  *
- *   - `message`         requerido (string, ≤4000 chars).
- *   - `conversation_id` opcional. Si se envía, debe existir en la tabla
- *                        `chatbot_conversations` Y pertenecer al usuario
- *                        autenticado (vía `user_type`+`user_id`+ no soft
- *                        deleted). Si falla la regla `exists`, Laravel
- *                        devuelve 422 con detalle de campo, no 404 — esta
- *                        decisión la registra E09 en §1/E09.
- *   - `page_context`    opcional (array). El truncado por tamaño contra
- *                        `chatbot.limits.page_context_kb` lo aplica el
- *                        controller; aquí sólo se valida el tipo. La
- *                        sanitización fina (sólo strings/números/bool/arrays
- *                        simples) la formaliza E14.
+ *   - `message`         required (string, ≤4000 chars).
+ *   - `conversation_id` optional. If sent, it must exist in the
+ *                        `chatbot_conversations` table AND belong to the
+ *                        authenticated user (via `user_type`+`user_id`+ not soft
+ *                        deleted). If the `exists` rule fails, Laravel
+ *                        returns 422 with field detail, not 404 — this
+ *                        decision is recorded by E09 in §1/E09.
+ *   - `page_context`    optional (array). Size truncation against
+ *                        `chatbot.limits.page_context_kb` is applied by the
+ *                        controller; here only the type is validated. The
+ *                        fine-grained sanitization (only strings/numbers/bool/simple
+ *                        arrays) is formalized by E14.
  */
 class SendMessageRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // El middleware `auth` del grupo de rutas ya garantiza usuario
-        // autenticado; este check es defensa en profundidad.
+        // The route group's `auth` middleware already guarantees an
+        // authenticated user; this check is defense-in-depth.
         return $this->user() !== null;
     }
 

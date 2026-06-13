@@ -313,10 +313,10 @@ button { font: inherit; cursor: pointer; }
 }
 .cb-suggested-prompts button:hover { background: var(--cb-border); }
 
-/* E17 \u2014 modo p\xE1gina (chatbot-widget mode="page"). Sustituye el panel
-   flotante por un layout fullscreen con sidebar a la izquierda. El FAB
-   (.launcher) se oculta porque no hay nada que abrir/cerrar \u2014 la p\xE1gina YA
-   es el chat. */
+/* E17 \u2014 page mode (chatbot-widget mode="page"). Replaces the floating
+   panel with a fullscreen layout with a sidebar on the left. The FAB
+   (.launcher) is hidden because there is nothing to open/close \u2014 the page IS
+   the chat. */
 :host([data-mode="page"]) {
   position: static;
   inset: auto;

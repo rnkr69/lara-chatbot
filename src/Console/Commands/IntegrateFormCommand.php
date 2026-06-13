@@ -11,31 +11,31 @@ use Illuminate\Support\Str;
 /**
  * `php artisan chatbot:integrate-form <view>` (v1.1.1, finding #13.c).
  *
- * Wizard interactivo que añade `@chatbotForm(...)` al primer `<form>` del
- * Blade indicado. Tres source modes de schema:
+ * Interactive wizard that adds `@chatbotForm(...)` to the first `<form>` in
+ * the given Blade. Three schema source modes:
  *
  *  1. FormRequest class FQCN  → `@chatbotForm('id', App\Http\Requests\X::class)`
  *  2. Manual list of fields    → `@chatbotForm('id', [['name'=>'foo','type'=>'text'], ...])`
  *  3. Runtime-extracted        → `@chatbotForm('id')`
  *
- * Diff-y-confirm: muestra el cambio al usuario antes de tocar el archivo.
- * Idempotente: si el form ya tiene `@chatbotForm` o `data-chatbot-form`,
- * skip con mensaje informativo.
+ * Diff-and-confirm: shows the change to the user before touching the file.
+ * Idempotent: if the form already has `@chatbotForm` or `data-chatbot-form`,
+ * skip with an informative message.
  *
- * No genera write tools (mencionado en findings como nice-to-have); el
- * usuario puede usar `chatbot:make:tool <Name> --type=write` por separado.
+ * Does not generate write tools (mentioned in findings as nice-to-have); the
+ * user can use `chatbot:make:tool <Name> --type=write` separately.
  */
 class IntegrateFormCommand extends Command
 {
     /** @var string */
     protected $signature = 'chatbot:integrate-form
-                            {view : Ruta del Blade a modificar (absoluta o relativa al base_path).}
-                            {--id= : ID del form (default: derivado del basename de la view).}
-                            {--request= : FQCN de un FormRequest para derivar el schema.}
-                            {--force : Sobrescribe aunque el form ya tenga otro tag.}';
+                            {view : Path of the Blade to modify (absolute or relative to base_path).}
+                            {--id= : Form ID (default: derived from the view basename).}
+                            {--request= : FQCN of a FormRequest to derive the schema from.}
+                            {--force : Overwrite even if the form already has another tag.}';
 
     /** @var string */
-    protected $description = 'Añade @chatbotForm a un <form> de una view Blade del host (interactivo).';
+    protected $description = 'Add @chatbotForm to a <form> in a host Blade view (interactive).';
 
     public function __construct(private readonly Filesystem $files)
     {
@@ -48,14 +48,14 @@ class IntegrateFormCommand extends Command
         $path = $this->resolvePath($view);
 
         if (! $this->files->exists($path)) {
-            $this->components->error("View `{$path}` no existe.");
+            $this->components->error("View `{$path}` does not exist.");
             return self::FAILURE;
         }
 
         $content = $this->files->get($path);
 
         if (preg_match('/<form\b([^>]*)>/is', $content, $m, PREG_OFFSET_CAPTURE) !== 1) {
-            $this->components->error('No encontré ningún `<form>` en la view.');
+            $this->components->error('Could not find any `<form>` in the view.');
             return self::FAILURE;
         }
 
@@ -67,7 +67,7 @@ class IntegrateFormCommand extends Command
             preg_match('/data-chatbot-form\s*=/i', $attrs) === 1
             || preg_match('/@chatbotForm\s*\(/i', $attrs) === 1
         )) {
-            $this->components->info('Este form ya está integrado (`data-chatbot-form` o `@chatbotForm` detectado). Usa `--force` para sobrescribir.');
+            $this->components->info('This form is already integrated (`data-chatbot-form` or `@chatbotForm` detected). Use `--force` to overwrite.');
             return self::SUCCESS;
         }
 
@@ -75,7 +75,7 @@ class IntegrateFormCommand extends Command
         $id = (string) $defaultId;
 
         if ($this->isInteractive()) {
-            $id = (string) $this->components->ask('ID del form', $defaultId);
+            $id = (string) $this->components->ask('Form ID', $defaultId);
             $id = $id !== '' ? Str::slug($id) : $defaultId;
         }
 
@@ -85,7 +85,7 @@ class IntegrateFormCommand extends Command
 
         if ($requestFqcn !== '') {
             if (! class_exists($requestFqcn)) {
-                $this->components->error("La clase `{$requestFqcn}` no existe.");
+                $this->components->error("The class `{$requestFqcn}` does not exist.");
                 return self::FAILURE;
             }
             $sourceArg = ', ' . $requestFqcn . '::class';
@@ -102,9 +102,9 @@ class IntegrateFormCommand extends Command
             switch ($choice) {
                 case '1':
                 case 'Derive from a FormRequest class (recommended if applicable)':
-                    $req = trim((string) $this->components->ask('FormRequest FQCN (ej. App\\Http\\Requests\\ContactRequest)'));
+                    $req = trim((string) $this->components->ask('FormRequest FQCN (e.g. App\\Http\\Requests\\ContactRequest)'));
                     if ($req === '' || ! class_exists($req)) {
-                        $this->components->error("La clase `{$req}` no existe; abortando.");
+                        $this->components->error("The class `{$req}` does not exist; aborting.");
                         return self::FAILURE;
                     }
                     $sourceArg = ', ' . $req . '::class';
@@ -135,17 +135,17 @@ class IntegrateFormCommand extends Command
             $this->line('  - <fg=red>' . trim($m[0][0]) . '</>');
             $this->line('  + <fg=green>' . trim($newTag) . '</>');
             $this->newLine();
-            if (! $this->components->confirm('¿Aplicar?', true)) {
-                $this->components->info('Cancelado.');
+            if (! $this->components->confirm('Apply?', true)) {
+                $this->components->info('Cancelled.');
                 return self::SUCCESS;
             }
         }
 
         $this->files->put($path, $newContent);
 
-        $this->components->info("Integrado `{$id}` en `{$this->relative($path)}`.");
+        $this->components->info("Integrated `{$id}` into `{$this->relative($path)}`.");
         if ($sourceArg !== '') {
-            $this->components->info('Revisa que el FormRequest tenga las rules() esperadas — el schema se deriva en runtime cuando renderiza la view.');
+            $this->components->info('Check that the FormRequest has the expected rules() — the schema is derived at runtime when the view renders.');
         }
 
         return self::SUCCESS;

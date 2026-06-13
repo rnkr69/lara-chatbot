@@ -7,9 +7,9 @@ namespace Rnkr69\LaraChatbot\Tests\Stubs\Tools;
 use Illuminate\Contracts\Auth\Authenticatable;
 
 /**
- * Implementación mínima de `Authenticatable` para los tests del registro
- * y de la cascada de autorización. Evita exigir un User Eloquent o
- * configurar un guard de auth.
+ * Minimal `Authenticatable` implementation for the registry and
+ * authorization-cascade tests. Avoids requiring an Eloquent User or
+ * configuring an auth guard.
  */
 class FakeUser implements Authenticatable
 {

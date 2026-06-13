@@ -10,28 +10,28 @@ use Illuminate\Filesystem\Filesystem;
 /**
  * `php artisan chatbot:scan-forms` (v1.1.1, finding #13.b).
  *
- * Escanea Blade views del host buscando `<form>` y reporta cuáles están
- * tagueados (via `@chatbotForm`, `data-chatbot-form`, o `id="..."`) y
- * cuáles no. Es read-only — no modifica nada. Útil como auditoría inicial
- * cuando integras el package en una app no-Backpack.
+ * Scans the host's Blade views looking for `<form>` and reports which ones
+ * are tagged (via `@chatbotForm`, `data-chatbot-form`, or `id="..."`) and
+ * which are not. It is read-only — it modifies nothing. Useful as an initial
+ * audit when integrating the package into a non-Backpack app.
  *
- * Heurística:
- *   - Glob de `resources/views/&star;&star;/&star;.blade.php` (path configurable).
- *   - Regex sobre cada `<form` para extraer atributos.
- *   - Si encuentra `@chatbotForm(`, `data-chatbot-form=`, o `id=`,
- *     considera el form "tagged" — el LLM tendrá un id determinístico.
- *   - Si la línea contiene `action="{{ route('X.store') }}"` o similar,
- *     intenta extraer el nombre de la ruta para la columna "Route hint".
+ * Heuristic:
+ *   - Glob of `resources/views/&star;&star;/&star;.blade.php` (configurable path).
+ *   - Regex over each `<form` to extract attributes.
+ *   - If it finds `@chatbotForm(`, `data-chatbot-form=`, or `id=`,
+ *     it considers the form "tagged" — the LLM will have a deterministic id.
+ *   - If the line contains `action="{{ route('X.store') }}"` or similar,
+ *     it tries to extract the route name for the "Route hint" column.
  */
 class ScanFormsCommand extends Command
 {
     /** @var string */
     protected $signature = 'chatbot:scan-forms
-                            {--path= : Path absoluto o relativo donde escanear (default: resources/views).}
-                            {--json : Devuelve JSON estructurado en lugar de tabla legible.}';
+                            {--path= : Absolute or relative path to scan (default: resources/views).}
+                            {--json : Return structured JSON instead of a human-readable table.}';
 
     /** @var string */
-    protected $description = 'Escanea views Blade buscando <form> y reporta cuáles están tagueados para el LLM.';
+    protected $description = 'Scan Blade views for <form> elements and report which are tagged for the LLM.';
 
     public function __construct(private readonly Filesystem $files)
     {
@@ -49,7 +49,7 @@ class ScanFormsCommand extends Command
         }
 
         if (! $this->files->isDirectory($path)) {
-            $this->components->error("Path `{$path}` no es un directorio existente.");
+            $this->components->error("Path `{$path}` is not an existing directory.");
             return self::FAILURE;
         }
 
@@ -60,7 +60,7 @@ class ScanFormsCommand extends Command
             try {
                 $content = $this->files->get($file);
             } catch (\Throwable $e) {
-                $this->components->warn("No pude leer `{$file}`: {$e->getMessage()}");
+                $this->components->warn("Could not read `{$file}`: {$e->getMessage()}");
                 continue;
             }
 
@@ -78,11 +78,11 @@ class ScanFormsCommand extends Command
         }
 
         if ($rows === []) {
-            $this->components->info("No se encontraron `<form>` en `{$path}`.");
+            $this->components->info("No `<form>` elements found in `{$path}`.");
             return self::SUCCESS;
         }
 
-        $this->components->info("Escaneadas " . count($files) . " views. Encontrados " . count($rows) . " forms:");
+        $this->components->info("Scanned " . count($files) . " views. Found " . count($rows) . " forms:");
         $this->newLine();
 
         $tableRows = array_map(static fn ($r) => [
@@ -103,7 +103,7 @@ class ScanFormsCommand extends Command
         if ($untagged > 0) {
             $this->newLine();
             $this->line('Untagged forms are invisible to the LLM via `fill_form` unless auto-discovery applies (one form per page).');
-            $this->line('Next: <info>php artisan chatbot:integrate-form &lt;view&gt;</info> para añadir `@chatbotForm` a un form concreto.');
+            $this->line('Next: <info>php artisan chatbot:integrate-form &lt;view&gt;</info> to add `@chatbotForm` to a specific form.');
         }
 
         return self::SUCCESS;
@@ -132,9 +132,9 @@ class ScanFormsCommand extends Command
     }
 
     /**
-     * Parsea atributos del `<form ...>` con regex (heurístico, suficiente
-     * para 95% de los casos). No maneja `<form` partido en varias líneas
-     * con condicionales Blade complejos, pero sí maneja multi-line plano.
+     * Parses `<form ...>` attributes with regex (heuristic, sufficient
+     * for 95% of cases). It does not handle a `<form` split across several
+     * lines with complex Blade conditionals, but it does handle plain multi-line.
      *
      * @return list<array<string, mixed>>
      */

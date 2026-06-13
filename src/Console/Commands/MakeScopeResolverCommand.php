@@ -9,19 +9,19 @@ use Illuminate\Console\GeneratorCommand;
 /**
  * `php artisan chatbot:make:scope-resolver MyScopeResolver`
  *
- * Stubea una clase ScopeResolver en `app/Chatbot/{name}.php` con el
- * esqueleto de los tres scopes (self/team/all). El integrador rellena
- * `teamUserIds()` y `allUserIds()` según la jerarquía de su host.
+ * Stubs a ScopeResolver class in `app/Chatbot/{name}.php` with the
+ * skeleton of the three scopes (self/team/all). The integrator fills in
+ * `teamUserIds()` and `allUserIds()` according to their host's hierarchy.
  *
- * El comando vive en E04 pero el ServiceProvider lo registra ya en E04
- * mismo (no espera a E18) para que el host pueda generar el resolver
- * durante el setup inicial.
+ * The command lives in E04 but the ServiceProvider registers it already in
+ * E04 itself (it does not wait for E18) so that the host can generate the
+ * resolver during the initial setup.
  */
 class MakeScopeResolverCommand extends GeneratorCommand
 {
     protected $name = 'chatbot:make:scope-resolver';
 
-    protected $description = 'Stubea una clase ScopeResolver para el chatbot en app/Chatbot/.';
+    protected $description = 'Stub a chatbot ScopeResolver class in app/Chatbot/.';
 
     protected $type = 'ScopeResolver';
 

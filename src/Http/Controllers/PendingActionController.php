@@ -12,18 +12,18 @@ use Rnkr69\LaraChatbot\Models\PendingAction;
 use Rnkr69\LaraChatbot\Models\PendingActionStatus;
 
 /**
- * v1.1 — listado de pending actions del usuario, usado por el widget al
- * rehidratarse para reconstruir banners de `confirmation=confirm|manual`
- * que quedaron sin resolver tras una navegación MPA.
+ * v1.1 — listing of the user's pending actions, used by the widget on
+ * rehydration to reconstruct `confirmation=confirm|manual` banners
+ * that were left unresolved after an MPA navigation.
  *
- * Filtros:
- *   - `status=pending` (default)  → sólo rows en estado `pending` y NO
- *      caducadas (TTL 10min/24h según `confirmation`).
- *   - `conversation_id=N`         → restringe al hilo activo. Sin él
- *      devuelve TODAS las pendings del usuario, lo cual rara vez interesa.
+ * Filters:
+ *   - `status=pending` (default)  → only rows in `pending` state and NOT
+ *      expired (TTL 10min/24h depending on `confirmation`).
+ *   - `conversation_id=N`         → restricts to the active thread. Without it
+ *      it returns ALL of the user's pendings, which is rarely of interest.
  *
- * Política privacy: `forUser($user)` ya descarta pendings ajenos
- * (404-no-403 al anidarse via `whereHas('conversation', ...)`).
+ * Privacy policy: `forUser($user)` already discards foreign pendings
+ * (404-not-403 when nested via `whereHas('conversation', ...)`).
  */
 class PendingActionController extends Controller
 {

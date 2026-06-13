@@ -29,8 +29,8 @@ beforeEach(function () {
 });
 
 /**
- * Helper: crea una conversación persistida + setea el TestUser como
- * relación cargada para evitar la query morphTo (sin tabla users).
+ * Helper: creates a persisted conversation + sets the TestUser as a loaded
+ * relation to avoid the morphTo query (no users table).
  */
 function makeConversation(int $userId = 1): Conversation
 {
@@ -78,7 +78,7 @@ it('emits text deltas and a final done event for a plain text response', functio
 
     $kinds = array_map(fn (SseEvent $e) => $e->event, $events);
 
-    // Texto chunked + done. Sin tool_call/tool_result/frontend_action.
+    // Chunked text + done. No tool_call/tool_result/frontend_action.
     expect($kinds)->toContain('text')
         ->and($kinds)->toContain('done')
         ->and(in_array('tool_call', $kinds, true))->toBeFalse()
@@ -238,11 +238,11 @@ it('emits frontend_action BEFORE the next text chunk for a FrontendTool call', f
         }
     }
 
-    expect($feIdx)->not->toBeFalse('frontend_action no se emitió')
+    expect($feIdx)->not->toBeFalse('frontend_action was not emitted')
         ->and($textIdx)->not->toBeNull('no hubo evento text tras la tool')
         ->and($feIdx)->toBeLessThan($textIdx);
 
-    // Y NO se debe emitir tool_call para una FrontendTool.
+    // And tool_call must NOT be emitted for a FrontendTool.
     expect(in_array('tool_call', $sequence, true))->toBeFalse();
 
     $feEvent = $events[$feIdx];
@@ -402,16 +402,16 @@ it('filters out backend tools whose confirmation is not Auto and warns', functio
 
     collectChatEvents($c, 'should not pass tool to LLM');
 
-    // El log sale; verificamos que se llamó al menos una vez con la marca
-    // `[chatbot]` y el nombre de la tool.
+    // The log fires; we verify it was called at least once with the
+    // `[chatbot]` marker and the tool name.
     Log::shouldHaveReceived('warning')->withArgs(
         fn ($message) => is_string($message)
             && str_contains($message, '[chatbot]')
             && str_contains($message, 'echo_tool')
     );
 
-    // La tool NO debió enviarse a Prism: assertRequest comprueba el último
-    // request grabado.
+    // The tool must NOT have been sent to Prism: assertRequest checks the
+    // last recorded request.
     $fake->assertRequest(function (array $recorded) {
         $tools = $recorded[0]->tools();
         $names = array_map(fn ($t) => $t->name(), $tools);
@@ -428,7 +428,7 @@ it('honors chatbot.limits.history_messages by trimming older messages', function
 
     $c = makeConversation();
 
-    // 4 turnos previos (8 mensajes), todos persistidos antes del nuevo turno.
+    // 4 previous turns (8 messages), all persisted before the new turn.
     for ($i = 1; $i <= 4; $i++) {
         $c->messages()->create([
             'role'    => MessageRole::User,
@@ -445,16 +445,16 @@ it('honors chatbot.limits.history_messages by trimming older messages', function
     $fake->assertRequest(function (array $recorded) {
         $messages = $recorded[0]->messages();
 
-        // history_messages=3 ⇒ se envían los 3 últimos mensajes EXISTENTES
-        // en BD en el momento del streamChat (incluye el user message recién
-        // persistido). Sin la nueva, había 8 (assistant-4 último); con la
-        // nueva (user "pregunta nueva") son 9, y los 3 últimos son:
-        // assistant-4, user-pregunta-nueva. El historial es length 3.
+        // history_messages=3 ⇒ the 3 most recent messages EXISTING in the DB
+        // at streamChat time are sent (including the just-persisted user
+        // message). Without the new one there were 8 (assistant-4 last); with
+        // the new one (user "pregunta nueva") there are 9, and the last 3 are:
+        // assistant-4, user-pregunta-nueva. The history is length 3.
         expect($messages)->toHaveCount(3);
 
         $contents = array_map(fn ($m) => $m->content, $messages);
 
-        // El último es el mensaje recién persistido (user "pregunta nueva").
+        // The last one is the just-persisted message (user "pregunta nueva").
         expect(end($contents))->toBe('pregunta nueva');
     });
 });
@@ -467,14 +467,14 @@ it('changes the system prompt when page_context changes between two consecutive 
 
     $c = makeConversation();
 
-    // Primer turno con page_context A.
+    // First turn with page_context A.
     collectChatEvents($c, 'first', ['route' => 'orders.index', 'order_id' => 42]);
 
-    // Segundo turno con page_context B (diferente ruta + nuevo campo).
+    // Second turn with page_context B (different route + new field).
     collectChatEvents($c, 'second', ['route' => 'invoices.show', 'id' => 999]);
 
     $fake->assertRequest(function (array $recorded) {
-        // Dos requests grabados (uno por turno), en orden.
+        // Two recorded requests (one per turn), in order.
         expect(count($recorded))->toBeGreaterThanOrEqual(2);
 
         $systemPrompts = array_map(
@@ -482,22 +482,22 @@ it('changes the system prompt when page_context changes between two consecutive 
             $recorded,
         );
 
-        // El primer system prompt incluye la sección canónica + ruta A.
+        // The first system prompt includes the canonical section + route A.
         expect($systemPrompts[0])
             ->toContain('## Current page')
             ->and($systemPrompts[0])->toContain('orders.index')
             ->and($systemPrompts[0])->toContain('42')
             ->and($systemPrompts[0])->not->toContain('invoices.show');
 
-        // El segundo system prompt cambió: ruta B + nuevo id.
+        // The second system prompt changed: route B + new id.
         expect($systemPrompts[1])
             ->toContain('## Current page')
             ->and($systemPrompts[1])->toContain('invoices.show')
             ->and($systemPrompts[1])->toContain('999')
             ->and($systemPrompts[1])->not->toContain('orders.index');
 
-        // Y los dos system prompts son distintos entre sí — esto es el DoD
-        // textual del ROADMAP §5/E14.
+        // And the two system prompts differ from each other — this is the
+        // verbatim DoD from ROADMAP §5/E14.
         expect($systemPrompts[0])->not->toEqual($systemPrompts[1]);
     });
 });
@@ -525,14 +525,14 @@ it('persists assistant tokens_in and tokens_out from the StreamEnd usage', funct
 
 /*
 |--------------------------------------------------------------------------
-| E15 — Renderizado de bloques tipados.
+| E15 — Typed block rendering.
 |--------------------------------------------------------------------------
 |
-| DoD ROADMAP §5/E15: el LLM responde "aquí los pedidos" + tabla con 3 filas.
-| Decisión 2026-05-09: el contrato SSE se mantiene (RenderBlockTool emite
-| `frontend_action` con tool=render_block); el widget intercepta esa señal y
-| la convierte en un block para el assistant message. Este test fija ese
-| contrato en backend para que cualquier futura refactorización lo respete.
+| DoD ROADMAP §5/E15: the LLM replies "here are the orders" + a 3-row table.
+| Decision 2026-05-09: the SSE contract stays (RenderBlockTool emits
+| `frontend_action` with tool=render_block); the widget intercepts that signal
+| and turns it into a block for the assistant message. This test pins that
+| contract on the backend so any future refactor respects it.
 */
 
 it('emits a render_block frontend_action with type+data when RenderBlockTool is invoked (E15 DoD)', function () {
@@ -561,7 +561,7 @@ it('emits a render_block frontend_action with type+data when RenderBlockTool is 
         TextResponseFake::make()
             ->withSteps(collect([
                 TextStepFake::make()
-                    ->withText('aquí los pedidos:')
+                    ->withText('here are the orders:')
                     ->withToolCalls([
                         new ToolCall(
                             id: 'call_render_1',
@@ -591,11 +591,11 @@ it('emits a render_block frontend_action with type+data when RenderBlockTool is 
 
     $kinds = array_map(fn (SseEvent $e) => $e->event, $events);
 
-    // Backend tools no se emiten para FrontendTool (regresión-guard).
+    // Backend tools are not emitted for a FrontendTool (regression guard).
     expect(in_array('tool_call', $kinds, true))->toBeFalse();
 
     $feIdx = array_search('frontend_action', $kinds, true);
-    expect($feIdx)->not->toBeFalse('render_block no se emitió como frontend_action');
+    expect($feIdx)->not->toBeFalse('render_block was not emitted as frontend_action');
 
     $fe = $events[$feIdx];
     expect($fe->data['tool'])->toBe('render_block')
@@ -603,7 +603,7 @@ it('emits a render_block frontend_action with type+data when RenderBlockTool is 
         ->and($fe->data['action_id'])->toBeString()
         ->and($fe->data['action_id'])->not->toBe('');
 
-    // El widget recoge `args.type` + `args.data` para el cascade de renderers.
+    // The widget picks up `args.type` + `args.data` for the renderer cascade.
     expect($fe->data['args'])->toMatchArray([
         'type' => 'table',
     ]);
@@ -615,13 +615,13 @@ it('emits a render_block frontend_action with type+data when RenderBlockTool is 
 
 /*
 |--------------------------------------------------------------------------
-| E16 — Niveles de confirmación para frontend tools.
+| E16 — Confirmation levels for frontend tools.
 |--------------------------------------------------------------------------
 |
-| DoD ROADMAP §5/E16: cuando una FrontendTool con confirmation=confirm|manual
-| se invoca, ChatService persiste un row en `chatbot_pending_actions` y el
-| LLM ve `awaiting_user` (no `queued`). El widget gestiona la confirmación
-| via REST en otro turno.
+| DoD ROADMAP §5/E16: when a FrontendTool with confirmation=confirm|manual is
+| invoked, ChatService persists a row in `chatbot_pending_actions` and the
+| LLM sees `awaiting_user` (not `queued`). The widget handles the confirmation
+| via REST in another turn.
 */
 
 it('persists a pending action and returns awaiting_user to the LLM for confirmation=confirm (E16)', function () {
@@ -651,7 +651,7 @@ it('persists a pending action and returns awaiting_user to the LLM for confirmat
                     ])
                     ->withFinishReason(FinishReason::ToolCalls),
                 TextStepFake::make()
-                    ->withText('Esperando tu confirmación.')
+                    ->withText('Awaiting your confirmation.')
                     ->withFinishReason(FinishReason::Stop),
             ]))
             ->withFinishReason(FinishReason::Stop),
@@ -663,7 +663,7 @@ it('persists a pending action and returns awaiting_user to the LLM for confirmat
 
     $kinds = array_map(fn (SseEvent $e) => $e->event, $events);
     $feIdx = array_search('frontend_action', $kinds, true);
-    expect($feIdx)->not->toBeFalse('frontend_action no se emitió');
+    expect($feIdx)->not->toBeFalse('frontend_action was not emitted');
 
     $fe = $events[$feIdx];
     expect($fe->data['confirmation'])->toBe('confirm')
@@ -671,7 +671,7 @@ it('persists a pending action and returns awaiting_user to the LLM for confirmat
         ->and($fe->data['action_id'])->toBeString()
         ->and($fe->data['action_id'])->not->toBe('');
 
-    // El row quedó persistido como pending con el mismo action_id.
+    // The row was persisted as pending with the same action_id.
     $pending = \Rnkr69\LaraChatbot\Models\PendingAction::query()->first();
     expect($pending)->not->toBeNull()
         ->and($pending->action_id)->toBe($fe->data['action_id'])
@@ -729,27 +729,27 @@ it('persists with confirmation=manual and a manual TTL (E16)', function () {
 
 /*
  |--------------------------------------------------------------------------
- | v2.0 — E1: auto-stamp de id + source + pinnable en blocks
+ | v2.0 — E1: auto-stamp of id + source + pinnable on blocks
  |--------------------------------------------------------------------------
  |
- | Cuando una backend tool devuelve `ToolResult::blocks[]`, el orquestador
- | debe emitir un frame SSE `block` por cada uno, estampando metadatos:
+ | When a backend tool returns `ToolResult::blocks[]`, the orchestrator must
+ | emit one `block` SSE frame per block, stamping metadata:
  |
- |   - `id` (UUID) — handle del bloque para el cliente.
- |   - `source` = { tool, args, page_context_keys } — descriptor para que
- |     el replay engine (E3) sepa cómo re-ejecutar.
- |   - `pinnable: true` SÓLO cuando `tool->pinnable() === true` Y
- |     `tool->confirmation() === Auto` (enforcement aguas arriba).
+ |   - `id` (UUID) — the block's handle for the client.
+ |   - `source` = { tool, args, page_context_keys } — descriptor so the
+ |     replay engine (E3) knows how to re-execute.
+ |   - `pinnable: true` ONLY when `tool->pinnable() === true` AND
+ |     `tool->confirmation() === Auto` (upstream enforcement).
  |
- | Back-compat: tools v1.x que NO devuelven blocks no emiten frames `block`,
- | y tools sin override de `pinnable()` heredan `false`, por lo que sus
- | blocks (si los emitiesen) llegan al cliente sin el flag.
+ | Back-compat: v1.x tools that do NOT return blocks emit no `block` frames,
+ | and tools without a `pinnable()` override inherit `false`, so their blocks
+ | (if they emitted any) reach the client without the flag.
  */
 
 /**
- * Helper: arma un `Prism::fake` que invoca `echo_tool` una vez con los args
- * dados. Centralizado para reducir el ruido en los tests v2 — la mecánica de
- * tool-call/result a través de Prism::fake ya quedó cubierta por el test
+ * Helper: builds a `Prism::fake` that invokes `echo_tool` once with the given
+ * args. Centralized to reduce noise in the v2 tests — the tool-call/result
+ * mechanics through Prism::fake are already covered by the test
  * "translates a backend tool call into tool_call + tool_result …".
  *
  * @param  array<string, mixed>  $args
@@ -972,22 +972,21 @@ it('omits `meta` from the block frame when the tool does not stamp it (v1 back-c
 });
 
 it('filters non-Auto backend tools out of the LLM catalog (D9) so they never reach the stamping path', function () {
-    // Plan §9 riesgo "Tool con efectos secundarios marcada pinnable por
-    // descuido" tiene DOS defensas en cascada:
+    // Plan §9 risk "Tool with side effects mistakenly marked pinnable" has
+    // TWO cascading defenses:
     //
-    //   (1) D9: `ChatService::resolveTools` filtra backend tools con
-    //       `confirmation !== Auto` del catálogo que se le pasa al LLM, así
-    //       que el LLM ni siquiera puede invocarlas. Esto es lo que
-    //       verificamos aquí.
-    //   (2) En `onToolCall`, el bool `pinnable` se calcula con AND de
-    //       `pinnable()` Y `confirmation === Auto`. Si por algún camino
-    //       una non-Auto consiguiera ejecutarse igual, el flag jamás se
-    //       propaga (verificación lógica de la AND en el código fuente +
-    //       el test que confirma que SseEvent::block omite el campo cuando
-    //       el bool es false — `SseEventTest`).
+    //   (1) D9: `ChatService::resolveTools` filters backend tools with
+    //       `confirmation !== Auto` out of the catalog passed to the LLM, so
+    //       the LLM cannot even invoke them. This is what we verify here.
+    //   (2) In `onToolCall`, the `pinnable` bool is computed as the AND of
+    //       `pinnable()` AND `confirmation === Auto`. If a non-Auto tool
+    //       somehow managed to run anyway, the flag is never propagated
+    //       (logical verification of the AND in the source + the test that
+    //       confirms SseEvent::block omits the field when the bool is false
+    //       — `SseEventTest`).
     //
-    // Si esta capa cae alguna vez, el atacante todavía choca con la (2);
-    // pero el test demuestra que la prevención principal está en su sitio.
+    // If this layer ever falls, the attacker still hits (2); but this test
+    // demonstrates the primary prevention is in place.
     $tool = new EchoBackendTool;
     $tool->pinnableOverride = true;
     $tool->confirmationOverride = ConfirmationLevel::Confirm; // mutating-style
@@ -1000,8 +999,8 @@ it('filters non-Auto backend tools out of the LLM catalog (D9) so they never rea
 
     $events = collectChatEvents($c, 'echo pls');
 
-    // La tool fue filtrada del catálogo: no se invoca, no hay tool_call,
-    // no hay block. El LLM produce su texto sin acceso a la tool.
+    // The tool was filtered out of the catalog: not invoked, no tool_call,
+    // no block. The LLM produces its text without access to the tool.
     $kinds = array_map(fn (SseEvent $e) => $e->event, $events);
     expect(in_array('tool_call', $kinds, true))->toBeFalse()
         ->and(in_array('block', $kinds, true))->toBeFalse()

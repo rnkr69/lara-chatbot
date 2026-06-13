@@ -1,54 +1,54 @@
 {{--
-    E4 — Página dedicada del Personal Dashboard extendiendo un layout del host.
+    E4 — Dedicated Personal Dashboard page extending a host layout.
 
-    Se usa cuando `chatbot.dashboard.layout` apunta a una vista que existe
-    (verificada por `DashboardController::resolveLayout()`). El nombre de
-    sección en la que se inyecta el contenido es configurable via
+    Used when `chatbot.dashboard.layout` points to a view that exists
+    (verified by `DashboardController::resolveLayout()`). The name of the
+    section into which the content is injected is configurable via
     `chatbot.dashboard.section` (default `content`).
 
-    El `<script>` del bundle del dashboard se incluye INLINE dentro de la
-    sección (no en `@push('head')`) para que funcione con layouts que no
-    expongan `@stack('head')` — es seguro mantenerlo `defer`d en el body.
+    The dashboard bundle's `<script>` is included INLINE within the
+    section (not in `@push('head')`) so it works with layouts that do not
+    expose `@stack('head')` — it is safe to keep it `defer`d in the body.
 
-    v2.1.1 (#26) — cuando `chatbot.dashboard.mount_widget` está activo (default),
-    esta vista monta además el `<chatbot-widget>` flotante vía
-    `@push('after_scripts')`, para que el usuario pueda pinear DESDE el propio
-    dashboard. Los layouts de Backpack —destino documentado de
-    `chatbot.dashboard.layout`— exponen `@stack('after_scripts')`. El host que
-    prefiera inyectar el widget por su cuenta pone `mount_widget` a false.
+    v2.1.1 (#26) — when `chatbot.dashboard.mount_widget` is active (default),
+    this view also mounts the floating `<chatbot-widget>` via
+    `@push('after_scripts')`, so the user can pin FROM the dashboard
+    itself. Backpack layouts —the documented target of
+    `chatbot.dashboard.layout`— expose `@stack('after_scripts')`. A host that
+    prefers to inject the widget on its own sets `mount_widget` to false.
 
-    v2.1.3 (#34) — reemplaza el `@stack('chatbot_dashboard_extras')` que
-    v2.1.2 (#31) había intentado introducir. El stack vivía dentro de
-    `@section($section)…@endsection` y eso significaba que su contenido se
-    capturaba durante la evaluación de la vista hija (esta), ANTES de que
-    el `$layout` del host ejecutase su body — un `@push('chatbot_dashboard_extras')`
-    desde el `$layout` (la usage que documentábamos) corría demasiado tarde
-    y el stack se renderizaba vacío.
+    v2.1.3 (#34) — replaces the `@stack('chatbot_dashboard_extras')` that
+    v2.1.2 (#31) had attempted to introduce. The stack lived inside
+    `@section($section)…@endsection` and that meant its content was
+    captured during the evaluation of the child view (this one), BEFORE
+    the host's `$layout` ran its body — a `@push('chatbot_dashboard_extras')`
+    from the `$layout` (the usage we documented) ran too late
+    and the stack rendered empty.
 
-    El nuevo punto de extensión es el config `chatbot.dashboard.extras_view`:
-    nombre de una vista Blade del host (p.ej. `'admin._chatbot_widget'`).
-    El controller la valida con `View::exists()` y la pasa como `$extrasView`.
-    Aquí la `@include`amos síncronamente justo debajo del root del dashboard.
-    Al ser un include normal, el body de la vista del host se evalúa en este
-    mismo contexto: cualquier `@push('after_scripts')` aterriza donde toca
-    (al final del layout top de Backpack), y cualquier markup HTML se inyecta
-    aquí. Caso de uso típico: el host monta su `<chatbot-widget>` + el bundle
-    de `chatbot-actions.js` y compone con el shim upgrade del v2.1.3 (#35)
-    sin tener que hackear el orden de carga.
+    The new extension point is the `chatbot.dashboard.extras_view` config:
+    the name of a host Blade view (e.g. `'admin._chatbot_widget'`).
+    The controller validates it with `View::exists()` and passes it as `$extrasView`.
+    Here we `@include` it synchronously right below the dashboard root.
+    Being a normal include, the host view's body is evaluated in this
+    same context: any `@push('after_scripts')` lands where it should
+    (at the end of Backpack's top layout), and any HTML markup is injected
+    here. Typical use case: the host mounts its `<chatbot-widget>` + the
+    `chatbot-actions.js` bundle and composes with the v2.1.3 (#35) upgrade shim
+    without having to hack the load order.
 
-    Variables esperadas (las inyecta `DashboardController`):
-      - $layout           string   Nombre del layout del host (ya validado).
-      - $section          string   Sección donde inyectar el contenido.
-      - $assetUrl         string   URL del bundle <chatbot-dashboard.js>.
-      - $dashboardsUrl    string   URL base del CRUD JSON (E4).
-      - $defaultSlug      ?string  Slug del dashboard default del usuario.
+    Expected variables (injected by `DashboardController`):
+      - $layout           string   Name of the host layout (already validated).
+      - $section          string   Section where the content is injected.
+      - $assetUrl         string   URL of the <chatbot-dashboard.js> bundle.
+      - $dashboardsUrl    string   Base URL of the JSON CRUD (E4).
+      - $defaultSlug      ?string  Slug of the user's default dashboard.
       - $theme            string   'light' | 'dark' | 'auto'.
-      - $mountWidget      bool     v2.1.1 (#26) — montar el widget flotante.
-      - $widgetAssetUrl   ?string  URL del bundle <chatbot-widget.js> (null si !$mountWidget).
-      - $streamUrl        string   Endpoint SSE de chat.
-      - $conversationsUrl string   URL base del CRUD de conversaciones.
-      - $extrasView       ?string  v2.1.3 (#34) — nombre de la vista del host
-                                    a `@include` debajo del root. null = sin extras.
+      - $mountWidget      bool     v2.1.1 (#26) — mount the floating widget.
+      - $widgetAssetUrl   ?string  URL of the <chatbot-widget.js> bundle (null if !$mountWidget).
+      - $streamUrl        string   Chat SSE endpoint.
+      - $conversationsUrl string   Base URL of the conversations CRUD.
+      - $extrasView       ?string  v2.1.3 (#34) — name of the host view
+                                    to `@include` below the root. null = no extras.
 --}}
 @extends($layout)
 
@@ -69,23 +69,23 @@
     ></div>
     <script src="{{ $assetUrl }}" defer></script>
 
-    {{-- v2.1.3 (#34) — punto de extensión sustituye al stack roto de #31.
-         Cuando `chatbot.dashboard.extras_view` apunta a una vista existente,
-         el `@include` síncrono la evalúa aquí: cualquier `<chatbot-widget>` o
-         `<script>` que el host pinte se cuela bajo el root del dashboard, y
-         cualquier `@push('after_scripts')` interno aterriza en el layout top
-         de Backpack como debía. Sin la clave, el `@if` es false y la rama no
-         renderiza nada (sin coste). --}}
+    {{-- v2.1.3 (#34) — extension point replacing the broken stack from #31.
+         When `chatbot.dashboard.extras_view` points to an existing view,
+         the synchronous `@include` evaluates it here: any `<chatbot-widget>` or
+         `<script>` the host paints slips in below the dashboard root, and
+         any internal `@push('after_scripts')` lands in Backpack's top
+         layout as it should. Without the key, the `@if` is false and the branch
+         renders nothing (no cost). --}}
     @if(! empty($extrasView))
         @include($extrasView)
     @endif
 @endsection
 
 @if(($mountWidget ?? false) && !empty($widgetAssetUrl))
-    {{-- v2.1.1 (#26) — el `<chatbot-widget>` flotante en la propia página del
-         dashboard: sin esto, la página cuyo propósito es coleccionar bloques
-         pineados es la única donde no puedes generarlos. Empujado a
-         `after_scripts` para componer con el chrome del host. --}}
+    {{-- v2.1.1 (#26) — the floating `<chatbot-widget>` on the dashboard page
+         itself: without this, the page whose purpose is to collect pinned
+         blocks is the only one where you cannot generate them. Pushed to
+         `after_scripts` to compose with the host chrome. --}}
     @push('after_scripts')
         <chatbot-widget
             data-endpoint="{{ $streamUrl }}"

@@ -16,34 +16,34 @@ use Rnkr69\LaraChatbot\Tools\ToolResult;
 use Throwable;
 
 /**
- * v2.2 — Tool conversacional que pinea un block al dashboard del usuario
- * SIN tener que pasar por el flujo manual (chat → render → hover → 📌 →
- * modal → pin). El LLM la invoca cuando el usuario pide algo del tipo
- * "añade mis KPIs al panel" o "pinea el listado de misiones".
+ * v2.2 — Conversational tool that pins a block to the user's dashboard
+ * WITHOUT having to go through the manual flow (chat → render → hover → 📌 →
+ * modal → pin). The LLM invokes it when the user asks something like
+ * "add my KPIs to the dashboard" or "pin the missions list".
  *
- * Orquesta tres pasos:
+ * Orchestrates three steps:
  *
- *   1. Resuelve el tool de origen (`source_tool`) y el dashboard target
- *      (slug o default del user).
- *   2. Ejecuta el tool de origen — la cascada de `BaseBackendTool::execute()`
- *      (permission → scope → tenant → validation) aplica al source_tool;
- *      esta wrapper no abre puertas que el LLM no tuviera ya.
- *   3. Selecciona el bloque indicado (`block_type` + `block_ordinal`) del
- *      resultado y delega en `PinService::pin` para persistirlo.
+ *   1. Resolves the source tool (`source_tool`) and the target dashboard
+ *      (slug or the user's default).
+ *   2. Executes the source tool — the `BaseBackendTool::execute()` cascade
+ *      (permission → scope → tenant → validation) applies to the source_tool;
+ *      this wrapper does not open doors the LLM did not already have.
+ *   3. Selects the indicated block (`block_type` + `block_ordinal`) from the
+ *      result and delegates to `PinService::pin` to persist it.
  *
- * Errores se devuelven como `ToolResult::error(category, message)` con la
- * misma categoría que el doc 2.1.3 promete (`tool_not_found`, `not_pinnable`,
+ * Errors are returned as `ToolResult::error(category, message)` with the
+ * same category that doc 2.1.3 promises (`tool_not_found`, `not_pinnable`,
  * `unauthorized`, `out_of_scope`, `dashboard_not_found`, `no_dashboard`,
  * `cap_reached`, `source_args_invalid`, `source_runtime`, `no_block`,
- * `ordinal_out_of_range`). Los mensajes vienen de `chatbot::chatbot.add_to_dashboard.errors.*`
- * y el host los puede traducir publicando lang.
+ * `ordinal_out_of_range`). The messages come from `chatbot::chatbot.add_to_dashboard.errors.*`
+ * and the host can translate them by publishing lang.
  *
- * No emite confirmation banner: la propia acción "añade X" es el consent
- * (`confirmation = Auto`); pedir un banner extra sería redundante (mismo
- * principio que el fix v2.1.1 #L2 de un host de prueba).
+ * Emits no confirmation banner: the action "add X" is itself the consent
+ * (`confirmation = Auto`); asking for an extra banner would be redundant (same
+ * principle as the v2.1.1 #L2 fix from a test host).
  *
- * `pinnable = false` aquí: la salida de esta tool es una tarjeta de
- * confirmación, no contenido data-driven que tenga sentido pinear (¡recursión!).
+ * `pinnable = false` here: this tool's output is a confirmation card, not
+ * data-driven content that would make sense to pin (recursion!).
  */
 class AddToDashboardTool extends BaseBackendTool
 {
@@ -148,10 +148,10 @@ class AddToDashboardTool extends BaseBackendTool
                 );
         }
 
-        // 4. Widget cap pre-check (paridad con controller). PinService lo
-        //    re-chequea para cubrir la carrera de "otra pestaña pinó justo
-        //    antes". En este turno se evita ejecutar el source_tool si ya
-        //    sabemos que no va a caber.
+        // 4. Widget cap pre-check (parity with the controller). PinService
+        //    re-checks it to cover the race where "another tab pinned just
+        //    before". In this turn we avoid executing the source_tool if we
+        //    already know it won't fit.
         $cap = (int) config('chatbot.dashboard.max_widgets_per_dashboard', 50);
         $current = $dashboard->widgets()->count();
         if ($cap > 0 && $current >= $cap) {
@@ -165,8 +165,8 @@ class AddToDashboardTool extends BaseBackendTool
             );
         }
 
-        // 5. Ejecuta el source tool. `execute()` aplica el cascade del
-        //    paquete (validation → permission → scope → tenant → handle).
+        // 5. Execute the source tool. `execute()` applies the package
+        //    cascade (validation → permission → scope → tenant → handle).
         try {
             $sourceResult = $sourceTool->execute($sourceArgs, $ctx);
         } catch (Throwable $e) {
@@ -244,13 +244,14 @@ class AddToDashboardTool extends BaseBackendTool
                 pageContextKeys: array_values(array_filter(array_keys($ctx->pageContext), 'is_string')),
             );
         } catch (PinException $e) {
-            // Mapeo defense-in-depth: el pre-check ya cubre el caso normal,
-            // pero si una pestaña concurrente pinó justo antes y excede el
-            // cap, lo reportamos con el mismo wording que el pre-check.
+            // Defense-in-depth mapping: the pre-check already covers the
+            // normal case, but if a concurrent tab pinned just before and
+            // exceeds the cap, we report it with the same wording as the
+            // pre-check.
             return $this->mapPinException($e, $dashboard);
         }
 
-        // 8. Success card. El LLM la repite verbatim al usuario.
+        // 8. Success card. The LLM relays it verbatim to the user.
         $url = $this->dashboardUrl($dashboard);
         $widgetTitle = $widget->title ?? ($suggestedTitle ?? $selectedBlockType);
 
@@ -271,9 +272,9 @@ class AddToDashboardTool extends BaseBackendTool
                         'url'       => $url,
                     ]),
                 ],
-                // v2.2.1 (PR-B) — el bundle del dashboard escucha
-                // `chatbot:dashboard-mutation` para refrescar sin F5 cuando la
-                // mutación viene del chat. El orquestador propaga `meta` verbatim.
+                // v2.2.1 (PR-B) — the dashboard bundle listens for
+                // `chatbot:dashboard-mutation` to refresh without an F5 when the
+                // mutation comes from the chat. The orchestrator propagates `meta` verbatim.
                 'meta' => [
                     'side_effects' => [
                         'type'           => 'widget_added',
@@ -286,10 +287,10 @@ class AddToDashboardTool extends BaseBackendTool
     }
 
     /**
-     * Resuelve el dashboard target. Si el LLM pasó `dashboard_slug`, busca
-     * por slug; si no, el `is_default` del user. Devuelve `null` si no
-     * existe ninguno apto — el caller distingue `dashboard_not_found` de
-     * `no_dashboard` por la presencia del slug.
+     * Resolves the target dashboard. If the LLM passed `dashboard_slug`, it
+     * looks up by slug; otherwise the user's `is_default`. Returns `null` if
+     * no suitable one exists — the caller distinguishes `dashboard_not_found`
+     * from `no_dashboard` by the presence of the slug.
      */
     protected function resolveDashboard(ToolContext $ctx, ?string $slug): ?Dashboard
     {
@@ -303,9 +304,9 @@ class AddToDashboardTool extends BaseBackendTool
     }
 
     /**
-     * Lista los slugs de los dashboards del usuario (para el mensaje de
-     * `dashboard_not_found`). Truncado a un máximo razonable para no
-     * inundar el mensaje cuando el user tiene muchos.
+     * Lists the slugs of the user's dashboards (for the `dashboard_not_found`
+     * message). Truncated to a reasonable maximum so as not to flood the
+     * message when the user has many.
      */
     protected function listDashboardSlugsFor(ToolContext $ctx): string
     {
@@ -325,11 +326,11 @@ class AddToDashboardTool extends BaseBackendTool
     }
 
     /**
-     * Lista los nombres de las tools pinnable+Auto disponibles para el user
-     * actual (las que el ToolRegistry sabe que el user puede invocar y que
-     * son pineables). Usado en el mensaje de `tool_not_found` — pasarle al
-     * LLM las alternativas ahorra una iteración del loop "no existe" →
-     * "vuelve a llamar con otro nombre".
+     * Lists the names of the pinnable+Auto tools available to the current
+     * user (those the ToolRegistry knows the user can invoke and that are
+     * pinnable). Used in the `tool_not_found` message — handing the LLM the
+     * alternatives saves an iteration of the "doesn't exist" → "call again
+     * with another name" loop.
      */
     protected function listPinnableToolsFor(ToolContext $ctx): string
     {
@@ -351,10 +352,10 @@ class AddToDashboardTool extends BaseBackendTool
     }
 
     /**
-     * Mapea categorías del `ToolResult::error` del source_tool al wrapper
-     * de este tool. Los nombres deliberadamente difieren para que el LLM
-     * pueda razonar sobre cuál de los dos niveles falló (la cascada del
-     * tool de origen vs. el pin propiamente).
+     * Maps the `ToolResult::error` categories from the source_tool to this
+     * tool's wrapper. The names deliberately differ so the LLM can reason
+     * about which of the two levels failed (the source tool's cascade vs.
+     * the pin itself).
      */
     protected function mapSourceError(ToolResult $sourceResult, string $toolName): ToolResult
     {
@@ -388,10 +389,10 @@ class AddToDashboardTool extends BaseBackendTool
     }
 
     /**
-     * Reduce un `PinException` lanzado por `PinService` a `ToolResult::error`.
-     * El pre-check del cap aquí en el tool cubre el caso normal; este map
-     * cubre la carrera concurrente (otra pestaña pinó justo antes de
-     * persistir).
+     * Reduces a `PinException` thrown by `PinService` to a `ToolResult::error`.
+     * The cap pre-check here in the tool covers the normal case; this map
+     * covers the concurrent race (another tab pinned just before
+     * persisting).
      */
     protected function mapPinException(PinException $e, Dashboard $dashboard): ToolResult
     {
@@ -415,13 +416,13 @@ class AddToDashboardTool extends BaseBackendTool
     }
 
     /**
-     * URL del dashboard. La ruta nombrada `chatbot.dashboard` no acepta
-     * slug (es un único view que renderiza el dashboard del user con la
-     * sidebar para cambiar entre paneles); se incluye el slug como query
-     * param `?dashboard=` para que `DashboardController::resolveDefaultSlug`
-     * lo lea y el bundle JS auto-seleccione ese panel al cargar. v2.2.1:
-     * antes emitíamos `?slug=` por error — el controlador lo ignoraba y la
-     * "Open dashboard" del card aterrizaba siempre en el default del user.
+     * Dashboard URL. The named route `chatbot.dashboard` does not accept a
+     * slug (it is a single view that renders the user's dashboard with the
+     * sidebar for switching between dashboards); the slug is included as the
+     * `?dashboard=` query param so that `DashboardController::resolveDefaultSlug`
+     * reads it and the JS bundle auto-selects that dashboard on load. v2.2.1:
+     * we previously emitted `?slug=` by mistake — the controller ignored it
+     * and the card's "Open dashboard" always landed on the user's default.
      */
     protected function dashboardUrl(Dashboard $dashboard): string
     {

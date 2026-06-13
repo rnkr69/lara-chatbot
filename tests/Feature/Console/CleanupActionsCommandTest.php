@@ -89,6 +89,6 @@ it('reports nothing-to-do when no rows are expired', function () {
     ]);
 
     $this->artisan('chatbot:cleanup-actions')
-        ->expectsOutputToContain('No hay pending actions caducados')
+        ->expectsOutputToContain('No expired pending actions')
         ->assertExitCode(0);
 });

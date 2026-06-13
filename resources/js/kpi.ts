@@ -1,38 +1,38 @@
 /**
- * v2.0 / E8 — built-in renderer para el block tipo `kpi`.
+ * v2.0 / E8 — built-in renderer for the `kpi` block type.
  *
- * Vive en `resources/js/` (no en `dashboard/`) porque tanto el widget flotante
- * como el bundle del dashboard heredan el cascade `host > template > builtin`
- * vía `BUILTIN_BLOCK_RENDERERS` en `blocks.ts`. Coste ~3 KB gzip; el widget
- * pasa de 24 → ~27 KB / cap 80 KB.
+ * Lives in `resources/js/` (not in `dashboard/`) because both the floating
+ * widget and the dashboard bundle inherit the `host > template > builtin`
+ * cascade via `BUILTIN_BLOCK_RENDERERS` in `blocks.ts`. Cost ~3 KB gzip; the
+ * widget goes from 24 → ~27 KB / cap 80 KB.
  *
- * Shape (laxo, normalizado in-place — coherente con E7 chart-default.ts):
+ * Shape (loose, normalized in-place — consistent with E7 chart-default.ts):
  *
  *   {
- *     label:    string,                                  // recomendado (LLM aliases: title|name)
- *     value:    number | string,                          // requerido para mostrar algo útil
- *     unit?:    string,                                   // p. ej. "ms", "USD", "users"
- *     delta?:   number | string,                          // diff vs período anterior
- *     trend?:   'up' | 'down' | 'flat',                   // override; si falta y delta es numérico → auto
- *     format?:  'number' | 'currency' | 'percent',        // si falta → render numérico locale-aware
- *     caption?: string,                                   // texto pequeño bajo la tarjeta
+ *     label:    string,                                  // recommended (LLM aliases: title|name)
+ *     value:    number | string,                          // required to display anything useful
+ *     unit?:    string,                                   // e.g. "ms", "USD", "users"
+ *     delta?:   number | string,                          // diff vs previous period
+ *     trend?:   'up' | 'down' | 'flat',                   // override; if missing and delta is numeric → auto
+ *     format?:  'number' | 'currency' | 'percent',        // if missing → locale-aware numeric render
+ *     caption?: string,                                   // small text below the card
  *     locale?:  string,                                   // override; default: html[lang] || 'en-US'
  *     currency?:string,                                   // ISO 4217; default: unit-if-ISO || 'USD'
  *   }
  *
- * Reglas clave:
- *   - `value` numérico SIN `format` → render locale-aware con grouping; compact
- *     notation cuando |value| ≥ 100_000.
- *   - `value` STRING — escape hatch para LLMs que pre-formatean ("$1.2B"). Sólo
- *     intentamos coercion `Number()` si `format` está SET; si la coerción falla
- *     (o no hay format), renderizamos el string tal cual.
- *   - `format: 'percent'` espera fracción (0.42 → "42%"). Quien emita 42 sin
- *     ajustar la escala usa `format: 'number' + unit: '%'`.
- *   - `delta` numérica → formatea con `signDisplay: 'exceptZero'` así los
- *     positivos llevan "+" auto; negativos ya llevan "−"/"-". Strings as-is.
- *   - `trend` explícita gana sobre auto-derivada de `delta`.
- *   - Sin `value` válido y sin `label` → render minimal "—" (en lugar de devolver
- *     placeholder genérico de `[unknown block type]`).
+ * Key rules:
+ *   - Numeric `value` WITHOUT `format` → locale-aware render with grouping;
+ *     compact notation when |value| ≥ 100_000.
+ *   - STRING `value` — escape hatch for LLMs that pre-format ("$1.2B"). We only
+ *     attempt `Number()` coercion if `format` is SET; if the coercion fails (or
+ *     there's no format), we render the string as-is.
+ *   - `format: 'percent'` expects a fraction (0.42 → "42%"). Whoever emits 42
+ *     without adjusting the scale uses `format: 'number' + unit: '%'`.
+ *   - Numeric `delta` → formatted with `signDisplay: 'exceptZero'` so positives
+ *     get an automatic "+"; negatives already carry "−"/"-". Strings as-is.
+ *   - Explicit `trend` wins over the one auto-derived from `delta`.
+ *   - No valid `value` and no `label` → minimal "—" render (instead of
+ *     returning the generic `[unknown block type]` placeholder).
  */
 
 import type { BlockHost, BlockRenderer } from './types.js';

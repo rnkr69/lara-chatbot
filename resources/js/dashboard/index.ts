@@ -1,30 +1,30 @@
 /**
- * v2.0 / E5 — entry del bundle `chatbot-dashboard.js`.
+ * v2.0 / E5 — entry of the `chatbot-dashboard.js` bundle.
  *
- * Espera al DOM ready y bootstrap-ea `DashboardApp` sobre el root inyectado
- * por la blade (`#chatbot-dashboard-root`). Idempotente: si el script se
- * carga dos veces (custom layout del host que duplica `<script>` por error)
- * la segunda invocación es no-op.
+ * Waits for DOM ready and bootstraps `DashboardApp` over the root injected
+ * by the blade (`#chatbot-dashboard-root`). Idempotent: if the script is
+ * loaded twice (a host custom layout that duplicates `<script>` by mistake)
+ * the second invocation is a no-op.
  *
- * v2.0 / E7 — antes de arrancar la app, instala el chart renderer built-in
- * según `data-chart-renderer` (inyectado por DashboardController desde
+ * v2.0 / E7 — before starting the app, it installs the built-in chart renderer
+ * according to `data-chart-renderer` (injected by DashboardController from
  * `config('chatbot.dashboard.chart_renderer')`):
  *
- *   - `'chartjs'` (default): pre-registra `renderChartBlockChartjs` en
- *     `window.Chatbot.__internal.getBlockRenderer('chart')`. Si `window.Chatbot`
- *     no existe (caso típico: la dashboard view es página dedicada y no carga
- *     `chatbot-widget.js`), montamos un shim mínimo con `registerBlockRenderer`
- *     + `__internal.getBlockRenderer` para que el cascade de `blocks.ts:480`
- *     funcione tal cual. Si `window.Chatbot` YA existe Y el host ya registró
- *     `'chart'` en él (override deliberado), no clobeamos.
- *   - `'none'`: no se registra nada. El cascade cae al placeholder built-in
- *     ("Chart renderer not registered…"). El host puede registrar el suyo
- *     ANTES de cargar este bundle vía un widget loader propio.
+ *   - `'chartjs'` (default): pre-registers `renderChartBlockChartjs` in
+ *     `window.Chatbot.__internal.getBlockRenderer('chart')`. If `window.Chatbot`
+ *     does not exist (typical case: the dashboard view is a dedicated page and
+ *     does not load `chatbot-widget.js`), we mount a minimal shim with
+ *     `registerBlockRenderer` + `__internal.getBlockRenderer` so the cascade in
+ *     `blocks.ts:480` works as-is. If `window.Chatbot` ALREADY exists AND the
+ *     host already registered `'chart'` on it (a deliberate override), we don't
+ *     clobber it.
+ *   - `'none'`: nothing is registered. The cascade falls to the built-in
+ *     placeholder ("Chart renderer not registered…"). The host can register its
+ *     own BEFORE loading this bundle via its own widget loader.
  *
- * Expone `window.ChatbotDashboard` con un par de hooks mínimos para que
- * hosts puedan re-iniciar el bundle desde código (p. ej. tras un cambio de
- * usuario en SPA). API deliberadamente pequeña; ampliable cuando E8 añada
- * más superficies.
+ * Exposes `window.ChatbotDashboard` with a couple of minimal hooks so hosts
+ * can restart the bundle from code (e.g. after a user change in an SPA). The
+ * API is deliberately small; expandable when E8 adds more surfaces.
  */
 
 import { startDashboardApp, type DashboardAppHandle } from './app.js';

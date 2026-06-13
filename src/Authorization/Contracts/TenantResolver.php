@@ -8,32 +8,32 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Rnkr69\LaraChatbot\Tools\Contracts\BackendTool;
 
 /**
- * 4ª dimensión de autorización (gap de hosts multi-tenant):
- * mapea (usuario, tool, page context) a la lista de IDs de tenant/entidad
- * accesibles. La cascada de autorización pasa de
+ * 4th authorization dimension (multi-tenant hosts gap):
+ * maps (user, tool, page context) to the list of accessible tenant/entity
+ * IDs. The authorization cascade goes from
  *
- *     permiso → scope → ownership
+ *     permission → scope → ownership
  *
- * a
+ * to
  *
- *     permiso → scope → tenant → ownership
+ *     permission → scope → tenant → ownership
  *
- * cuando una tool declara `tenantScope=true` en E06.
+ * when a tool declares `tenantScope=true` in E06.
  *
- * **Origen**: hosts multi-tenant (`corporation_id`) y hosts entity-scoped
+ * **Origin**: multi-tenant hosts (`corporation_id`) and entity-scoped hosts
  * (`event_id`).
  *
- * Comportamiento esperado:
- *  - Devolver `null` ⇒ el invocador tiene acceso a todos los tenants
- *    (bypass del filtro `whereIn` que aplicaría la tool).
- *  - Devolver `[]`   ⇒ el invocador no tiene acceso a ningún tenant
- *    (la tool debe devolver lista vacía o lanzar ToolUnauthorizedException).
- *  - Devolver `[id1, id2, ...]` ⇒ aplicar `whereIn(tenant_field, $ids)`.
+ * Expected behavior:
+ *  - Returning `null` ⇒ the invoker has access to all tenants
+ *    (bypasses the `whereIn` filter the tool would apply).
+ *  - Returning `[]`   ⇒ the invoker has access to no tenant
+ *    (the tool must return an empty list or throw ToolUnauthorizedException).
+ *  - Returning `[id1, id2, ...]` ⇒ apply `whereIn(tenant_field, $ids)`.
  *
- * El `TenantResolver` es **opcional**: el paquete no lo bind por defecto.
- * Sólo se enlaza si `chatbot.authorization.tenant_resolver` apunta a una
- * clase concreta. Tools con `tenantScope=true` cuando no hay resolver
- * registrado hacen fallar el boot del ToolRegistry (E06).
+ * The `TenantResolver` is **optional**: the package does not bind it by
+ * default. It's only bound if `chatbot.authorization.tenant_resolver`
+ * points to a concrete class. Tools with `tenantScope=true` when no
+ * resolver is registered fail the ToolRegistry boot (E06).
  */
 interface TenantResolver
 {

@@ -10,20 +10,20 @@ use Rnkr69\LaraChatbot\Tests\Stubs\Tools\TenantScopedTool;
 
 /*
 |--------------------------------------------------------------------------
-| AuthorizesToolAccess trait — E20 hueco
+| AuthorizesToolAccess trait — E20 gap
 |--------------------------------------------------------------------------
 |
-| El trait forma la cascada de autorización (permission → scope → tenant).
-| Ya está cubierto indirectamente por BaseBackendToolTest. Aquí asertamos
-| explícitamente el contrato de la rama "sin TenantResolver bound": el
-| paquete debe interpretarlo como "sin restricción de tenant" devolviendo
-| `null` (semántica documentada en src/Authorization/Concerns/...).
+| The trait forms the authorization cascade (permission → scope → tenant).
+| It is already covered indirectly by BaseBackendToolTest. Here we assert
+| explicitly the contract of the "no TenantResolver bound" branch: the
+| package should interpret it as "no tenant restriction" by returning
+| `null` (semantics documented in src/Authorization/Concerns/...).
 */
 
 /**
- * Exposer del trait para verificar `accessibleTenantIds` directamente. El
- * trait declara el método como `protected`, así que envolvemos en una
- * subclase que lo expone como `public`.
+ * Trait exposer to verify `accessibleTenantIds` directly. The trait
+ * declares the method as `protected`, so we wrap it in a subclass that
+ * exposes it as `public`.
  */
 function tenantAccessProbe(): object
 {

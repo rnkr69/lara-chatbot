@@ -7,15 +7,15 @@ namespace Rnkr69\LaraChatbot\Tools\Frontend;
 use Rnkr69\LaraChatbot\Tools\BaseFrontendTool;
 
 /**
- * Muestra un toast/notificación efímera al usuario fuera del hilo de chat.
+ * Shows an ephemeral toast/notification to the user outside the chat thread.
  *
- * Útil para confirmar que una acción del usuario se procesó ("Pedido
- * aprobado"), advertirle de un cambio de estado o mostrar feedback breve
- * que no debe ocupar el chat. El widget delega en el sistema de toasts del
- * host si está disponible (vía `registerNotifier`); en su defecto pinta su
- * propio toast nativo.
+ * Useful to confirm that a user action was processed ("Order
+ * approved"), warn them of a state change or show brief feedback
+ * that should not take up the chat. The widget delegates to the host's
+ * toast system if available (via `registerNotifier`); otherwise it renders
+ * its own native toast.
  *
- * Confirmation: `auto`. Es estrictamente informativo.
+ * Confirmation: `auto`. It is strictly informative.
  */
 class ShowToastTool extends BaseFrontendTool
 {

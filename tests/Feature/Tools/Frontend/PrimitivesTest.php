@@ -16,12 +16,12 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 
 /*
 |--------------------------------------------------------------------------
-| Primitivas FE — DoD ROADMAP §5/E11: test unitario por primitiva (validación
-| de args), confirmation por defecto, y "shim queued" sin efectos secundarios.
+| FE primitives — DoD ROADMAP §5/E11: one unit test per primitive (args
+| validation), default confirmation, and "queued shim" without side effects.
 |--------------------------------------------------------------------------
 |
-| `DownloadFileTool` tiene su propio archivo (DownloadFileToolTest.php) por
-| volumen y por exigir Storage::fake().
+| `DownloadFileTool` has its own file (DownloadFileToolTest.php) due to its
+| volume and because it requires Storage::fake().
 */
 
 it('all primitives implement FrontendTool', function () {
@@ -143,7 +143,7 @@ it('NavigateTool errors when params are missing for a required route segment (v1
     $result = $tool->execute(['route' => 'invoices.show'], $ctx);
 
     expect($result->isError())->toBeTrue()
-        // UrlGenerationException → 'validation' (params del LLM están mal).
+        // UrlGenerationException → 'validation' (the LLM's params are wrong).
         ->and($result->errorCategory)->toBe('validation');
 });
 

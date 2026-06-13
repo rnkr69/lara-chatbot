@@ -11,17 +11,17 @@ use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /*
 |--------------------------------------------------------------------------
-| DownloadFileTool — gap cross-host E11 (descarga server-side)
+| DownloadFileTool — cross-host gap E11 (server-side download)
 |--------------------------------------------------------------------------
 |
-| DoD adicional ROADMAP §4/E11:
-|   - test de URL firmada con expiración.
-|   - test de denegación cuando el usuario no tiene acceso al recurso.
+| Additional DoD ROADMAP §4/E11:
+|   - test of a signed URL with expiration.
+|   - test of denial when the user has no access to the resource.
 |
-| Cubrimos también el modelo fail-secure por defecto (allowed_disks vacío),
-| el clamping de `expires_in`, el rechazo de URLs http/https y el merge
-| `download_url`/`expires_at` en `ToolResult::data` que el ChatService
-| expandirá a `frontend_action.args`.
+| We also cover the fail-secure default model (empty allowed_disks), the
+| clamping of `expires_in`, the rejection of http/https URLs and the merge of
+| `download_url`/`expires_at` into `ToolResult::data` that ChatService will
+| expand into `frontend_action.args`.
 */
 
 beforeEach(function () {

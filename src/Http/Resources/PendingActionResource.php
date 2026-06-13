@@ -8,14 +8,14 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Rnkr69\LaraChatbot\Models\PendingAction;
 
 /**
- * Serializa un `PendingAction` para el endpoint `POST /chatbot/actions/{id}/confirm`
- * (E16). El widget consume este shape para decidir qué hacer tras la
- * respuesta:
+ * Serializes a `PendingAction` for the endpoint `POST /chatbot/actions/{id}/confirm`
+ * (E16). The widget consumes this shape to decide what to do after the
+ * response:
  *
- *   - `status=confirmed` con `confirmation=confirm` → el widget ejecuta la
- *      primitiva localmente y vuelve a llamar al endpoint con `result`.
- *   - `status=executed`  → flujo cerrado, el row es terminal.
- *   - `status=rejected`  → flujo cerrado.
+ *   - `status=confirmed` with `confirmation=confirm` → the widget executes the
+ *      primitive locally and calls the endpoint again with `result`.
+ *   - `status=executed`  → closed flow, the row is terminal.
+ *   - `status=rejected`  → closed flow.
  *
  * @mixin PendingAction
  */

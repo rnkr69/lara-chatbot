@@ -8,22 +8,22 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Shape JSON de un dashboard del usuario (v2.0 / E4).
+ * JSON shape of a user's dashboard (v2.0 / E4).
  *
- * El `user_type`/`user_id` morph se omite (igual que en `ConversationResource`):
- * el cliente siempre opera dentro de su propio scope y no necesita esos
- * campos para nada útil.
+ * The `user_type`/`user_id` morph is omitted (same as in `ConversationResource`):
+ * the client always operates within its own scope and does not need those
+ * fields for anything useful.
  *
- * El `widget_count` es un conteo materializado on-demand:
- *   - `index` lo computa con una single query agregada (cuando el controller
- *     hace `withCount('widgets')`).
- *   - `show` no lo necesita porque ya incluye `widgets` inline (la relación
- *     `widgets` eager-loaded → la key `widgets` aparece dentro de `data`);
- *     se omite el `widget_count` para no enviar dos representaciones del
- *     mismo dato.
+ * The `widget_count` is a count materialized on-demand:
+ *   - `index` computes it with a single aggregated query (when the controller
+ *     does `withCount('widgets')`).
+ *   - `show` does not need it because it already includes `widgets` inline (the
+ *     `widgets` relation eager-loaded → the `widgets` key appears inside `data`);
+ *     the `widget_count` is omitted to avoid sending two representations of the
+ *     same data.
  *
- * `widgets` sólo aparece cuando la relación está eager-loaded (`whenLoaded`),
- * así que `index`/`store`/`update` —que no la cargan— no la incluyen.
+ * `widgets` only appears when the relation is eager-loaded (`whenLoaded`),
+ * so `index`/`store`/`update` —which do not load it— do not include it.
  *
  * @property-read \Rnkr69\LaraChatbot\Models\Dashboard $resource
  */

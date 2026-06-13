@@ -14,18 +14,18 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Excepción que envuelve cualquier fallo del LLM (Prism u otro) para que el
- * resto del paquete (ChatService, comandos, controladores) no tenga que
- * conocer la jerarquía interna del SDK.
+ * Exception that wraps any LLM failure (Prism or otherwise) so that the
+ * rest of the package (ChatService, commands, controllers) does not have to
+ * know the SDK's internal hierarchy.
  *
- * Se categoriza por `reason`:
- *   - `rate_limit`        — proveedor pidió rate-limit; reintentar más tarde.
- *   - `overloaded`        — proveedor sobrecargado.
- *   - `auth`              — credenciales inválidas o caducadas.
- *   - `request_too_large` — contexto excede el límite del modelo.
- *   - `server`            — error 5xx del proveedor.
- *   - `stream_decode`     — fallo decodificando el stream del proveedor.
- *   - `unknown`           — cualquier otro fallo.
+ * Categorized by `reason`:
+ *   - `rate_limit`        — provider requested rate-limit; retry later.
+ *   - `overloaded`        — provider overloaded.
+ *   - `auth`              — invalid or expired credentials.
+ *   - `request_too_large` — context exceeds the model's limit.
+ *   - `server`            — provider 5xx error.
+ *   - `stream_decode`     — failure decoding the provider's stream.
+ *   - `unknown`           — any other failure.
  */
 class LlmException extends RuntimeException
 {
@@ -38,10 +38,10 @@ class LlmException extends RuntimeException
     }
 
     /**
-     * Convierte una excepción de Prism (o cualquier `Throwable`) en una
-     * `LlmException` con `reason` clasificado. La detección de "auth"
-     * inspecciona el mensaje porque Prism no expone una clase específica
-     * para credenciales inválidas (varía por proveedor).
+     * Converts a Prism exception (or any `Throwable`) into an
+     * `LlmException` with a classified `reason`. The "auth" detection
+     * inspects the message because Prism does not expose a specific class
+     * for invalid credentials (it varies by provider).
      */
     public static function fromPrism(Throwable $e): self
     {

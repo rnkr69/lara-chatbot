@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Dashboard;
 
 /**
- * Normaliza y clampea valores de posición/tamaño del grid gridstack que
- * usa el Personal Dashboard. Lo comparten `PinService` (al crear el widget)
- * y `WidgetCrudService::update()` (al mover/redimensionar). Mantenerlo en
- * un único punto evita drift entre dos caminos que deben quedar idénticos.
+ * Normalizes and clamps the position/size values of the gridstack grid that
+ * the Personal Dashboard uses. They are shared by `PinService` (on widget
+ * creation) and `WidgetCrudService::update()` (on move/resize). Keeping it in
+ * a single place avoids drift between two paths that must stay identical.
  *
- * El grid es de 12 columnas (`x: 0–11`, `w: 1–12`). `y` no tiene cap
- * inferior salvo `>= 0`; gridstack reubica al row más bajo libre cuando se
- * pasa `9999` (sentinel "auto-place"). `h` arranca en 1 sin cap superior
- * teórico — el clamp del controller histórico era `>=1` y eso preservamos.
+ * The grid is 12 columns (`x: 0–11`, `w: 1–12`). `y` has no lower
+ * cap other than `>= 0`; gridstack relocates to the lowest free row when
+ * `9999` (the "auto-place" sentinel) is passed. `h` starts at 1 with no
+ * theoretical upper cap — the historical controller clamp was `>=1` and that is what we preserve.
  */
 final class WidgetPositionNormalizer
 {
@@ -38,9 +38,9 @@ final class WidgetPositionNormalizer
     }
 
     /**
-     * Tamaño inicial sugerido por tipo de block (v2.1, #18). Sólo es el punto
-     * de partida al pinear — el usuario redimensiona libremente desde
-     * gridstack. Un `block_type` desconocido cae al tamaño medio histórico.
+     * Suggested initial size by block type (v2.1, #18). It is only the
+     * starting point on pin — the user resizes freely from
+     * gridstack. An unknown `block_type` falls to the historical medium size.
      *
      * @return array{w:int, h:int}
      */

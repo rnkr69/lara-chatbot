@@ -9,8 +9,8 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * Tool sin permisos requeridos (pública). Debe aparecer en `forUser` para
- * cualquier usuario.
+ * Tool with no required permissions (public). Must appear in `forUser` for
+ * any user.
  */
 class PublicTool extends BaseBackendTool
 {
@@ -23,7 +23,7 @@ class PublicTool extends BaseBackendTool
 
     public function description(): string
     {
-        return 'Tool pública de prueba.';
+        return 'Public test tool.';
     }
 
     public function parameters(): array

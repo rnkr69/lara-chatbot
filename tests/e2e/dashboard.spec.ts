@@ -1,17 +1,17 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * v2.0 / E5 — E2E del bundle del dashboard.
+ * v2.0 / E5 — E2E for the dashboard bundle.
  *
- * Cubre los puntos de §8 del plan:
- *   - Mount + lista en sidebar + click selecciona dashboard.
- *   - Refresh on-open dispara SSE bulk y actualiza el snapshot mostrado.
- *   - Drag del header → PATCH a `/widgets/{id}` con la nueva position
- *     (simulado: el test edita la position via JS y dispara el evento
- *     `change` de gridstack — gridstack hace queries de layout que el
- *     entorno headless no facilita, así que aquí verificamos el wiring,
- *     no la mecánica de drag visual).
- *   - Rename desde el sidebar actualiza el nombre y el slug.
+ * Covers the points in §8 of the plan:
+ *   - Mount + sidebar list + click selects a dashboard.
+ *   - On-open refresh fires the SSE bulk and updates the displayed snapshot.
+ *   - Header drag → PATCH to `/widgets/{id}` with the new position
+ *     (simulated: the test edits the position via JS and fires gridstack's
+ *     `change` event — gridstack runs layout queries that the headless
+ *     environment does not provide, so here we verify the wiring,
+ *     not the visual drag mechanics).
+ *   - Rename from the sidebar updates the name and the slug.
  */
 
 test.beforeEach(async ({ page }) => {

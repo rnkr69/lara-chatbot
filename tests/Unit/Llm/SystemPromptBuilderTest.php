@@ -6,9 +6,9 @@ use Illuminate\Support\Facades\View;
 use Rnkr69\LaraChatbot\Llm\SystemPromptBuilder;
 
 beforeEach(function () {
-    // Cada test parte de una vista base mínima y configurable. La vista
-    // real publishable (resources/views/system_prompt.blade.php) se
-    // ejercita en otro test por separado.
+    // Each test starts from a minimal, configurable base view. The real
+    // publishable view (resources/views/system_prompt.blade.php) is
+    // exercised in a separate test.
     View::addLocation(sys_get_temp_dir());
 });
 
@@ -33,7 +33,7 @@ it('does not include addendum when addendum_view is null', function () {
 });
 
 it('includes the addendum content when addendum_view is configured', function () {
-    // Usamos la vista example que ya provee el paquete como referencia.
+    // We use the example view the package already provides as a reference.
     $tmpView = sys_get_temp_dir() . '/chatbot_addendum_test.blade.php';
     file_put_contents(
         $tmpView,
@@ -72,7 +72,7 @@ it('translates the locale instruction for known locales', function (string $loca
     ['fr', 'French'],
     ['it', 'Italian'],
     ['de', 'German'],
-    ['es-ES', 'Spanish'], // BCP47 → primer segmento
+    ['es-ES', 'Spanish'], // BCP47 → first segment
     ['en-US', 'English'],
 ]);
 
@@ -130,9 +130,9 @@ it('changes the system prompt when page_context changes between builds (E14 DoD)
 });
 
 it('emits the canonical "## Current page" section even when the host overrides the publishable view', function () {
-    // Simulamos un override total de la vista base por el host: el host la
-    // sobrescribe a algo que NO contiene la sección de page context. El
-    // contrato del paquete debe mantenerla porque vive en el builder.
+    // We simulate a full override of the base view by the host: the host
+    // overwrites it with something that does NOT contain the page context
+    // section. The package's contract should keep it because it lives in the builder.
     $tmpView = sys_get_temp_dir() . '/chatbot_overridden_base.blade.php';
     file_put_contents($tmpView, 'CUSTOM HOST PROMPT — without any page section.');
 
@@ -156,7 +156,7 @@ it('falls back to a hard-coded prompt when the configured view does not exist', 
 
     $built = app(SystemPromptBuilder::class)->build(['locale' => 'es']);
 
-    // Fallback string presente (sin Blade), y locale aún apendeado por el builder.
+    // Fallback string present (without Blade), and locale still appended by the builder.
     expect($built)
         ->toContain('You are a helpful assistant integrated into a Laravel application.')
         ->and($built)
@@ -165,13 +165,13 @@ it('falls back to a hard-coded prompt when the configured view does not exist', 
 
 /*
 |--------------------------------------------------------------------------
-| E16 — Sección "## Pending actions".
+| E16 — "## Pending actions" section.
 |--------------------------------------------------------------------------
 |
-| El builder lee los pending actions de la conversación pasada por contexto
-| y los lista para que el LLM "sepa" qué quedó pendiente / fue rechazado /
-| expiró en turnos anteriores. Sólo se incluyen `pending|rejected|expired`;
-| `confirmed` y `executed` se omiten (positivos no necesitan re-mención).
+| The builder reads the pending actions of the conversation passed by context
+| and lists them so the LLM "knows" what was left pending / was rejected /
+| expired in previous turns. Only `pending|rejected|expired` are included;
+| `confirmed` and `executed` are omitted (positives need no re-mention).
 */
 
 // ===== v1.1.1 (findings #12.a, #14.g) =====
@@ -437,7 +437,7 @@ it('truncates the pending-actions list to chatbot.limits.pending_actions_in_prom
 
     $built = app(SystemPromptBuilder::class)->build(['conversation' => $conversation]);
 
-    // Sólo 2 entradas (los más recientes por id desc — los #5 y #4).
+    // Only 2 entries (the most recent by id desc — #5 and #4).
     expect(substr_count($built, '[PENDING]'))->toBe(2);
     expect($built)->toContain('truncate-5')->and($built)->toContain('truncate-4')
         ->and($built)->not->toContain('truncate-3');

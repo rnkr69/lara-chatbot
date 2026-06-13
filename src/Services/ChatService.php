@@ -37,49 +37,49 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Throwable;
 
 /**
- * Orquestador del ciclo de vida de un mensaje de chat (E08 ROADMAP §5/E08).
+ * Orchestrator of a chat message's lifecycle (E08 ROADMAP §5/E08).
  *
- * Responsabilidad: dada una `Conversation`, un mensaje del usuario y el
- * page context actual, producir el stream de `SseEvent` que el endpoint
- * (`/chatbot/stream`, E09) reenvía al cliente, y dejar la conversación
- * persistida con el turn completo (user + assistant + tool calls/results).
+ * Responsibility: given a `Conversation`, a user message and the current
+ * page context, produce the stream of `SseEvent`s that the endpoint
+ * (`/chatbot/stream`, E09) forwards to the client, and leave the conversation
+ * persisted with the complete turn (user + assistant + tool calls/results).
  *
- * Pasos del flujo:
+ * Flow steps:
  *
- *   1. Persiste el mensaje del usuario.
- *   2. Construye el historial (limita a `chatbot.limits.history_messages`).
- *   3. Resuelve las tools del usuario via `ToolRegistry::forUser`. Filtra
- *      backend tools con `confirmation != Auto` (limitación v1).
- *   4. Construye `PromptOptions` con override por conversación
- *      (`metadata.provider/model`) y `maxSteps`/`maxTokens`/`locale` de
- *      config / del User.
- *   5. Llama `LlmGateway::streamChat`.
- *   6. Para cada `StreamEvent` de Prism:
- *      - `TextDeltaEvent`   → `SseEvent::text` y acumula texto.
- *      - `ToolCallEvent`    → corre cascada (`execute` o `handle`),
- *                              dispara `ToolInvoked`, y emite
- *                              `frontend_action` (FrontendTool) o
- *                              `tool_call` (backend) según el tipo. El
- *                              resultado se mete en un FIFO por nombre que
- *                              el closure de Prism consume después.
- *      - `ToolResultEvent`  → emite `tool_result` para backend; para
- *                              frontend no emite nada extra (ya se emitió
- *                              `frontend_action`). Los datos se acumulan
- *                              para persistir el assistant message.
- *      - `ErrorEvent`       → `SseEvent::error`. Recoverable=continúa.
- *      - `StreamEndEvent`   → captura usage; el done se emite tras
- *                              persistir.
- *   7. Persiste el assistant message con `content`, `tool_calls`,
- *      `tool_results` y tokens.
- *   8. Emite `SseEvent::done` con `message_id` y `usage`.
+ *   1. Persist the user message.
+ *   2. Build the history (limited to `chatbot.limits.history_messages`).
+ *   3. Resolve the user's tools via `ToolRegistry::forUser`. Filters out
+ *      backend tools with `confirmation != Auto` (v1 limitation).
+ *   4. Build `PromptOptions` with per-conversation override
+ *      (`metadata.provider/model`) and `maxSteps`/`maxTokens`/`locale` from
+ *      config / the User.
+ *   5. Call `LlmGateway::streamChat`.
+ *   6. For each Prism `StreamEvent`:
+ *      - `TextDeltaEvent`   → `SseEvent::text` and accumulates text.
+ *      - `ToolCallEvent`    → runs the cascade (`execute` or `handle`),
+ *                              dispatches `ToolInvoked`, and emits
+ *                              `frontend_action` (FrontendTool) or
+ *                              `tool_call` (backend) depending on the type. The
+ *                              result is pushed into a per-name FIFO that
+ *                              the Prism closure consumes afterwards.
+ *      - `ToolResultEvent`  → emits `tool_result` for backend; for
+ *                              frontend it emits nothing extra (`frontend_action`
+ *                              was already emitted). The data is accumulated
+ *                              to persist the assistant message.
+ *      - `ErrorEvent`       → `SseEvent::error`. Recoverable=continues.
+ *      - `StreamEndEvent`   → captures usage; the done is emitted after
+ *                              persisting.
+ *   7. Persist the assistant message with `content`, `tool_calls`,
+ *      `tool_results` and tokens.
+ *   8. Emit `SseEvent::done` with `message_id` and `usage`.
  *
- * El closure de cada `Prism\Prism\Tool` (creado por `PrismToolFactory`)
- * devuelve la serialización del `ToolResult` precomputado para que el
- * LLM cierre el step coherentemente — la cascada NO se ejecuta dos veces.
+ * Each `Prism\Prism\Tool` closure (created by `PrismToolFactory`)
+ * returns the serialization of the precomputed `ToolResult` so that the
+ * LLM closes the step coherently — the cascade is NOT executed twice.
  *
- * Gap cross-host (E08): se dispara `ToolInvoked` por CADA invocación de
- * tool, incluyendo rechazos por autorización. El host engancha listeners
- * para audit/PII desde su `EventServiceProvider`.
+ * Cross-host gap (E08): `ToolInvoked` is dispatched for EACH tool
+ * invocation, including authorization rejections. The host hooks listeners
+ * for audit/PII from its `EventServiceProvider`.
  */
 class ChatService
 {
@@ -247,10 +247,10 @@ class ChatService
         ];
 
         if ($tool === null) {
-            yield SseEvent::error("Tool desconocida: {$name}", 'unknown_tool');
-            // Empuja un error para que, si Prism termina llamando al closure
-            // (caso raro tras error), no se quede colgado.
-            $resultBuffer[$name][] = ToolResult::error('runtime', "Tool desconocida: {$name}");
+            yield SseEvent::error("Unknown tool: {$name}", 'unknown_tool');
+            // Push an error so that, if Prism ends up calling the closure
+            // (rare case after an error), it doesn't hang.
+            $resultBuffer[$name][] = ToolResult::error('runtime', "Unknown tool: {$name}");
             return;
         }
 
@@ -269,25 +269,25 @@ class ChatService
 
         if ($tool instanceof FrontendTool) {
             if ($result->isOk()) {
-                // Mergea los datos que `handle()` haya devuelto en los args
-                // del `frontend_action` (E11/§4): primitivas puras de UI
-                // devuelven `success([])` y los args quedan tal cual; tools
-                // FE con lógica backend (DownloadFileTool firma una URL,
-                // p.ej.) devuelven `success(['download_url' => ...])` y esos
-                // campos llegan al widget. En colisión gana `result->data`
-                // (es valor backend-firmado/validado, no el del LLM).
+                // Merge the data that `handle()` may have returned into the
+                // `frontend_action` args (E11/§4): pure UI primitives
+                // return `success([])` and the args are left as-is; FE tools
+                // with backend logic (DownloadFileTool signs a URL,
+                // for example) return `success(['download_url' => ...])` and those
+                // fields reach the widget. On collision, `result->data` wins
+                // (it is a backend-signed/validated value, not the LLM's).
                 $payloadArgs = $result->data === [] ? $args : array_merge($args, $result->data);
 
-                // Finding #25 (1.1.4): el nombre que viaja en
-                // `frontend_action.tool` puede divergir del `name()` del
-                // tool — una subclase de `DownloadFileTool` (p.ej.
-                // `DownloadManifestTool` que añade ownership-check) puede
-                // override `name()` con un nombre propio para que el LLM lo
-                // descubra, pero el widget sólo conoce el primitive
-                // canónico del bundle (`'download_file'`). El hook
-                // `frontendPrimitiveName()` (default = `name()`) deja a la
-                // subclase declarar el dispatch correcto sin que el host
-                // tenga que registrar un handler custom en
+                // Finding #25 (1.1.4): the name that travels in
+                // `frontend_action.tool` may diverge from the tool's
+                // `name()` — a subclass of `DownloadFileTool` (e.g.
+                // `DownloadManifestTool` that adds an ownership-check) can
+                // override `name()` with its own name so the LLM
+                // discovers it, but the widget only knows the bundle's
+                // canonical primitive (`'download_file'`). The
+                // `frontendPrimitiveName()` hook (default = `name()`) lets the
+                // subclass declare the correct dispatch without the host
+                // having to register a custom handler in
                 // `Chatbot.registerTool`.
                 $primitiveName = $tool instanceof BaseFrontendTool
                     ? $tool->frontendPrimitiveName()
@@ -295,11 +295,11 @@ class ChatService
 
                 $confirmation = $tool->confirmation();
 
-                // E16: para frontend tools `confirm`/`manual` persistimos un
-                // pending action; el LLM ve `awaiting_user` (no `queued`) y
-                // sabrá en el siguiente turno si el usuario aceptó/rechazó.
-                // El `action_id` del evento SSE es el UUID persistido — el
-                // widget lo usa como handle al llamar a
+                // E16: for `confirm`/`manual` frontend tools we persist a
+                // pending action; the LLM sees `awaiting_user` (not `queued`) and
+                // will know on the next turn whether the user accepted/rejected.
+                // The SSE event's `action_id` is the persisted UUID — the
+                // widget uses it as a handle when calling
                 // `POST /chatbot/actions/{action_id}/confirm`.
                 if ($confirmation !== ConfirmationLevel::Auto) {
                     $pending = $this->pendingActions->create(
@@ -324,20 +324,20 @@ class ChatService
                     return;
                 }
 
-                // Confirmación Auto (v1.1.3 #16): persistimos un pending
-                // action `Confirmed` para que el widget pueda hacer POST-back
-                // si la primitive falla. El `Confirmed` se transita a
-                // `Executed` cuando llega un result con `ok:false`; el LLM
-                // ve `[FAILED]` en el siguiente turno (sin romper el
-                // matching de `tool_use_id` de Anthropic, que ya recibió
-                // este turno un `tool_result.queued`). Happy path = no
-                // POST-back, el row se queda en `Confirmed` para siempre.
+                // Auto confirmation (v1.1.3 #16): we persist a pending
+                // action `Confirmed` so that the widget can POST-back
+                // if the primitive fails. The `Confirmed` transitions to
+                // `Executed` when a result with `ok:false` arrives; the LLM
+                // sees `[FAILED]` on the next turn (without breaking
+                // Anthropic's `tool_use_id` matching, which already received
+                // a `tool_result.queued` this turn). Happy path = no
+                // POST-back, the row stays `Confirmed` forever.
                 //
-                // Si la persistencia falla (típicamente: el host no migró
-                // todavía al esquema 1.1.3 que acepta `auto` en la columna
-                // `confirmation`), degradamos al UUID-suelto del flow
-                // 1.1.2: emitimos el frontend_action igualmente, sólo que
-                // no habrá canal de POST-back para fallos.
+                // If persistence fails (typically: the host has not yet
+                // migrated to the 1.1.3 schema that accepts `auto` in the
+                // `confirmation` column), we degrade to the loose-UUID of the
+                // 1.1.2 flow: we emit the frontend_action anyway, only
+                // there will be no POST-back channel for failures.
                 try {
                     $pending = $this->pendingActions->createAutoConfirmed(
                         conversation: $ctx->conversation,
@@ -364,9 +364,9 @@ class ChatService
                 return;
             }
 
-            // Cascade rechazó la frontend tool — el widget no debe ejecutar
-            // nada. Emitimos `tool_result` para que el host vea el rechazo
-            // (es un canal informativo) y devolvemos el error al LLM.
+            // The cascade rejected the frontend tool — the widget must not
+            // execute anything. We emit `tool_result` so the host sees the
+            // rejection (it is an informational channel) and return the error to the LLM.
             yield SseEvent::toolResult($name, false, (string) ($result->errorMessage ?? $result->errorCategory));
             $resultBuffer[$name][] = $result;
 
@@ -375,19 +375,19 @@ class ChatService
 
         yield SseEvent::toolCall($name, $args);
 
-        // v2.0 (E1) — si la tool devolvió blocks tipados en su ToolResult,
-        // los emitimos como frames `block` para que el widget los pinte
-        // (rieles dormidos en v1.x: el shape existía pero no se serializaba).
-        // Cada block se enriquece con:
-        //   - id: UUID fresco. El cliente lo usa como handle (pin, scroll).
-        //         Si la tool ya trajera un id en el array crudo, lo ignoramos
-        //         por contrato (el author NO debe setearlo — ver plan §4.1).
-        //   - source: `{tool, args, page_context_keys}`. Lo consume el replay
-        //         engine (E3) cuando el block se pinea al dashboard.
-        //   - pinnable: sólo true cuando la tool declara `pinnable() === true`
-        //         Y `confirmation() === Auto`. Enforcement aguas arriba: tools
-        //         que mutan (confirm/manual) jamás propagan el flag aunque
-        //         override `pinnable()` por descuido (plan §9, riesgos).
+        // v2.0 (E1) — if the tool returned typed blocks in its ToolResult,
+        // we emit them as `block` frames so the widget paints them
+        // (dormant rails in v1.x: the shape existed but was not serialized).
+        // Each block is enriched with:
+        //   - id: fresh UUID. The client uses it as a handle (pin, scroll).
+        //         If the tool already brought an id in the raw array, we ignore it
+        //         by contract (the author must NOT set it — see plan §4.1).
+        //   - source: `{tool, args, page_context_keys}`. Consumed by the replay
+        //         engine (E3) when the block is pinned to the dashboard.
+        //   - pinnable: true only when the tool declares `pinnable() === true`
+        //         AND `confirmation() === Auto`. Enforcement upstream: tools
+        //         that mutate (confirm/manual) never propagate the flag even if
+        //         they override `pinnable()` by mistake (plan §9, risks).
         if ($result->isOk() && $result->blocks !== []) {
             // v2.1 (#11) — the dashboard opt-out must be clean: with
             // `chatbot.dashboard.enabled = false` no block is ever stamped
@@ -407,13 +407,13 @@ class ChatService
                 )),
             ];
 
-            // v2.1.2 (#27) — `block_ordinal`: posición 0-based del bloque
-            // entre los de su mismo tipo DENTRO de este `ToolResult`. Es la
-            // mitad estable del descriptor `{block_type, ordinal}` con el que
-            // el replay (E3) re-localiza el bloque pineado cuando un tool
-            // emite varios (KPIs + gráfica — el caso canónico del dashboard).
-            // El `id` no sirve para eso: `Str::uuid()` genera uno nuevo por
-            // invocación, así que jamás casa entre el pin y un replay posterior.
+            // v2.1.2 (#27) — `block_ordinal`: the block's 0-based position
+            // among those of its same type WITHIN this `ToolResult`. It is the
+            // stable half of the `{block_type, ordinal}` descriptor with which
+            // the replay (E3) re-locates the pinned block when a tool
+            // emits several (KPIs + chart — the dashboard's canonical case).
+            // The `id` is no good for that: `Str::uuid()` generates a new one per
+            // invocation, so it never matches between the pin and a later replay.
             $ordinalByType = [];
 
             foreach ($result->blocks as $rawBlock) {
@@ -429,11 +429,11 @@ class ChatService
                 $ordinal = $ordinalByType[$blockType] ?? 0;
                 $ordinalByType[$blockType] = $ordinal + 1;
 
-                // v2.2.1 (PR-B) — passthrough del bag `meta` que el tool estampe
-                // en el raw block. El orquestador no lo interpreta: el carril
-                // canónico hoy es `meta.side_effects` (5 tools dashboard) y el
-                // bundle del widget lo levanta a un `CustomEvent`. Tools v1.x
-                // sin `meta` siguen igual.
+                // v2.2.1 (PR-B) — passthrough of the `meta` bag that the tool stamps
+                // on the raw block. The orchestrator does not interpret it: the
+                // canonical rail today is `meta.side_effects` (5 dashboard tools) and the
+                // widget bundle raises it to a `CustomEvent`. v1.x tools
+                // without `meta` are unaffected.
                 $rawMeta = $rawBlock['meta'] ?? null;
                 $meta = is_array($rawMeta) && $rawMeta !== [] ? $rawMeta : null;
 
@@ -483,10 +483,10 @@ class ChatService
 
         $tool = $tools[$name] ?? null;
 
-        // Para frontend tools el evento informativo ya se emitió en
-        // `onToolCall` (`frontend_action` o `tool_result` de rechazo). No
-        // emitimos nada extra al recibir el ToolResultEvent — el LLM lo
-        // está consumiendo internamente.
+        // For frontend tools the informational event was already emitted in
+        // `onToolCall` (`frontend_action` or rejection `tool_result`). We
+        // emit nothing extra when receiving the ToolResultEvent — the LLM is
+        // consuming it internally.
         if ($tool instanceof FrontendTool) {
             return;
         }
@@ -498,9 +498,9 @@ class ChatService
     }
 
     /**
-     * Convierte el `ToolResultEvent.toolResult.result` (string|int|float|array|null)
-     * a un string corto para el evento SSE `tool_result`. Para arrays con
-     * clave `status` devuelve esa marca; para el resto trunca a 120 chars.
+     * Converts the `ToolResultEvent.toolResult.result` (string|int|float|array|null)
+     * to a short string for the `tool_result` SSE event. For arrays with a
+     * `status` key it returns that marker; for the rest it truncates to 120 chars.
      *
      * @param  string|int|float|array<string, mixed>|null  $rawResult
      */
@@ -539,10 +539,10 @@ class ChatService
     protected function executeTool(BackendTool $tool, array $args, ToolContext $ctx): ToolResult
     {
         try {
-            // BaseBackendTool expone `execute()` con la cascada completa
-            // (validate → permission → tenant → handle). Las tools que
-            // implementan `BackendTool` directamente (e.g. McpBackendTool)
-            // no la tienen — caemos a `handle()`.
+            // BaseBackendTool exposes `execute()` with the full cascade
+            // (validate → permission → tenant → handle). Tools that
+            // implement `BackendTool` directly (e.g. McpBackendTool)
+            // don't have it — we fall back to `handle()`.
             if (method_exists($tool, 'execute')) {
                 /** @var ToolResult $result */
                 $result = $tool->execute($args, $ctx);
@@ -552,10 +552,10 @@ class ChatService
 
             return $tool->handle($args, $ctx);
         } catch (Throwable $e) {
-            // v1.1 (findings #2): no filtrar el mensaje crudo de la excepción
-            // al LLM en producción — un `SQLSTATE[42S22]: Column not found`
-            // viaja al usuario y revela esquema. Loguear siempre con un
-            // correlation_id; el mensaje al LLM depende de APP_DEBUG.
+            // v1.1 (findings #2): do not leak the exception's raw message
+            // to the LLM in production — a `SQLSTATE[42S22]: Column not found`
+            // travels to the user and reveals the schema. Always log with a
+            // correlation_id; the message to the LLM depends on APP_DEBUG.
             $correlationId = (string) Str::uuid();
 
             Log::error('[chatbot] tool execution threw', [
@@ -600,7 +600,7 @@ class ChatService
         foreach ($allowed as $name => $tool) {
             if (! $tool instanceof FrontendTool && $tool->confirmation() !== ConfirmationLevel::Auto) {
                 Log::warning(sprintf(
-                    '[chatbot] La backend tool `%s` declara confirmation=%s. En v1 sólo `auto` está soportado para backend tools; se omite del catálogo del LLM. (Backlog v2.)',
+                    '[chatbot] Backend tool `%s` declares confirmation=%s. In v1 only `auto` is supported for backend tools; it is omitted from the LLM catalog. (Backlog v2.)',
                     $name,
                     $tool->confirmation()->value,
                 ));
@@ -647,9 +647,9 @@ class ChatService
                 continue;
             }
 
-            // role=tool y role=system se obvian en v1 — el system prompt
-            // lo construye `SystemPromptBuilder`, y los tool_results de
-            // turnos previos viven sintetizados en el texto del assistant.
+            // role=tool and role=system are skipped in v1 — the system prompt
+            // is built by `SystemPromptBuilder`, and the tool_results from
+            // previous turns live synthesized in the assistant's text.
         }
 
         return $history;
@@ -708,9 +708,9 @@ class ChatService
                 'pageContext'  => $pageContext,
                 'tools'        => array_values($tools),
                 'locale'       => $locale,
-                // E16: el builder consulta pending actions de esta
-                // conversación para inyectar la sección
-                // `## Pending actions` en el siguiente turno.
+                // E16: the builder queries this conversation's pending
+                // actions to inject the
+                // `## Pending actions` section on the next turn.
                 'conversation' => $conversation,
             ],
             maxSteps:  $maxSteps > 0 ? $maxSteps : null,
@@ -783,8 +783,8 @@ class ChatService
             if ($llmTitle !== null && $llmTitle !== '') {
                 return $llmTitle;
             }
-            // Falla silenciosa → fallback a truncado. La conversación gana
-            // un título imperfecto en lugar de quedar sin título.
+            // Silent failure → fall back to truncation. The conversation gets
+            // an imperfect title instead of remaining untitled.
         }
 
         return $this->truncateForTitle($normalized, $maxLen);
@@ -804,11 +804,11 @@ class ChatService
     }
 
     /**
-     * Genera un título conciso delegando al LLM. Por defecto usa el modelo
-     * configurado en `chatbot.titles.llm_model` (típicamente Haiku); si está
-     * vacío usa el modelo por defecto del paquete. Limita `max_tokens` y
-     * `temperature` para acotar el coste y la varianza. Devuelve null si la
-     * llamada falla por cualquier motivo (la capa superior cae al truncado).
+     * Generates a concise title by delegating to the LLM. By default it uses
+     * the model configured in `chatbot.titles.llm_model` (typically Haiku); if
+     * empty it uses the package's default model. Limits `max_tokens` and
+     * `temperature` to bound cost and variance. Returns null if the
+     * call fails for any reason (the layer above falls back to truncation).
      */
     protected function deriveTitleViaLlm(string $userMessage, int $maxLen): ?string
     {

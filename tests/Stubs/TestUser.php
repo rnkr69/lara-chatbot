@@ -9,11 +9,11 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * User Eloquent mínimo para los tests del orquestador (`ChatService`,
- * E08). Lo usan las conversaciones por su `morphTo('user')`. No tiene
- * tabla real: `getMorphClass()` devuelve el FQCN y `getKey()` lee el
- * attribute `id` que cada test setea por constructor. Bypassamos la
- * carga real con `Conversation::setRelation('user', $user)`.
+ * Minimal Eloquent User for the orchestrator tests (`ChatService`,
+ * E08). Conversations use it through their `morphTo('user')`. It has no
+ * real table: `getMorphClass()` returns the FQCN and `getKey()` reads the
+ * `id` attribute each test sets via the constructor. We bypass the real
+ * load with `Conversation::setRelation('user', $user)`.
  */
 class TestUser extends Model implements Authenticatable
 {

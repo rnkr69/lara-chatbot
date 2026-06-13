@@ -7,24 +7,24 @@ namespace Rnkr69\LaraChatbot\Integrations\Backpack;
 use Illuminate\View\Compilers\BladeCompiler;
 
 /**
- * Helpers Blade para hosts que usan Backpack (gap cross-host parte 1).
+ * Blade helpers for hosts that use Backpack (cross-host gap part 1).
  *
- * Registra la directive `@chatbotBackpackContext` que renderiza
- * server-side un `<meta name="chatbot:context" content='...'>` poblado
- * con el contexto del CrudPanel actual. El widget lee ese meta tag al
- * boot y en cada navegación SPA (E14 D14).
+ * Registers the `@chatbotBackpackContext` directive that renders
+ * server-side a `<meta name="chatbot:context" content='...'>` populated
+ * with the current CrudPanel's context. The widget reads that meta tag at
+ * boot and on every SPA navigation (E14 D14).
  *
- * Si Backpack no está instalado o no hay panel resuelto, la directive
- * emite cadena vacía — el host puede colocarla en su layout base sin
- * romper páginas no-admin.
+ * If Backpack is not installed or there is no resolved panel, the directive
+ * emits an empty string — the host can place it in its base layout without
+ * breaking non-admin pages.
  */
 class BladeHelpers
 {
     /**
-     * Registra `@chatbotBackpackContext` en el compilador Blade. Sólo
-     * se llama desde `ChatbotServiceProvider::registerBackpackIntegration()`,
-     * y sólo cuando Backpack está presente — pero la directive en sí es
-     * defensiva (no requiere Backpack para no fallar en tiempo de render).
+     * Registers `@chatbotBackpackContext` in the Blade compiler. It is only
+     * called from `ChatbotServiceProvider::registerBackpackIntegration()`,
+     * and only when Backpack is present — but the directive itself is
+     * defensive (it does not require Backpack so as not to fail at render time).
      */
     public static function register(BladeCompiler $blade): void
     {
@@ -34,15 +34,15 @@ class BladeHelpers
     }
 
     /**
-     * Renderiza los meta tags Backpack que el widget consume al boot:
+     * Renders the Backpack meta tags that the widget consumes at boot:
      *
-     *   - `<meta name="chatbot:context" content='...'>` con el JSON del
-     *     provider (page context). Sólo se emite cuando hay panel resuelto.
-     *   - `<meta name="chatbot:options" content='...'>` con runtime toggles
-     *     que sólo aplican a hosts Backpack (DataTables row decoration,
+     *   - `<meta name="chatbot:context" content='...'>` with the provider's
+     *     JSON (page context). Only emitted when there is a resolved panel.
+     *   - `<meta name="chatbot:options" content='...'>` with runtime toggles
+     *     that only apply to Backpack hosts (DataTables row decoration,
      *     etc.). v1.1.3 (#20).
      *
-     * Devuelve cadena vacía si ninguno aplica.
+     * Returns an empty string if none apply.
      */
     public static function renderMetaTag(): string
     {
@@ -88,8 +88,8 @@ class BladeHelpers
             return '';
         }
 
-        // Encerramos el atributo entre comillas simples; JSON_HEX_QUOT/APOS
-        // garantiza que ni `"` ni `'` aparecen sin escapar dentro del JSON.
+        // We wrap the attribute in single quotes; JSON_HEX_QUOT/APOS
+        // guarantees that neither `"` nor `'` appears unescaped inside the JSON.
         return '<meta name="chatbot:context" content=\'' . $json . '\'>';
     }
 

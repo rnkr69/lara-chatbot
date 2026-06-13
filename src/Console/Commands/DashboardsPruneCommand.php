@@ -15,65 +15,65 @@ use Rnkr69\LaraChatbot\Models\WidgetRefreshStatus;
 /**
  * `php artisan chatbot:dashboards:prune`
  *
- * Housekeeping del Personal Dashboard (v2.0 / E10). Borra widgets y
- * dashboards inservibles aplicando thresholds configurables. Diseñado
- * para hosts en producción que quieren limpiar drift acumulado sin
- * tocar lo activo. Receta de scheduler en `config/chatbot.php` →
- * sección `chatbot.dashboard.prune`.
+ * Personal Dashboard housekeeping (v2.0 / E10). Deletes unusable widgets
+ * and dashboards by applying configurable thresholds. Designed for
+ * production hosts that want to clean up accumulated drift without
+ * touching what is active. Scheduler recipe in `config/chatbot.php` →
+ * `chatbot.dashboard.prune` section.
  *
- * Modos (cada uno OPT-IN — el comando sin flags sale con error de uso):
+ * Modes (each one OPT-IN — the command with no flags exits with a usage error):
  *
- *  --source-missing       Soft-delete widgets con
- *                         `last_refresh_status='source_missing'` cuyo
- *                         `last_refreshed_at` es anterior a
+ *  --source-missing       Soft-delete widgets with
+ *                         `last_refresh_status='source_missing'` whose
+ *                         `last_refreshed_at` is older than
  *                         `prune.source_missing_days` (default 30).
  *
- *  --stale                Soft-delete widgets cuyo `last_refreshed_at`
- *                         es anterior a `prune.stale_days` (default 90)
- *                         O nunca se han refrescado, exceptuando los
- *                         que ya cuentan como `source_missing` (cubre
- *                         orphans de pin sin replay subsiguiente).
+ *  --stale                Soft-delete widgets whose `last_refreshed_at`
+ *                         is older than `prune.stale_days` (default 90)
+ *                         OR have never been refreshed, except those
+ *                         that already count as `source_missing` (covers
+ *                         pin orphans with no subsequent replay).
  *
- *  --empty-dashboards     Soft-delete dashboards creados hace más de
+ *  --empty-dashboards     Soft-delete dashboards created more than
  *                         `prune.empty_dashboard_days` (default 180)
- *                         que no tienen widgets activos
- *                         (`whereDoesntHave('widgets')` sobre
- *                         soft-delete scope normal).
+ *                         ago that have no active widgets
+ *                         (`whereDoesntHave('widgets')` over the normal
+ *                         soft-delete scope).
  *
- *  --purge-soft-deleted   Hard-delete (forceDelete) de widgets Y
- *                         dashboards cuyo `deleted_at` es anterior a
+ *  --purge-soft-deleted   Hard-delete (forceDelete) of widgets AND
+ *                         dashboards whose `deleted_at` is older than
  *                         `prune.purge_soft_deleted_days` (default 30).
- *                         Aplica `onlyTrashed`; combinable con cualquier
- *                         flag anterior — los widgets recién soft-deleted
- *                         por este mismo run NO se purgan (su `deleted_at`
- *                         es de hace segundos, no de hace días).
+ *                         Applies `onlyTrashed`; combinable with any
+ *                         previous flag — widgets just soft-deleted
+ *                         by this same run are NOT purged (their `deleted_at`
+ *                         is seconds ago, not days ago).
  *
- * Dry-run por defecto; ejecuta con `--force`. El output emite una tabla
- * por modo activado con las filas candidatas (limit 100) y un resumen
- * final con totales.
+ * Dry-run by default; execute with `--force`. The output emits a table
+ * per activated mode with the candidate rows (limit 100) and a final
+ * summary with totals.
  *
- * Convenciones:
- *  - Soft-delete (`$query->delete()`) cuando el modelo usa
- *    `SoftDeletes` — paridad con `DELETE /chatbot/dashboards/{slug}`.
- *  - Hard-delete (`forceDelete()`) sólo via `--purge-soft-deleted`.
- *  - Combinable: `--source-missing --stale --purge-soft-deleted` corre
- *    los tres pasos en orden (soft-delete primero, hard-delete después)
- *    sobre las filas que ya estaban soft-deleted antes de empezar.
+ * Conventions:
+ *  - Soft-delete (`$query->delete()`) when the model uses
+ *    `SoftDeletes` — parity with `DELETE /chatbot/dashboards/{slug}`.
+ *  - Hard-delete (`forceDelete()`) only via `--purge-soft-deleted`.
+ *  - Combinable: `--source-missing --stale --purge-soft-deleted` runs
+ *    the three steps in order (soft-delete first, hard-delete after)
+ *    over the rows that were already soft-deleted before starting.
  */
 class DashboardsPruneCommand extends Command
 {
     protected $signature = 'chatbot:dashboards:prune
-        {--source-missing : Soft-delete widgets con last_refresh_status=source_missing sostenido}
-        {--stale : Soft-delete widgets sin refresh reciente}
-        {--empty-dashboards : Soft-delete dashboards sin widgets activos creados hace tiempo}
-        {--purge-soft-deleted : Hard-delete (forceDelete) de filas soft-deleted hace tiempo}
-        {--source-missing-days= : Threshold en días para --source-missing (override config)}
-        {--stale-days= : Threshold en días para --stale (override config)}
-        {--empty-dashboard-days= : Threshold en días para --empty-dashboards (override config)}
-        {--purge-older-than-days= : Threshold en días para --purge-soft-deleted (override config)}
-        {--force : Ejecuta los borrados (sin esto, dry-run)}';
+        {--source-missing : Soft-delete widgets with a sustained last_refresh_status=source_missing}
+        {--stale : Soft-delete widgets with no recent refresh}
+        {--empty-dashboards : Soft-delete dashboards with no active widgets created a while ago}
+        {--purge-soft-deleted : Hard-delete (forceDelete) rows soft-deleted a while ago}
+        {--source-missing-days= : Threshold in days for --source-missing (config override)}
+        {--stale-days= : Threshold in days for --stale (config override)}
+        {--empty-dashboard-days= : Threshold in days for --empty-dashboards (config override)}
+        {--purge-older-than-days= : Threshold in days for --purge-soft-deleted (config override)}
+        {--force : Execute the deletions (without this, dry-run)}';
 
-    protected $description = 'Housekeeping del Personal Dashboard: borra widgets/dashboards inservibles.';
+    protected $description = 'Personal Dashboard housekeeping: delete unusable widgets/dashboards.';
 
     public function handle(): int
     {
@@ -141,9 +141,9 @@ class DashboardsPruneCommand extends Command
     }
 
     /**
-     * Resuelve el threshold en días con prioridad CLI > config > fallback,
-     * validando que el resultado sea un entero no negativo. Lanza
-     * `InvalidArgumentException` si el override CLI no es parseable.
+     * Resolves the threshold in days with priority CLI > config > fallback,
+     * validating that the result is a non-negative integer. Throws
+     * `InvalidArgumentException` if the CLI override is not parseable.
      */
     private function resolveDays(string $cliOption, string $configKey, int $fallback): int
     {
@@ -269,10 +269,10 @@ class DashboardsPruneCommand extends Command
     }
 
     /**
-     * Hard-delete (forceDelete) sobre widgets y dashboards soft-deleted
-     * cuyo `deleted_at` es anterior al threshold. Purga widgets primero
-     * para evitar que el cascade FK de un dashboard purgado se trague
-     * widgets activos huérfanos por error.
+     * Hard-delete (forceDelete) over soft-deleted widgets and dashboards
+     * whose `deleted_at` is older than the threshold. Purges widgets first
+     * to prevent the FK cascade of a purged dashboard from accidentally
+     * swallowing orphaned active widgets.
      *
      * @return array{0:int,1:int}
      */

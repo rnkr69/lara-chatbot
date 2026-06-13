@@ -1,9 +1,9 @@
 export type WidgetState = 'closed' | 'minimized' | 'open' | 'fullscreen';
 
 /**
- * E17 — modo del Web Component:
- *   - 'widget' (default): comportamiento anterior, FAB flotante con state machine.
- *   - 'page'  : layout fullscreen + sidebar de conversaciones; siempre "open".
+ * E17 — Web Component mode:
+ *   - 'widget' (default): previous behavior, floating FAB with state machine.
+ *   - 'page'  : fullscreen layout + conversations sidebar; always "open".
  */
 export type WidgetMode = 'widget' | 'page';
 
@@ -36,70 +36,71 @@ export interface DonePayload {
 }
 
 /**
- * v2.0 — el shape de un bloque tipado tal y como viaja por SSE y como
- * lo persiste el widget en `ChatMessage.blocks[]`.
+ * v2.0 — the shape of a typed block as it travels over SSE and as the widget
+ * persists it in `ChatMessage.blocks[]`.
  *
- * Los campos `id`, `source` y `pinnable` se añaden en v2.0 como parte del
- * cimiento (E1) del personal dashboard:
+ * The `id`, `source` and `pinnable` fields are added in v2.0 as part of the
+ * personal dashboard's foundation (E1):
  *
- *   - `id` — UUID estampado por el orquestador SSE en backend cuando emite
- *     el frame. Estable a lo largo del turno; el cliente lo usa como
- *     handle (pin button, scroll-to, etc.). Si el block llega sin id
- *     (renderer host antiguo, RenderBlockTool LLM-driven), se queda
- *     undefined y el cliente lo trata como anónimo.
+ *   - `id` — UUID stamped by the backend SSE orchestrator when it emits the
+ *     frame. Stable across the turn; the client uses it as a handle (pin
+ *     button, scroll-to, etc.). If the block arrives without an id (old host
+ *     renderer, LLM-driven RenderBlockTool), it stays undefined and the
+ *     client treats it as anonymous.
  *
- *   - `source` — descriptor de qué tool produjo el bloque y con qué args,
- *     incluyendo las claves del page context activas en ese momento. Es
- *     la pieza que permite "replay" del bloque desde el dashboard
- *     (E3). Solo presente para blocks emitidos por backend tools que
- *     declaran `pinnable() === true`; nunca lo declara el tool author —
- *     siempre lo estampa el orquestador.
+ *   - `source` — descriptor of which tool produced the block and with which
+ *     args, including the page context keys active at that moment. It is the
+ *     piece that enables "replay" of the block from the dashboard (E3). Only
+ *     present for blocks emitted by backend tools that declare
+ *     `pinnable() === true`; the tool author never declares it — the
+ *     orchestrator always stamps it.
  *
- *   - `pinnable` — el botón 📌 sólo aparece en el chat si esto es `true`.
- *     Sólo es `true` cuando el tool declara `pinnable()` *y* su
- *     `confirmation === Auto` (enforcement aguas arriba en backend; el
- *     cliente lo trata como flag opaco).
+ *   - `pinnable` — the 📌 button only appears in the chat if this is `true`.
+ *     It is only `true` when the tool declares `pinnable()` *and* its
+ *     `confirmation === Auto` (enforcement upstream in the backend; the
+ *     client treats it as an opaque flag).
  *
- * Back-compat: los tres campos son opcionales. Renderers v1.x que sólo
- * leen `type` + `data` siguen funcionando sin cambios; persistencia en
- * `sessionStorage` con el shape antiguo se hidrata sin warnings.
+ * Back-compat: all three fields are optional. v1.x renderers that only read
+ * `type` + `data` keep working unchanged; persistence in `sessionStorage`
+ * with the old shape hydrates without warnings.
  */
 export interface BlockSource {
-  /** Nombre canónico de la tool (snake_case, registry id). */
+  /** Canonical tool name (snake_case, registry id). */
   tool: string;
-  /** Args con los que la tool fue invocada en este turno. */
+  /** Args the tool was invoked with on this turn. */
   args: Record<string, unknown>;
-  /** Top-level keys del page context activas al ejecutar la tool. Sólo
-   *  los nombres — el snapshot del valor se captura más tarde al pinear. */
+  /** Top-level page context keys active when the tool ran. Just the names —
+   *  the value snapshot is captured later when pinning. */
   page_context_keys?: string[];
 }
 
 export interface BlockPayload {
   type: string;
   data: Record<string, unknown>;
-  /** UUID estable por bloque, estampado por el orquestador SSE. */
+  /** Stable per-block UUID, stamped by the SSE orchestrator. */
   id?: string;
-  /** Descriptor para replay desde el dashboard. */
+  /** Descriptor for replay from the dashboard. */
   source?: BlockSource;
-  /** Si `true`, el botón 📌 puede aparecer en hover sobre este block. */
+  /** If `true`, the 📌 button can appear on hover over this block. */
   pinnable?: boolean;
   /**
-   * v2.1.2 (#27) — posición 0-based del bloque entre los de su mismo `type`
-   * en el `ToolResult` que lo emitió (el N-ésimo `kpi`, el N-ésimo `chart`…).
-   * Viaja al pinear como `source.block_ordinal`; el replay re-localiza ESTE
-   * bloque con ese descriptor en tools multi-bloque, en vez de coger
-   * `blocks[0]`. Ausente en blocks v2.1.x antiguos → el replay cae a 0.
+   * v2.1.2 (#27) — 0-based position of the block among those of its same
+   * `type` in the `ToolResult` that emitted it (the Nth `kpi`, the Nth
+   * `chart`…). Travels when pinning as `source.block_ordinal`; the replay
+   * re-locates THIS block with that descriptor in multi-block tools, instead
+   * of taking `blocks[0]`. Absent in old v2.1.x blocks → the replay falls
+   * back to 0.
    */
   blockOrdinal?: number;
   /**
-   * v2.2.1 (PR-B) — bag opcional con metadata fuera de banda. El backend
-   * lo estampa en `ToolResult::blocks[*]['meta']`; el orquestador lo propaga
-   * verbatim como `meta` en el frame `block`. Las claves son convenciones
-   * cliente↔servidor; consumers que no conocen una clave la ignoran sin
-   * error. Carriles canónicos actuales:
-   *   - `meta.side_effects` (objeto `{type, ...}`): las 5 tools del dashboard
-   *     conversacional la usan para que el bundle del dashboard refresque la
-   *     UI sin F5 (`chatbot:dashboard-mutation` CustomEvent).
+   * v2.2.1 (PR-B) — optional bag with out-of-band metadata. The backend
+   * stamps it on `ToolResult::blocks[*]['meta']`; the orchestrator propagates
+   * it verbatim as `meta` in the `block` frame. The keys are client↔server
+   * conventions; consumers that don't know a key ignore it without error.
+   * Current canonical channels:
+   *   - `meta.side_effects` (object `{type, ...}`): the conversational
+   *     dashboard's 5 tools use it so the dashboard bundle refreshes the UI
+   *     without F5 (`chatbot:dashboard-mutation` CustomEvent).
    */
   meta?: Record<string, unknown>;
 }

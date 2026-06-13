@@ -7,26 +7,26 @@ namespace Rnkr69\LaraChatbot\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Valida el body del endpoint `POST /chatbot/actions/{action}/confirm` (E16).
+ * Validates the body of the endpoint `POST /chatbot/actions/{action}/confirm` (E16).
  *
- *  - `accept`   bool requerido. true = el usuario aprueba; false = rechaza.
- *  - `result`   array opcional. Si se envía con `accept=true`, indica que el
- *               widget ya ejecutó la primitiva y reporta el outcome — el row
- *               transiciona directamente a `executed`. Sin `result` con
- *               `accept=true`, el row queda en `confirmed` y el widget
- *               ejecutará después y volverá a llamar al endpoint con result.
- *               Si llega con `accept=false`, se persiste como motivo del
- *               rechazo (ej. `{reason: 'Razón del usuario'}`).
+ *  - `accept`   required bool. true = the user approves; false = rejects.
+ *  - `result`   optional array. If sent with `accept=true`, it indicates that the
+ *               widget already executed the primitive and reports the outcome — the row
+ *               transitions directly to `executed`. Without `result` and with
+ *               `accept=true`, the row stays at `confirmed` and the widget
+ *               will execute later and call the endpoint again with result.
+ *               If it arrives with `accept=false`, it is persisted as the
+ *               rejection reason (e.g. `{reason: 'User reason'}`).
  *
- * La autorización por ownership de la conversación parent (404-no-403,
- * doctrina E10/D12) la aplica el controller con `forUser`.
+ * Authorization by ownership of the parent conversation (404-not-403,
+ * E10/D12 doctrine) is applied by the controller with `forUser`.
  */
 class ConfirmActionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // Defense-in-depth: el middleware `auth` del grupo ya garantiza
-        // usuario; aquí confirmamos que el request lo trae adjunto.
+        // Defense-in-depth: the group's `auth` middleware already guarantees
+        // a user; here we confirm that the request carries it attached.
         return $this->user() !== null;
     }
 

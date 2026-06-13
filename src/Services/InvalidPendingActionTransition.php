@@ -7,9 +7,9 @@ namespace Rnkr69\LaraChatbot\Services;
 use RuntimeException;
 
 /**
- * Lanzada por `PendingActionStore` cuando se intenta transicionar un row
- * desde un estado terminal (rejected/executed/expired) o desde un estado no
- * compatible con la nueva acción. El `ConfirmActionController` la atrapa y
- * la traduce en `409 Conflict`.
+ * Thrown by `PendingActionStore` when an attempt is made to transition a row
+ * from a terminal state (rejected/executed/expired) or from a state that is
+ * not compatible with the new action. The `ConfirmActionController` catches it
+ * and translates it into a `409 Conflict`.
  */
 class InvalidPendingActionTransition extends RuntimeException {}

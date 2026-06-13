@@ -61,18 +61,19 @@ class Dashboard extends Model
     }
 
     /**
-     * Invariante "exactamente uno is_default=true por usuario":
+     * Invariant "exactly one is_default=true per user":
      *
-     *   - Auto-PROMOTE (v2.1, #10): al INSERTAR un dashboard, si el usuario
-     *     no tiene ninguno `is_default=true`, este pasa a serlo. Sin esto el
-     *     primer dashboard del usuario (creado por pin-from-chat, que no pasa
-     *     `is_default`) quedaba `false` para siempre — el CHANGELOG promete
-     *     "exactly one true per user" y no se cumplía. Sólo en insert: no
-     *     re-promovemos un dashboard que el usuario degradó explícitamente.
-     *   - Auto-DEMOTE: al salvar un dashboard con `is_default=true`, el resto
-     *     del mismo `(user_type, user_id)` pasa a false. Portable cross-DB —
-     *     MySQL/MariaDB no soporta unique partials. El demote bypassa los
-     *     eventos de modelo (`update()` directo) para evitar recursión.
+     *   - Auto-PROMOTE (v2.1, #10): on INSERTING a dashboard, if the user
+     *     has none with `is_default=true`, this one becomes the default.
+     *     Without this the user's first dashboard (created by pin-from-chat,
+     *     which does not pass `is_default`) stayed `false` forever — the
+     *     CHANGELOG promises "exactly one true per user" and that was not
+     *     honored. Only on insert: we do not re-promote a dashboard the user
+     *     explicitly demoted.
+     *   - Auto-DEMOTE: on saving a dashboard with `is_default=true`, the rest
+     *     of the same `(user_type, user_id)` are set to false. Portable
+     *     cross-DB — MySQL/MariaDB does not support unique partials. The
+     *     demote bypasses model events (direct `update()`) to avoid recursion.
      */
     protected static function booted(): void
     {
@@ -113,8 +114,8 @@ class Dashboard extends Model
     }
 
     /**
-     * Filtra dashboards por el usuario propietario. Acepta cualquier
-     * Eloquent Model (User del host) — mismo contrato que Conversation.
+     * Filters dashboards by their owning user. Accepts any Eloquent
+     * Model (the host's User) — same contract as Conversation.
      */
     public function scopeForUser(Builder $query, Model $user): Builder
     {
@@ -124,8 +125,8 @@ class Dashboard extends Model
     }
 
     /**
-     * Filtra al `is_default=true`. Combinable con `forUser` para encontrar
-     * el dashboard preferido del usuario: `Dashboard::forUser($u)->default()->first()`.
+     * Filters to `is_default=true`. Combinable with `forUser` to find the
+     * user's preferred dashboard: `Dashboard::forUser($u)->default()->first()`.
      */
     public function scopeDefault(Builder $query): Builder
     {

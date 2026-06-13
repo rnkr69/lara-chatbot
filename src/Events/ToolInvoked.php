@@ -10,31 +10,31 @@ use Rnkr69\LaraChatbot\Tools\Contracts\BackendTool;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * Evento que el `ChatService` (E08) dispara tras CADA invocación de tool
- * (backend, frontend o MCP), independientemente de su éxito o fallo. Es el
- * gancho oficial del paquete para audit/PII redaction/telemetría/bulk
- * partial-success — el host engancha listeners desde su `EventServiceProvider`
- * sin tocar el paquete.
+ * Event that `ChatService` (E08) fires after EVERY tool invocation
+ * (backend, frontend or MCP), regardless of its success or failure. It is the
+ * package's official hook for audit/PII redaction/telemetry/bulk
+ * partial-success — the host hooks listeners from its `EventServiceProvider`
+ * without touching the package.
  *
- * Gap cross-host (audit log + PII redaction): los hosts piden poder
- * trazar todas las invocaciones de tools sin parchear el orquestador. Este
- * evento cumple ese contrato.
+ * Cross-host gap (audit log + PII redaction): hosts want to be able to
+ * trace all tool invocations without patching the orchestrator. This
+ * event fulfills that contract.
  *
- * Convenciones:
+ * Conventions:
  *
- *   - Se dispara una vez por tool call, INCLUYENDO los rechazos por
- *     autorización (`ToolResult::error('unauthorized', ...)` o
- *     `error('out_of_scope', ...)`). El listener puede distinguir
+ *   - It fires once per tool call, INCLUDING authorization
+ *     rejections (`ToolResult::error('unauthorized', ...)` or
+ *     `error('out_of_scope', ...)`). The listener can distinguish
  *     `result->isOk()` vs `isError()`.
- *   - `args` es el array tal como llegó del LLM (lo que tu listener verá si
- *     loguea bruto). Si necesitas redaction, hazlo en el listener leyendo
- *     `tool->parameters()` para saber qué claves son sensibles.
- *   - `result` es la `ToolResult` final (post-cascada). Para tools bulk,
- *     contiene los counts de partial-success en `data` (ver
- *     `docs/backend-tools.md` patrón bulk).
- *   - `durationMs` mide el wall-clock de la invocación (incluye validación,
- *     autorización y `handle()`). Útil para detectar tools lentas.
- *   - `conversation` puede ser `null` en sandboxes (`chatbot:test-connection`).
+ *   - `args` is the array as it arrived from the LLM (what your listener will see if
+ *     it logs raw). If you need redaction, do it in the listener by reading
+ *     `tool->parameters()` to know which keys are sensitive.
+ *   - `result` is the final `ToolResult` (post-cascade). For bulk tools,
+ *     it contains the partial-success counts in `data` (see
+ *     `docs/backend-tools.md`, bulk pattern).
+ *   - `durationMs` measures the wall-clock of the invocation (includes validation,
+ *     authorization and `handle()`). Useful for detecting slow tools.
+ *   - `conversation` may be `null` in sandboxes (`chatbot:test-connection`).
  */
 final class ToolInvoked
 {

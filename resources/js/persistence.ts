@@ -1,23 +1,23 @@
 export const STORAGE_KEY = 'chatbot:state:v1';
 
 /**
- * E17 — clave secundaria en `localStorage` que comparte el `conversationId`
- * activo entre el widget flotante y la página dedicada `/chatbot`. Es el
- * canal cross-tab que cumple el DoD del ROADMAP §5/E17 ("Abrir conversación
- * X en widget, navegar a /chatbot, ver la misma conversación") incluso
- * cuando la navegación abre una pestaña nueva. Decisión D16 en §1 del
- * PROGRESS.md: NO se mezcla con `STORAGE_KEY` (que sigue per-tab en
- * sessionStorage para `isOpen`/`draft`); ambos coexisten.
+ * E17 — secondary key in `localStorage` that shares the active
+ * `conversationId` between the floating widget and the dedicated `/chatbot`
+ * page. It is the cross-tab channel that satisfies the ROADMAP §5/E17 DoD
+ * ("Open conversation X in the widget, navigate to /chatbot, see the same
+ * conversation") even when the navigation opens a new tab. Decision D16 in §1
+ * of PROGRESS.md: it is NOT mixed with `STORAGE_KEY` (which stays per-tab in
+ * sessionStorage for `isOpen`/`draft`); both coexist.
  */
 export const ACTIVE_CONVERSATION_KEY = 'chatbot:active-conversation:v1';
 
 /**
- * v1.1.3 (#21) — clave `localStorage` con el id del usuario auth bajo el
- * que se persistió por última vez la conversación activa. Al boot del
- * widget se compara con el `data-user-id` actual: si difieren, se purgan
- * la conversación activa y las acciones rehydradas para evitar que el
- * usuario nuevo "herede" la sesión del anterior tras logout/login en el
- * mismo navegador.
+ * v1.1.3 (#21) — `localStorage` key holding the id of the auth user under
+ * which the active conversation was last persisted. At widget boot it is
+ * compared against the current `data-user-id`: if they differ, the active
+ * conversation and rehydrated actions are purged to prevent the new user from
+ * "inheriting" the previous one's session after logout/login in the same
+ * browser.
  */
 export const ACTIVE_USER_KEY = 'chatbot:active-user:v1';
 
@@ -95,12 +95,12 @@ export function clearState(): void {
 }
 
 /**
- * Cross-tab storage para el `conversationId` activo (E17 / D16).
+ * Cross-tab storage for the active `conversationId` (E17 / D16).
  *
- * Usa `localStorage` (no `sessionStorage`) para que widget flotante y página
- * `/chatbot` compartan la misma conversación incluso cuando se abren en
- * pestañas distintas. El shape persistido es un escalar (string | number) en
- * formato JSON; valores no-escalares y errores de parseo se descartan.
+ * Uses `localStorage` (not `sessionStorage`) so the floating widget and the
+ * `/chatbot` page share the same conversation even when opened in different
+ * tabs. The persisted shape is a scalar (string | number) in JSON format;
+ * non-scalar values and parse errors are discarded.
  */
 function getCrossTabStorage(): Storage | null {
   try {

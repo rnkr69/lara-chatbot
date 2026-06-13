@@ -5,21 +5,21 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Tools\Support;
 
 /**
- * Mapea un JSON Schema mínimo (el shape que las tools declaran en
- * `parameters()`) a un array de reglas de Laravel Validator. Soporta el
- * subset estable que las tools del paquete usan en la práctica:
+ * Maps a minimal JSON Schema (the shape tools declare in
+ * `parameters()`) to an array of Laravel Validator rules. Supports the
+ * stable subset the package's tools use in practice:
  *
  *   - type: string|integer|number|boolean|array|object
- *   - required: lista de claves obligatorias en el schema raíz
- *   - enum: lista de valores admitidos (se convierte en `in:a,b,c`)
+ *   - required: list of required keys in the root schema
+ *   - enum: list of accepted values (converted into `in:a,b,c`)
  *
- * Cualquier rama no soportada (oneOf, $ref, anidación profunda, etc.) se
- * ignora silenciosamente — la tool puede override `validateArgs()` en
- * `BaseBackendTool` si necesita validación más rica.
+ * Any unsupported branch (oneOf, $ref, deep nesting, etc.) is
+ * ignored silently — the tool can override `validateArgs()` in
+ * `BaseBackendTool` if it needs richer validation.
  *
- * Decisión D8 (E06): JSON Schema es la fuente de verdad que ven el LLM y
- * el frontend; las rules de Laravel son derivadas. Mantener el mapping
- * mínimo evita tener que sincronizar ambos a mano.
+ * Decision D8 (E06): JSON Schema is the source of truth that the LLM and
+ * the frontend see; the Laravel rules are derived. Keeping the mapping
+ * minimal avoids having to synchronize both by hand.
  */
 final class JsonSchemaToRules
 {

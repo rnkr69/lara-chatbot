@@ -1,38 +1,39 @@
 /**
- * v2.0 / E7 — renderer Chart.js por defecto para el block `chart` cuando vive
- * en el bundle del dashboard.
+ * v2.0 / E7 — default Chart.js renderer for the `chart` block when it lives
+ * in the dashboard bundle.
  *
- * El widget flotante NO embarca Chart.js (cap 80 KB gzip lo prohíbe); el
- * dashboard sí lo embarca (cap 150 KB gzip). `chart.js/auto` registra los 8
- * controllers + escalas + plugins → cualquier `type` válido sale gratis sin
- * cambios futuros aquí.
+ * The floating widget does NOT bundle Chart.js (the 80 KB gzip cap forbids
+ * it); the dashboard does bundle it (150 KB gzip cap). `chart.js/auto`
+ * registers the 8 controllers + scales + plugins → any valid `type` comes for
+ * free with no future changes here.
  *
- * El renderer es PURE: recibe `data` y devuelve un HTMLElement. No conoce
- * lifecycle del widget-card; el WeakMap interno destruye la Chart instance
- * anterior cuando el mismo canvas se re-renderiza (E3 replay actualiza el
- * snapshot → widget-card.ts re-llama renderBlock → si el wrapper existe y la
- * Chart anterior sigue viva, hay que destruirla para evitar leaks).
+ * The renderer is PURE: it receives `data` and returns an HTMLElement. It
+ * knows nothing about the widget-card lifecycle; the internal WeakMap destroys
+ * the previous Chart instance when the same canvas is re-rendered (E3 replay
+ * updates the snapshot → widget-card.ts re-calls renderBlock → if the wrapper
+ * exists and the previous Chart is still alive, it must be destroyed to avoid
+ * leaks).
  *
  * Sanity:
- *   - `type` debe ser uno de los 4 soportados; cualquier otro → fallback al
- *     placeholder de blocks.ts.
- *   - `labels` array de strings; `datasets` array no-vacío de objetos con
- *     `data` array de numbers; o aliases `series/points/values` para
- *     datasets[0].data y `categories` para labels.
+ *   - `type` must be one of the 4 supported ones; anything else → fallback to
+ *     the placeholder in blocks.ts.
+ *   - `labels` array of strings; `datasets` non-empty array of objects with a
+ *     `data` array of numbers; or `series/points/values` aliases for
+ *     datasets[0].data and `categories` for labels.
  *
- * Aliases LLM-friendly:
+ * LLM-friendly aliases:
  *   - `kind` → `type` (v2.1.1 / #25).
  *   - `categories` → `labels`.
- *   - `series` | `points` | `values` → `datasets[0].data` (con label opcional
- *     del block.data.title || block.type).
+ *   - `series` | `points` | `values` → `datasets[0].data` (with an optional
+ *     label from block.data.title || block.type).
  *
- * Override por host: si el host hace `window.Chatbot.registerBlockRenderer('chart', fn)`
- * ANTES de que el bundle del dashboard intente registrar el built-in, gana el
- * host. La lógica vive en `index.ts`; este módulo sólo expone el renderer.
+ * Host override: if the host calls `window.Chatbot.registerBlockRenderer('chart', fn)`
+ * BEFORE the dashboard bundle tries to register the built-in, the host wins.
+ * The logic lives in `index.ts`; this module only exposes the renderer.
  */
 
-// Importamos Chart.js/auto (registra TODO automáticamente). El bundle del
-// dashboard absorbe ~60 KB gzip; el bundle del widget no toca este módulo.
+// We import Chart.js/auto (registers EVERYTHING automatically). The dashboard
+// bundle absorbs ~60 KB gzip; the widget bundle does not touch this module.
 import Chart from 'chart.js/auto';
 import type { BlockHost, BlockRenderer } from '../types.js';
 import { renderChartBlock as renderChartBlockPlaceholder } from '../blocks.js';
@@ -100,7 +101,7 @@ function normalizeDataset(raw: unknown, fallbackLabel: string): NormalizedDatase
   else if (Array.isArray(obj['borderColor']) && obj['borderColor'].every((c) => typeof c === 'string')) {
     out.borderColor = obj['borderColor'] as string[];
   }
-  // Passthrough opaco de claves Chart.js que no normalizamos (fill, tension, …).
+  // Opaque passthrough of Chart.js keys we don't normalize (fill, tension, …).
   for (const key of Object.keys(obj)) {
     if (key in out) continue;
     if (key === 'data') continue;
@@ -117,12 +118,12 @@ function normalize(data: Record<string, unknown>): NormalizedShape | null {
   if (!isAllowedType(typeCandidate)) return null;
   const type = typeCandidate;
 
-  // labels (con alias categories).
+  // labels (with categories alias).
   const labelsCandidate = data['labels'] !== undefined ? data['labels'] : data['categories'];
   const labels = asStringArray(labelsCandidate);
   if (labels === null) return null;
 
-  // datasets — primero el shape explícito; si no, aliases series/points/values.
+  // datasets — first the explicit shape; otherwise series/points/values aliases.
   let datasets: NormalizedDataset[] | null = null;
   const fallbackLabel = typeof data['title'] === 'string' ? data['title'] : 'Series';
   if (Array.isArray(data['datasets'])) {
@@ -143,8 +144,8 @@ function normalize(data: Record<string, unknown>): NormalizedShape | null {
   }
   if (datasets === null || datasets.length === 0) return null;
 
-  // En 'pie'/'doughnut'/'polarArea', labels.length DEBE coincidir con
-  // datasets[0].data.length; si no, Chart.js renderiza pero con leyenda rota.
+  // In 'pie'/'doughnut'/'polarArea', labels.length MUST match
+  // datasets[0].data.length; otherwise Chart.js renders but with a broken legend.
   const arcLike = type === 'pie' || type === 'doughnut' || type === 'polarArea';
   if (arcLike && labels.length !== datasets[0]!.data.length) return null;
 
@@ -163,8 +164,8 @@ function buildChartOptions(shape: NormalizedShape): Record<string, unknown> {
     maintainAspectRatio: false,
     ...userOptions,
   };
-  // Title plugin merge: respect user options.plugins.title si existe; si no y
-  // el block trae `title`, lo proyectamos al plugin.
+  // Title plugin merge: respect user options.plugins.title if it exists;
+  // otherwise, if the block carries `title`, project it onto the plugin.
   const userPlugins = (userOptions['plugins'] && typeof userOptions['plugins'] === 'object')
     ? userOptions['plugins'] as Record<string, unknown>
     : {};
@@ -183,10 +184,10 @@ function buildChartOptions(shape: NormalizedShape): Record<string, unknown> {
 }
 
 /**
- * Renderiza un block tipo `chart` usando Chart.js. Si la `data` no pasa las
- * sanity checks, delega al placeholder built-in (`renderChartBlock`) para
- * mantener UX coherente con el widget flotante (los hosts ya vieron ese
- * placeholder en v1.x).
+ * Renders a `chart`-type block using Chart.js. If the `data` fails the sanity
+ * checks, it delegates to the built-in placeholder (`renderChartBlock`) to keep
+ * the UX consistent with the floating widget (hosts already saw that
+ * placeholder in v1.x).
  */
 export const renderChartBlockChartjs: BlockRenderer = (
   data: Record<string, unknown>,

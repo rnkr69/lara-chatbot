@@ -1,33 +1,33 @@
 {{--
-    E4 — Página dedicada del Personal Dashboard (`GET /chatbot/dashboard`)
-    en modo standalone.
+    E4 — Dedicated Personal Dashboard page (`GET /chatbot/dashboard`)
+    in standalone mode.
 
-    Esta vista se sirve cuando `chatbot.dashboard.layout` es null o apunta a
-    una vista que no existe. Renderiza HTML completo desde el paquete; no
-    extiende ningún layout del host. Cuando el host configura un layout
-    válido, el controller usa `chatbot::dashboard_layout` (que sí hace
+    This view is served when `chatbot.dashboard.layout` is null or points to
+    a view that does not exist. It renders complete HTML from the package; it
+    does not extend any host layout. When the host configures a valid layout,
+    the controller uses `chatbot::dashboard_layout` (which does
     `@extends`).
 
-    El bundle JS real lo construye E5 (`chatbot-dashboard.js` con gridstack
-    + Chart.js + DashboardApp). En E4 sólo dejamos el root + las URLs de la
-    API JSON para que el bundle, cuando exista, las consuma directamente.
+    The actual JS bundle is built by E5 (`chatbot-dashboard.js` with gridstack
+    + Chart.js + DashboardApp). In E4 we only leave the root + the JSON API
+    URLs so the bundle, when it exists, consumes them directly.
 
-    v2.1.1 (#26) — el modo standalone no tiene chrome del host. Si
-    `chatbot.dashboard.back_url` está seteado, la vista pinta arriba un enlace
-    "← volver a la app" para que la página no sea una isla sin salida.
+    v2.1.1 (#26) — standalone mode has no host chrome. If
+    `chatbot.dashboard.back_url` is set, the view paints a link at the top
+    "← back to app" so the page is not a dead-end island.
 
-    Variables esperadas (las inyecta `DashboardController`):
-      - $assetUrl         string   URL del bundle <chatbot-dashboard.js>.
-      - $dashboardsUrl    string   URL base del CRUD JSON (E4).
-      - $defaultSlug      ?string  Slug del dashboard default del usuario
-                                    (o ?dashboard=… si vino en query).
-                                    null cuando el usuario no tiene ninguno.
+    Expected variables (injected by `DashboardController`):
+      - $assetUrl         string   URL of the <chatbot-dashboard.js> bundle.
+      - $dashboardsUrl    string   Base URL of the JSON CRUD (E4).
+      - $defaultSlug      ?string  Slug of the user's default dashboard
+                                    (or ?dashboard=… if it came in the query).
+                                    null when the user has none.
       - $theme            string   'light' | 'dark' | 'auto'.
-      - $backUrl          ?string  v2.1.1 (#26) — URL del enlace "volver a la
-                                    app". null = sin enlace.
+      - $backUrl          ?string  v2.1.1 (#26) — URL of the "back to app"
+                                    link. null = no link.
 
-    Para personalizar: `php artisan vendor:publish --tag=chatbot-views` y
-    edita `resources/views/vendor/chatbot/dashboard.blade.php`.
+    To customize: `php artisan vendor:publish --tag=chatbot-views` and
+    edit `resources/views/vendor/chatbot/dashboard.blade.php`.
 --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">

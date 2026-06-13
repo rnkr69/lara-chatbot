@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Models;
 
 /**
- * Ciclo de vida de un `chatbot_pending_actions` row (E16). Los valores
- * `confirmed` y `pending` son intermedios; `rejected`, `executed`, `expired`
- * son terminales. El endpoint `POST /chatbot/actions/{id}/confirm` rechaza
- * con 409 Conflict las llamadas que intenten transicionar desde un estado
- * terminal.
+ * Lifecycle of a `chatbot_pending_actions` row (E16). The values
+ * `confirmed` and `pending` are intermediate; `rejected`, `executed`,
+ * `expired` are terminal. The `POST /chatbot/actions/{id}/confirm` endpoint
+ * rejects with 409 Conflict any calls that try to transition from a
+ * terminal state.
  */
 enum PendingActionStatus: string
 {

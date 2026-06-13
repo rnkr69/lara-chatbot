@@ -14,26 +14,25 @@ use Rnkr69\LaraChatbot\Tests\Stubs\TestUser;
 use Rnkr69\LaraChatbot\Tools\ToolRegistry;
 
 /**
- * E10 — Validación del rate limit del replay bajo presión sintética.
+ * E10 — Validation of the replay rate limit under synthetic pressure.
  *
- * El cap real default es 60 hits/min (config
- * `chatbot.dashboard.replay.rate_limit_per_user_per_minute`); estos tests
- * usan un cap = 5 para mantenerlos rápidos. El comportamiento del
- * `Illuminate\Support\Facades\RateLimiter` no depende del valor del cap,
- * sólo del orden hit→tooManyAttempts→availableIn.
+ * The real default cap is 60 hits/min (config
+ * `chatbot.dashboard.replay.rate_limit_per_user_per_minute`); these tests
+ * use a cap = 5 to keep them fast. The behavior of
+ * `Illuminate\Support\Facades\RateLimiter` does not depend on the cap value,
+ * only on the hit→tooManyAttempts→availableIn order.
  *
- * Cubre:
- *   - N+1 hits rápidos al endpoint single-refresh → 429 con `Retry-After`
- *     numérico y headers X-RateLimit-* coherentes.
- *   - Bulk SSE (`refreshAll`) cuenta como 1 hit (no N por widget) — un
- *     bulk con cap=1 satura el bucket y un subsiguiente refresh single
- *     devuelve 429.
- *   - El CRUD (lista, pin, PATCH, delete) NO consume del bucket — con
- *     cap=1 se pueden hacer varios CRUD y todavía un refresh queda
- *     disponible.
- *   - Buckets aislados por usuario: usuario A puede saturar su bucket
- *     sin afectar a usuario B (clave del rate limiter incluye el user
- *     id, ver `ApiDashboardWidgetController::checkRefreshRateLimit`).
+ * Covers:
+ *   - N+1 rapid hits to the single-refresh endpoint → 429 with a numeric
+ *     `Retry-After` and coherent X-RateLimit-* headers.
+ *   - Bulk SSE (`refreshAll`) counts as 1 hit (not N per widget) — a bulk
+ *     with cap=1 saturates the bucket and a subsequent single refresh
+ *     returns 429.
+ *   - CRUD (list, pin, PATCH, delete) does NOT consume from the bucket — with
+ *     cap=1 several CRUD calls can be made and a refresh is still available.
+ *   - Per-user isolated buckets: user A can saturate their bucket without
+ *     affecting user B (the rate limiter key includes the user id, see
+ *     `ApiDashboardWidgetController::checkRefreshRateLimit`).
  */
 
 beforeEach(function () {
@@ -131,13 +130,13 @@ it('counts the bulk SSE refresh as a single hit (not one per widget)', function 
     $bulk = $this->actingAs($u, 'web')->post("/chatbot/dashboards/{$d->slug}/refresh");
     $bulk->assertOk();
 
-    // Con cap=1, si el bulk hubiera contado como 3 hits (uno por widget),
-    // ya estaría sobre el cap y el siguiente single-refresh ya estaría 429
-    // de todos modos. Pero queremos probar la propiedad inversa: el bulk
-    // gastó EXACTAMENTE 1 hit. Con cap=1, eso significa que cualquier
-    // hit subsiguiente (single OR bulk) devolverá 429 — ya verificado
-    // por los tests E4. Aquí confirmamos que el bucket quedó saturado
-    // tras UN bulk (no antes — el bulk en sí mismo debe pasar).
+    // With cap=1, if the bulk had counted as 3 hits (one per widget), it
+    // would already be over the cap and the next single-refresh would be 429
+    // anyway. But we want to test the inverse property: the bulk spent
+    // EXACTLY 1 hit. With cap=1, that means any subsequent hit (single OR
+    // bulk) will return 429 — already verified by the E4 tests. Here we
+    // confirm the bucket got saturated after ONE bulk (not before — the bulk
+    // itself must pass).
     $secondBulk = $this->actingAs($u, 'web')->post("/chatbot/dashboards/{$d->slug}/refresh");
     $secondBulk->assertStatus(429);
 
@@ -170,20 +169,20 @@ it('does not consume the refresh bucket for CRUD operations (list/pin/patch/dele
         ['position' => ['x' => 2, 'y' => 1, 'w' => 4, 'h' => 3]]
     )->assertOk();
 
-    // Tras 5 operaciones CRUD el bucket sigue intacto: el primer
-    // refresh todavía es 200.
+    // After 5 CRUD operations the bucket is still intact: the first
+    // refresh is still 200.
     $refresh = $this->actingAs($u, 'web')->postJson(
         "/chatbot/dashboards/{$d->slug}/widgets/{$widgetId}/refresh"
     );
     $refresh->assertOk();
 
-    // Y el siguiente sí es 429 (cap=1 ya consumido por el refresh).
+    // And the next one is indeed 429 (cap=1 already consumed by the refresh).
     $blocked = $this->actingAs($u, 'web')->postJson(
         "/chatbot/dashboards/{$d->slug}/widgets/{$widgetId}/refresh"
     );
     $blocked->assertStatus(429);
 
-    // El CRUD sigue siendo 200 incluso tras el 429 del refresh.
+    // CRUD is still 200 even after the refresh 429.
     $this->actingAs($u, 'web')->getJson("/chatbot/dashboards/{$d->slug}")->assertOk();
 });
 

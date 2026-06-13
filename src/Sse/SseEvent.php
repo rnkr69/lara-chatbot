@@ -5,25 +5,25 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Sse;
 
 /**
- * Evento del stream SSE que el `ChatService` (E08) emite y el endpoint
- * `/chatbot/stream` (E09) serializa al cliente. Catálogo cerrado en
+ * SSE stream event that `ChatService` (E08) emits and the
+ * `/chatbot/stream` (E09) endpoint serializes to the client. Closed catalog in
  * ROADMAP §3.4:
  *
- *   - `text`            — chunk de texto (markdown del LLM).
- *   - `block`           — bloque tipado renderizado por el widget (E15).
- *   - `tool_call`       — informativo: el LLM acaba de invocar una backend
- *                          tool. Lleva `name` y `args`.
- *   - `tool_result`     — informativo: la backend tool terminó. Lleva
- *                          `name`, `ok` y un `summary` corto.
- *   - `frontend_action` — el LLM invocó una frontend tool. El widget la
- *                          ejecuta. Lleva `tool`, `args`, `action_id`,
+ *   - `text`            — text chunk (LLM markdown).
+ *   - `block`           — typed block rendered by the widget (E15).
+ *   - `tool_call`       — informational: the LLM just invoked a backend
+ *                          tool. Carries `name` and `args`.
+ *   - `tool_result`     — informational: the backend tool finished. Carries
+ *                          `name`, `ok` and a short `summary`.
+ *   - `frontend_action` — the LLM invoked a frontend tool. The widget
+ *                          executes it. Carries `tool`, `args`, `action_id`,
  *                          `confirmation`.
- *   - `error`           — error recuperable o fatal del stream.
- *   - `done`            — fin del turno. Lleva `message_id` (de la tabla
- *                          `chatbot_messages`) y `usage` (tokens).
+ *   - `error`           — recoverable or fatal stream error.
+ *   - `done`            — end of turn. Carries `message_id` (from the
+ *                          `chatbot_messages` table) and `usage` (tokens).
  *
- * VO inmutable. La serialización al protocolo SSE (`event: ...\ndata: ...\n\n`)
- * la hace el endpoint en E09; aquí sólo se modela el shape estructurado.
+ * Immutable VO. Serialization to the SSE protocol (`event: ...\ndata: ...\n\n`)
+ * is done by the endpoint in E09; here we only model the structured shape.
  */
 final class SseEvent
 {
@@ -52,39 +52,39 @@ final class SseEvent
     }
 
     /**
-     * Frame `block` del stream SSE.
+     * `block` frame of the SSE stream.
      *
-     * v2.0 (E1) — el orquestador estampa metadatos opcionales por cada
-     * bloque que un backend tool emite en su `ToolResult::blocks[]`:
+     * v2.0 (E1) — the orchestrator stamps optional metadata on each
+     * block that a backend tool emits in its `ToolResult::blocks[]`:
      *
-     *   - `$id`           : UUID estable del bloque (handle para pin/scroll/etc.).
-     *   - `$source`       : descriptor `{tool, args, page_context_keys?}` que el
-     *                       replay engine (E3) usará para re-ejecutar el tool.
-     *   - `$pinnable`     : si `true`, el cliente puede mostrar el botón 📌. Sólo
-     *                       se propaga cuando la tool declara `pinnable() === true`
-     *                       *y* `confirmation === Auto` (enforcement aguas arriba).
-     *   - `$blockOrdinal` : v2.1.2 (#27) — posición 0-based del bloque ENTRE los
-     *                       de su mismo `type` dentro del `ToolResult` que lo
-     *                       emitió (el N-ésimo `kpi`, el N-ésimo `chart`…). Es
-     *                       la pieza estable del descriptor `{block_type,
-     *                       ordinal}` con la que el replay vuelve a localizar
-     *                       ESTE bloque cuando un tool emite varios — el `id`
-     *                       no sirve (es un UUID nuevo por invocación).
-     *   - `$meta`         : v2.2.1 (PR-B) — bag opcional `{key: value, …}` que
-     *                       el tool author estampa en `ToolResult::blocks[*]['meta']`
-     *                       y el orquestador propaga verbatim. Reservado para
-     *                       hooks UX que no caben en `data` (renderizable) ni
-     *                       en `source` (replay). El caso canónico es
-     *                       `meta.side_effects` que las 5 tools de
-     *                       `add/edit/delete dashboard|widget` usan para que
-     *                       el bundle del dashboard se entere y refresque sin
-     *                       F5. Consumers que no conocen una clave la ignoran
-     *                       sin error.
+     *   - `$id`           : stable block UUID (handle for pin/scroll/etc.).
+     *   - `$source`       : `{tool, args, page_context_keys?}` descriptor that the
+     *                       replay engine (E3) will use to re-execute the tool.
+     *   - `$pinnable`     : if `true`, the client may show the 📌 button. Only
+     *                       propagated when the tool declares `pinnable() === true`
+     *                       *and* `confirmation === Auto` (enforcement upstream).
+     *   - `$blockOrdinal` : v2.1.2 (#27) — 0-based position of the block AMONG those
+     *                       of its same `type` within the `ToolResult` that
+     *                       emitted it (the Nth `kpi`, the Nth `chart`…). It is
+     *                       the stable piece of the `{block_type,
+     *                       ordinal}` descriptor with which the replay relocates
+     *                       THIS block when a tool emits several — the `id`
+     *                       is useless (it is a new UUID per invocation).
+     *   - `$meta`         : v2.2.1 (PR-B) — optional `{key: value, …}` bag that
+     *                       the tool author stamps in `ToolResult::blocks[*]['meta']`
+     *                       and the orchestrator propagates verbatim. Reserved for
+     *                       UX hooks that fit neither in `data` (renderable) nor
+     *                       in `source` (replay). The canonical case is
+     *                       `meta.side_effects` that the 5
+     *                       `add/edit/delete dashboard|widget` tools use so that
+     *                       the dashboard bundle finds out and refreshes without
+     *                       F5. Consumers that do not know a key ignore it
+     *                       without error.
      *
-     * Todos son opcionales y SÓLO se serializan al payload cuando no son
-     * `null`. Consumers v1.x que sólo conocen `{type, data}` ignoran las
-     * claves extra y siguen funcionando sin cambios — el JS también lo trata
-     * como aditivo (`readV2BlockMetadata` en `widget.ts`).
+     * They are all optional and are ONLY serialized to the payload when they are not
+     * `null`. v1.x consumers that only know `{type, data}` ignore the
+     * extra keys and keep working without changes — the JS also treats it
+     * as additive (`readV2BlockMetadata` in `widget.ts`).
      *
      * @param  array<string, mixed>  $data
      * @param  array{tool: string, args: array<string, mixed>, page_context_keys?: array<int, string>}|null  $source

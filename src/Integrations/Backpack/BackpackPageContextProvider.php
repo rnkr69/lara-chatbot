@@ -7,52 +7,52 @@ namespace Rnkr69\LaraChatbot\Integrations\Backpack;
 use Throwable;
 
 /**
- * Page context provider opcional para hosts que usan Backpack CRUD
- * (gap cross-host parte 1; la guía completa va en E21).
+ * Optional page context provider for hosts that use Backpack CRUD
+ * (cross-host gap part 1; the full guide goes in E21).
  *
- * Inspecciona el `CrudPanel` que Backpack expone via `app('crud')` y
- * deriva un payload `crud: { entity, entity_class?, action, filters,
- * form?, selected_ids }` apto para llenar el `<meta name="chatbot:context">`
- * o ser pasado por `setPageContext()`.
+ * Inspects the `CrudPanel` that Backpack exposes via `app('crud')` and
+ * derives a `crud: { entity, entity_class?, action, filters,
+ * form?, selected_ids }` payload suitable for populating the
+ * `<meta name="chatbot:context">` or being passed via `setPageContext()`.
  *
  * v1.1.1 (findings #9.b, #10, #12.b):
- *   - `entity` ahora emite el nombre amigable (`"Mission"`) en vez del FQCN
- *     (`"App\\Models\\Mission"`). El FQCN se expone opcionalmente como
- *     `entity_class` para hosts que lo necesiten. Ahorra tokens.
- *   - Cuando `action ∈ {create, update, edit}` se añade `form: {id, fields[]}`
- *     derivado de `$panel->fields()`, con `options` serializados como
- *     `[{value, label}]` para que el LLM mapee labels (e.g. "Mars") a values
- *     HTML (e.g. "2") sin guessing.
- *   - Cuando `action = list` y `$panel->filters()` está disponible,
- *     `filters` pasa de `{key:value}` plano a `{applied: {...},
- *     available: [{name, type, options?}]}` para que el LLM sepa qué filtros
- *     existen en el grid antes de proponer cambios.
+ *   - `entity` now emits the friendly name (`"Mission"`) instead of the FQCN
+ *     (`"App\\Models\\Mission"`). The FQCN is optionally exposed as
+ *     `entity_class` for hosts that need it. Saves tokens.
+ *   - When `action ∈ {create, update, edit}`, `form: {id, fields[]}` is added,
+ *     derived from `$panel->fields()`, with `options` serialized as
+ *     `[{value, label}]` so the LLM maps labels (e.g. "Mars") to HTML
+ *     values (e.g. "2") without guessing.
+ *   - When `action = list` and `$panel->filters()` is available,
+ *     `filters` goes from a flat `{key:value}` to `{applied: {...},
+ *     available: [{name, type, options?}]}` so the LLM knows which filters
+ *     exist in the grid before proposing changes.
  *
  * v1.1.2 (findings #9.f, #9.g):
- *   - `form.id` se reemplaza por `form.selector` basado en el contrato
- *     estable `bp-section` que Backpack 5/6/7 emite en sus views
+ *   - `form.id` is replaced by `form.selector` based on the stable
+ *     `bp-section` contract that Backpack 5/6/7 emits in its views
  *     (`<div bp-section="crud-operation-create"><form>...</form></div>`).
- *     El primitive `fill_form` lo prefiere sobre `form_id` y resuelve sin
- *     necesidad de overrides de views ni de id en el `<form>` real.
- *   - Los FK selects (`type:select|select2|...` con `model`/`attribute`/`entity`
- *     declarados en Backpack) resuelven sus `options` server-side, con un cap
- *     configurable (`chatbot.backpack.fk_options_cap`, default 200). Si la
- *     enumeración supera el cap se emite `options_truncated: true` para que
- *     el LLM sepa que tiene que recurrir a un read tool (e.g. `list_*`) para
- *     resolver labels → ids.
+ *     The `fill_form` primitive prefers it over `form_id` and resolves without
+ *     needing view overrides or an id on the actual `<form>`.
+ *   - FK selects (`type:select|select2|...` with `model`/`attribute`/`entity`
+ *     declared in Backpack) resolve their `options` server-side, with a
+ *     configurable cap (`chatbot.backpack.fk_options_cap`, default 200). If the
+ *     enumeration exceeds the cap, `options_truncated: true` is emitted so
+ *     the LLM knows it has to fall back to a read tool (e.g. `list_*`) to
+ *     resolve labels → ids.
  *
- * Diseño opt-in (D15): la clase NO depende del package `backpack/crud` a
- * nivel composer. Toda la introspección está envuelta en try/catch +
- * `class_exists` checks, de modo que un host que no use Backpack puede
- * resolver este provider sin que el boot falle. Si Backpack no está, o
- * el panel no está construido para el request actual,
- * `currentContext()` devuelve `null`.
+ * Opt-in design (D15): the class does NOT depend on the `backpack/crud`
+ * package at the composer level. All introspection is wrapped in try/catch +
+ * `class_exists` checks, so that a host that does not use Backpack can
+ * resolve this provider without the boot failing. If Backpack is absent, or
+ * the panel is not built for the current request,
+ * `currentContext()` returns `null`.
  */
 class BackpackPageContextProvider
 {
     /**
-     * Devuelve un array `['crud' => [...]]` cuando estamos en una vista
-     * Backpack con un CrudPanel resuelto, o `null` en cualquier otro caso.
+     * Returns a `['crud' => [...]]` array when we are on a Backpack
+     * view with a resolved CrudPanel, or `null` in any other case.
      *
      * @return array{crud: array<string, mixed>}|null
      */
@@ -119,7 +119,7 @@ class BackpackPageContextProvider
     }
 
     /**
-     * Nombre amigable del modelo (`"Mission"`). Preferencia:
+     * Friendly name of the model (`"Mission"`). Preference:
      * Backpack's `$panel->entity_name` (human-friendly) → class_basename(FQCN).
      */
     protected function resolveEntityName(mixed $panel): ?string
@@ -136,10 +136,10 @@ class BackpackPageContextProvider
     }
 
     /**
-     * FQCN del modelo del panel, o el string que Backpack devuelva (ya
-     * algunas versiones lo devuelven como string). Devuelve null si no
-     * se puede resolver. Sólo se exporta en `entity_class` cuando no es
-     * redundante con `entity`.
+     * FQCN of the panel's model, or the string that Backpack returns (some
+     * versions already return it as a string). Returns null if it
+     * cannot be resolved. Only exported in `entity_class` when it is not
+     * redundant with `entity`.
      */
     protected function resolveEntityClass(mixed $panel): ?string
     {
@@ -179,13 +179,13 @@ class BackpackPageContextProvider
     }
 
     /**
-     * Filtros del panel.
+     * Panel filters.
      *
-     *  - Para `list` con `$panel->filters()` disponible devuelve
+     *  - For `list` with `$panel->filters()` available, returns
      *    `['applied' => {...}, 'available' => [{name,type,options?}]]`.
-     *  - Para otras acciones (o si filters() no existe) devuelve sólo el
-     *    array plano de filtros aplicados (compat antiguo).
-     *  - Lista vacía cuando no hay aplicados ni disponibles.
+     *  - For other actions (or if filters() does not exist), returns only the
+     *    flat array of applied filters (legacy compat).
+     *  - Empty list when there are neither applied nor available filters.
      *
      * @return array<string, mixed>
      */
@@ -240,11 +240,11 @@ class BackpackPageContextProvider
     }
 
     /**
-     * Lista de filtros declarados en el grid. Cada item:
+     * List of filters declared in the grid. Each item:
      * `{name, type, options?: [{value,label}]|[string]}`.
      *
-     * Backpack expone filters() como CrudFilter[] (object accessors) o
-     * legacy array — soportamos ambos.
+     * Backpack exposes filters() as CrudFilter[] (object accessors) or a
+     * legacy array — we support both.
      *
      * @return list<array<string, mixed>>
      */
@@ -288,8 +288,8 @@ class BackpackPageContextProvider
     }
 
     /**
-     * Lee `$f->name` (object) o `$f['name']` (array) sin que un acceso
-     * inválido lance.
+     * Reads `$f->name` (object) or `$f['name']` (array) without an invalid
+     * access throwing.
      */
     protected function readFilterField(mixed $f, string $key): mixed
     {
@@ -314,10 +314,10 @@ class BackpackPageContextProvider
     }
 
     /**
-     * Backpack permite `values` como callable, array assoc {value=>label},
-     * array de strings, o null. Devolvemos siempre la forma normalizada
-     * `[{value,label}]` (si era assoc) o `[string]` (si era lista plana).
-     * Null si no hay opciones útiles.
+     * Backpack allows `values` as a callable, an assoc array {value=>label},
+     * an array of strings, or null. We always return the normalized form
+     * `[{value,label}]` (if it was assoc) or `[string]` (if it was a flat list).
+     * Null if there are no useful options.
      *
      * @return array<int, array<string, scalar>|string>|null
      */
@@ -359,26 +359,26 @@ class BackpackPageContextProvider
     }
 
     /**
-     * Schema del form en `create`/`update`/`edit`. Devuelve null fuera de
-     * esas acciones o si la introspección falla.
+     * Form schema in `create`/`update`/`edit`. Returns null outside
+     * those actions or if introspection fails.
      *
-     * Estructura:
+     * Structure:
      *   {
      *     selector: "[bp-section=\"crud-operation-create\"] form",
      *     fields:   [{name, label, type, options?, options_truncated?, required?}, ...]
      *   }
      *
-     * `selector` se basa en el contrato `bp-section` estable de Backpack 5/6/7
-     * (las views `crud::create.blade.php` / `crud::edit.blade.php` /
-     * `crud::inc.form_page.blade.php` envuelven el form en
-     * `<div bp-section="crud-operation-{op}">`). Funciona sin overrides de
-     * view y sin requerir un `id` en el `<form>` real.
+     * `selector` is based on Backpack 5/6/7's stable `bp-section` contract
+     * (the views `crud::create.blade.php` / `crud::edit.blade.php` /
+     * `crud::inc.form_page.blade.php` wrap the form in
+     * `<div bp-section="crud-operation-{op}">`). It works without view
+     * overrides and without requiring an `id` on the actual `<form>`.
      *
-     * `options` se emite como `[{value,label}]` para selects con FK / enums
-     * de forma que el LLM mapee labels a values HTML sin guessing. Cuando
-     * la enumeración FK supera `chatbot.backpack.fk_options_cap`,
-     * `options_truncated: true` señala al LLM que debe recurrir a un read
-     * tool (list_*) en lugar de adivinar.
+     * `options` is emitted as `[{value,label}]` for selects with FK / enums
+     * so that the LLM maps labels to HTML values without guessing. When
+     * the FK enumeration exceeds `chatbot.backpack.fk_options_cap`,
+     * `options_truncated: true` signals the LLM that it must fall back to a read
+     * tool (list_*) instead of guessing.
      *
      * @return array<string, mixed>|null
      */

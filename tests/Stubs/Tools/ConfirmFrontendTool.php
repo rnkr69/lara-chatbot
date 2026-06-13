@@ -11,9 +11,9 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * Frontend tool con confirmación variable — para los tests de E16.
- * Simula una operación que necesita confirmación del usuario antes de
- * ejecutarse en el cliente.
+ * Frontend tool with variable confirmation — for the E16 tests.
+ * Fakes an operation that needs user confirmation before running on
+ * the client.
  */
 class ConfirmFrontendTool extends BaseBackendTool implements FrontendTool
 {

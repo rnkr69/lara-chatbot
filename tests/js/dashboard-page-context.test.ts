@@ -3,10 +3,10 @@ import { emitDashboardContext } from '../../resources/js/dashboard/index.js';
 import { installApi, markReady } from '../../resources/js/api.js';
 
 /**
- * v2.2 — page_context auto-inject del dashboard. El bundle del dashboard lee
- * `data-dashboard-context` del root y lo emite via `Chatbot.setPageContext`,
- * pero respeta la timing del shim (la llamada espera a `chatbot:ready` del
- * widget bundle si todavía no se ha publicado el API real).
+ * v2.2 — dashboard page_context auto-inject. The dashboard bundle reads
+ * `data-dashboard-context` from the root and emits it via `Chatbot.setPageContext`,
+ * but respects the shim's timing (the call waits for the widget bundle's
+ * `chatbot:ready` if the real API has not been published yet).
  */
 
 declare global {

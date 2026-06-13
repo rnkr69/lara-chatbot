@@ -11,16 +11,16 @@ use Rnkr69\LaraChatbot\Llm\SystemPromptBuilder;
 /**
  * `php artisan chatbot:decision-rules:show` (v1.1.1, finding #12.d).
  *
- * Imprime las reglas de "Page context — decision strategy" tal como las
- * verá el LLM, según la configuración actual:
+ * Prints the "Page context — decision strategy" rules exactly as the LLM
+ * will see them, according to the current configuration:
  *
- *   - `chatbot.system_prompt.decision_strategy=true`   → default del package.
- *   - `chatbot.system_prompt.decision_strategy='view'` → renderiza la vista.
- *   - `chatbot.system_prompt.decision_strategy=false`  → sección desactivada.
+ *   - `chatbot.system_prompt.decision_strategy=true`   → package default.
+ *   - `chatbot.system_prompt.decision_strategy='view'` → renders the view.
+ *   - `chatbot.system_prompt.decision_strategy=false`  → section disabled.
  *
- * También imprime el addendum del system prompt si está configurado, para
- * que el dev vea el bloque completo de "instrucciones meta" que el LLM lee
- * en cada turn.
+ * Also prints the system prompt addendum if it is configured, so that the
+ * dev can see the full "meta instructions" block that the LLM reads on
+ * each turn.
  */
 class DecisionRulesShowCommand extends Command
 {
@@ -28,7 +28,7 @@ class DecisionRulesShowCommand extends Command
     protected $signature = 'chatbot:decision-rules:show';
 
     /** @var string */
-    protected $description = 'Imprime las reglas de decisión que el system prompt añade al LLM.';
+    protected $description = 'Print the decision rules that the system prompt adds to the LLM.';
 
     public function handle(ViewFactory $views): int
     {
@@ -37,7 +37,7 @@ class DecisionRulesShowCommand extends Command
         $setting = config('chatbot.system_prompt.decision_strategy', true);
 
         if ($setting === false || $setting === null) {
-            $this->components->warn('Decision strategy desactivada (chatbot.system_prompt.decision_strategy = false).');
+            $this->components->warn('Decision strategy disabled (chatbot.system_prompt.decision_strategy = false).');
             $this->newLine();
             $this->renderAddendum($views);
             return self::SUCCESS;
@@ -45,7 +45,7 @@ class DecisionRulesShowCommand extends Command
 
         if (is_string($setting) && $setting !== '') {
             if (! $views->exists($setting)) {
-                $this->components->error("La vista `{$setting}` no existe; el builder caerá al default.");
+                $this->components->error("The view `{$setting}` does not exist; the builder will fall back to the default.");
                 $this->newLine();
                 $this->printSection('package default (fallback)', SystemPromptBuilder::DEFAULT_DECISION_STRATEGY);
                 $this->renderAddendum($views);

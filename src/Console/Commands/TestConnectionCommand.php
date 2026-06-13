@@ -11,21 +11,21 @@ use Rnkr69\LaraChatbot\Llm\LlmGateway;
 /**
  * `php artisan chatbot:test-connection [--provider=] [--model=]`
  *
- * Hace una llamada de "ping" al LLM y reporta éxito/fallo. Pensado para
- * que el host valide su configuración tras `chatbot:install` (E18) o
- * tras un cambio de credenciales/provider.
+ * Makes a "ping" call to the LLM and reports success/failure. Intended for
+ * the host to validate its configuration after `chatbot:install` (E18) or
+ * after a change of credentials/provider.
  *
- * No persiste nada — no toca conversaciones, ni tools, ni page context.
+ * Persists nothing — it does not touch conversations, tools, or page context.
  */
 class TestConnectionCommand extends Command
 {
     /** @var string */
     protected $signature = 'chatbot:test-connection
-                            {--provider= : Sobreescribe `chatbot.provider` para esta llamada.}
-                            {--model= : Sobreescribe `chatbot.model` para esta llamada.}';
+                            {--provider= : Override `chatbot.provider` for this call.}
+                            {--model= : Override `chatbot.model` for this call.}';
 
     /** @var string */
-    protected $description = 'Verifica que el chatbot puede hablar con el LLM configurado.';
+    protected $description = 'Verify that the chatbot can talk to the configured LLM.';
 
     public function handle(LlmGateway $gateway): int
     {
@@ -56,10 +56,10 @@ class TestConnectionCommand extends Command
     }
 
     /**
-     * v1.1 (findings #1): los hosts detrás de un proxy LiteLLM corporativo
-     * con CA self-signed reciben "cURL error 60" en el primer ping y pierden
-     * tiempo buscando flags inexistentes en Prism. Cuando detectamos ese
-     * mensaje, mostramos un hint accionable con los 3 caminos típicos.
+     * v1.1 (findings #1): hosts behind a corporate LiteLLM proxy with a
+     * self-signed CA get "cURL error 60" on the first ping and waste time
+     * looking for nonexistent flags in Prism. When we detect that message,
+     * we show an actionable hint with the 3 typical paths.
      */
     protected function printDiagnosticHint(string $message): void
     {

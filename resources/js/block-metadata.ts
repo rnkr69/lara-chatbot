@@ -1,26 +1,26 @@
 import type { BlockPayload, BlockSource } from './types.js';
 
 /**
- * v2.0 (E1) — copia los metadatos opcionales `id`, `source`, `pinnable` y
- * `block_ordinal` (v2.1.2, #27) que el orquestador SSE backend estampa en
- * los frames `block` (y en los args de `frontend_action` con
- * `tool=render_block`) hacia el `BlockPayload` que el widget guarda en
+ * v2.0 (E1) — copies the optional metadata `id`, `source`, `pinnable` and
+ * `block_ordinal` (v2.1.2, #27) that the backend SSE orchestrator stamps on
+ * the `block` frames (and on the args of `frontend_action` with
+ * `tool=render_block`) into the `BlockPayload` the widget stores in
  * `ChatMessage.blocks[]`.
  *
- * Se extrae a un módulo propio porque la lógica se aplica en tres sitios
- * (live `block` frame, intercepción de `render_block`, hidratación desde
- * sessionStorage) y porque queremos testearla aislada de la state machine
- * del custom element en `widget.ts` — que es demasiado pesada para un
- * unit test simple.
+ * Extracted into its own module because the logic is applied in three places
+ * (live `block` frame, `render_block` interception, hydration from
+ * sessionStorage) and because we want to test it in isolation from the custom
+ * element's state machine in `widget.ts` — which is too heavy for a simple
+ * unit test.
  *
- * Diseño: muta el target en lugar de devolver un objeto nuevo para que los
- * call sites mantengan literales `{ type, data }` claros y sólo se añadan
- * los campos cuando estén presentes (back-compat: blocks v1 no llevan
- * ninguno, así que el target queda exactamente igual).
+ * Design: mutates the target instead of returning a new object so the call
+ * sites keep clear `{ type, data }` literals and only add the fields when
+ * they are present (back-compat: v1 blocks carry none, so the target stays
+ * exactly the same).
  *
- * Inputs malformados (id no-string, source sin tool, args no-object) se
- * ignoran silenciosamente — coincide con el contrato general del widget
- * de "frames raros no rompen el render, sólo se degradan".
+ * Malformed inputs (non-string id, source without tool, non-object args) are
+ * ignored silently — matching the widget's general contract of "odd frames
+ * don't break the render, they just degrade".
  */
 export function readV2BlockMetadata(
   raw: Record<string, unknown>,
@@ -36,18 +36,18 @@ export function readV2BlockMetadata(
     target.pinnable = true;
   }
 
-  // v2.1.2 (#27) — ordinal 0-based del bloque entre los de su tipo. Sólo
-  // se acepta un entero >= 0; cualquier otra cosa se ignora (back-compat:
-  // blocks v2.1.x antiguos no lo llevan → el replay cae a 0).
+  // v2.1.2 (#27) — 0-based ordinal of the block among those of its type. Only
+  // an integer >= 0 is accepted; anything else is ignored (back-compat: old
+  // v2.1.x blocks don't carry it → the replay falls back to 0).
   const blockOrdinal = raw['block_ordinal'];
   if (typeof blockOrdinal === 'number' && Number.isInteger(blockOrdinal) && blockOrdinal >= 0) {
     target.blockOrdinal = blockOrdinal;
   }
 
-  // v2.2.1 (PR-B) — bag de metadata fuera de banda. Lo conserva el persist a
-  // sessionStorage (hidratación de history reabsorbe valores sin reactivar
-  // efectos UX) y lo lee la pipeline `block` del widget para emitir hooks
-  // hacia el resto de bundles (ver `chatbot:dashboard-mutation` en widget.ts).
+  // v2.2.1 (PR-B) — out-of-band metadata bag. The persist to sessionStorage
+  // keeps it (history hydration re-absorbs values without re-triggering UX
+  // effects) and the widget's `block` pipeline reads it to emit hooks to the
+  // rest of the bundles (see `chatbot:dashboard-mutation` in widget.ts).
   const meta = raw['meta'];
   if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
     target.meta = meta as Record<string, unknown>;

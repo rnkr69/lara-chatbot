@@ -14,23 +14,23 @@ use Rnkr69\LaraChatbot\Models\Conversation;
 /**
  * E17 — `GET /{chatbot.route.prefix}` (default `/chatbot`).
  *
- * Devuelve la vista publishable `chatbot::page` que monta
- * `<chatbot-widget mode="page">` a pantalla completa con sidebar de
- * conversaciones. La vista resuelve dinámicamente:
+ * Returns the publishable `chatbot::page` view that mounts
+ * `<chatbot-widget mode="page">` full-screen with a conversations
+ * sidebar. The view resolves dynamically:
  *
- *   - `$layout` — nombre del layout host (`chatbot.page.layout`). null si el
- *     host no lo configuró o si la vista no existe (fallback standalone).
- *   - `$section` — nombre de la sección del layout en la que inyectar el
- *     contenido cuando `$layout !== null`. Default `content`.
- *   - `$assetUrl` — URL del bundle `chatbot-widget.js` resuelta vía
+ *   - `$layout` — name of the host layout (`chatbot.page.layout`). null if the
+ *     host did not configure it or if the view does not exist (standalone fallback).
+ *   - `$section` — name of the layout section into which to inject the
+ *     content when `$layout !== null`. Default `content`.
+ *   - `$assetUrl` — URL of the `chatbot-widget.js` bundle resolved via
  *     `asset(chatbot.widget.asset_path)`.
- *   - `$streamUrl` — URL del endpoint SSE de chat (`route('chatbot.stream')`).
- *   - `$conversationsUrl` — base URL del CRUD de conversaciones; el widget la
- *     usa para sidebar (lista, búsqueda, delete) y para `show` cuando
- *     selecciona una conversación.
+ *   - `$streamUrl` — URL of the chat SSE endpoint (`route('chatbot.stream')`).
+ *   - `$conversationsUrl` — base URL of the conversations CRUD; the widget
+ *     uses it for the sidebar (list, search, delete) and for `show` when
+ *     it selects a conversation.
  *
- * El controller no exige permiso adicional al middleware del grupo; la
- * autorización por usuario la heredan las llamadas internas
+ * The controller requires no additional permission beyond the group middleware;
+ * per-user authorization is inherited by the internal calls
  * (`/chatbot/conversations`, `/chatbot/stream`).
  */
 class PageController extends Controller
@@ -69,9 +69,9 @@ class PageController extends Controller
     }
 
     /**
-     * v2.1.1 (#26) — URL del enlace "← volver a la app" de la vista
-     * standalone del chat. Sólo se pinta si es una string no vacía; null la
-     * deja sin enlace. En modo `layout` la navegación la da el host.
+     * v2.1.1 (#26) — URL of the "← back to app" link in the chat's
+     * standalone view. It is only painted if it is a non-empty string; null
+     * leaves it without a link. In `layout` mode the navigation is provided by the host.
      */
     protected function resolveBackUrl(): ?string
     {
@@ -81,13 +81,13 @@ class PageController extends Controller
     }
 
     /**
-     * v2.0 / E9 — bridge PHP → JS para las claves UI del paquete.
+     * v2.0 / E9 — PHP → JS bridge for the package's UI keys.
      *
-     * Devuelve `__('chatbot::chatbot')` como array para que la blade lo
-     * `json_encode`e en `<chatbot-widget data-i18n="…">`. El bundle del widget
-     * lee este atributo en `connectedCallback` y reemplaza los defaults
-     * inline. Si el archivo de lang sólo expone strings (ningún subarray),
-     * devolvemos array vacío — los defaults TS siguen ahí.
+     * Returns `__('chatbot::chatbot')` as an array so the blade can
+     * `json_encode` it in `<chatbot-widget data-i18n="…">`. The widget bundle
+     * reads this attribute in `connectedCallback` and replaces the inline
+     * defaults. If the lang file only exposes strings (no subarray),
+     * we return an empty array — the TS defaults are still there.
      */
     protected function resolveI18n(): array
     {
@@ -131,12 +131,12 @@ class PageController extends Controller
     }
 
     /**
-     * Devuelve el layout configurado si existe, o null para fallback standalone.
+     * Returns the configured layout if it exists, or null for the standalone fallback.
      *
-     * Si `chatbot.page.layout` apunta a una vista que NO existe, loguea un
-     * warning accionable y degrada a standalone — el host puede haber olvidado
-     * publicar el layout o tener un typo. Romper la página en runtime sería
-     * peor UX que un fallback con log.
+     * If `chatbot.page.layout` points to a view that does NOT exist, it logs an
+     * actionable warning and degrades to standalone — the host may have forgotten
+     * to publish the layout or have a typo. Breaking the page at runtime would be
+     * worse UX than a fallback with a log.
      */
     protected function resolveLayout(): ?string
     {
@@ -148,9 +148,9 @@ class PageController extends Controller
 
         if (! ViewFactory::exists($layout)) {
             Log::warning(sprintf(
-                '[chatbot] chatbot.page.layout="%s" no existe en el host. '
-                . 'La página /chatbot se renderizará en modo standalone. '
-                . 'Verifica el nombre del layout o publica el suyo.',
+                '[chatbot] chatbot.page.layout="%s" does not exist in the host. '
+                . 'The /chatbot page will render in standalone mode. '
+                . 'Check the layout name or publish your own.',
                 $layout,
             ));
 

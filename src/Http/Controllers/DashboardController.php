@@ -15,28 +15,28 @@ use Rnkr69\LaraChatbot\Models\Dashboard;
 /**
  * E4 — `GET /{chatbot.route.prefix}/dashboard` (default `/chatbot/dashboard`).
  *
- * Sirve la vista publishable `chatbot::dashboard` que el bundle separado del
- * E5 (`chatbot-dashboard.js`) montará. En E4 sólo entregamos el root + las
- * URLs de la API JSON (E4) + el slug por defecto del usuario.
+ * Serves the publishable `chatbot::dashboard` view that the separate E5
+ * bundle (`chatbot-dashboard.js`) will mount. In E4 we only deliver the root + the
+ * JSON API URLs (E4) + the user's default slug.
  *
- * Patrón idéntico a `PageController` (E17, D16):
+ * Pattern identical to `PageController` (E17, D16):
  *
- *   - Si `chatbot.dashboard.layout` es string Y `View::exists($layout)` →
+ *   - If `chatbot.dashboard.layout` is a string AND `View::exists($layout)` →
  *     `chatbot::dashboard_layout` (`@extends($layout) @section($section)`).
- *   - Si null o la vista no existe (con log warning) → `chatbot::dashboard`
- *     standalone (HTML completo desde el paquete).
+ *   - If null or the view does not exist (with a log warning) → `chatbot::dashboard`
+ *     standalone (full HTML from the package).
  *
- * Param opcional `?dashboard={slug}` deep-linkea un dashboard concreto. Si
- * el slug no existe o no pertenece al usuario, **NO 404**: el frontend (E5)
- * pinta el empty state / cae al default. La vista HTML siempre 200 — sin
- * dashboards el usuario ve un CTA "crea tu primer panel".
+ * Optional param `?dashboard={slug}` deep-links a specific dashboard. If
+ * the slug does not exist or does not belong to the user, **NO 404**: the frontend (E5)
+ * paints the empty state / falls back to the default. The HTML view is always 200 — with no
+ * dashboards the user sees a "create your first dashboard" CTA.
  *
- * v2.1.1 (#26): si `chatbot.dashboard.mount_widget` (default true), ambas
- * vistas montan el `<chatbot-widget>` flotante para que el usuario pueda
- * pinear desde el propio dashboard; y la vista standalone pinta un enlace
- * "volver a la app" cuando `chatbot.dashboard.back_url` está seteado.
+ * v2.1.1 (#26): if `chatbot.dashboard.mount_widget` (default true), both
+ * views mount the floating `<chatbot-widget>` so the user can
+ * pin from the dashboard itself; and the standalone view paints a
+ * "back to app" link when `chatbot.dashboard.back_url` is set.
  *
- * La autorización por usuario la hereda del middleware del grupo
+ * Per-user authorization is inherited from the group middleware
  * (`config('chatbot.route.middleware')` = `['web', 'auth']`).
  */
 class DashboardController extends Controller
@@ -57,7 +57,7 @@ class DashboardController extends Controller
         // Splitting them is necessary because Blade compiles `@extends(...)`
         // to a footer that runs unconditionally — wrapping it in `@if(...)`
         // would still try to load a null layout and explode with "View []
-        // not found" (mismo patrón que E17, ver D16).
+        // not found" (same pattern as E17, see D16).
         $viewName = $layout !== null ? 'chatbot::dashboard_layout' : 'chatbot::dashboard';
 
         $chartRenderer = (string) config('chatbot.dashboard.chart_renderer', 'chartjs');
@@ -80,11 +80,11 @@ class DashboardController extends Controller
             'dashboardsUrl'  => route('chatbot.dashboards.index'),
             'theme'          => (string) config('chatbot.widget.theme', 'auto'),
             'defaultSlug'    => $defaultSlug,
-            // v2.2 — page_context auto-inject. JSON con slug/name/is_default/
-            // widgets[] del dashboard que se abre inicialmente. El bundle JS
-            // lo lee on-boot y llama `window.Chatbot.setPageContext({dashboard:
-            // {...}})` para que el LLM pueda resolver "el widget de KPIs"
-            // → widget_id sin fuzzy matching. Sin defaultSlug → array vacío.
+            // v2.2 — page_context auto-inject. JSON with slug/name/is_default/
+            // widgets[] of the dashboard that opens initially. The JS bundle
+            // reads it on-boot and calls `window.Chatbot.setPageContext({dashboard:
+            // {...}})` so the LLM can resolve "the KPIs widget"
+            // → widget_id without fuzzy matching. No defaultSlug → empty array.
             'dashboardContext' => $this->resolveDashboardContext($request, $defaultSlug),
             'chartRenderer'  => $chartRenderer,
             'useBootstrap'   => $this->resolveUseBootstrap($layout),
@@ -111,23 +111,23 @@ class DashboardController extends Controller
     }
 
     /**
-     * v2.2 — Estructura del `data-dashboard-context` que el bundle JS lee al
-     * arrancar y traduce a `Chatbot.setPageContext({dashboard: {...}})`. Le da
-     * al LLM resolución directa de "el widget de KPIs" → `widget_id` desde el
-     * `page_context.dashboard.widgets`, sin pasar por fuzzy matching o
-     * alucinaciones (las edit/delete tools de PR-B exigen ID, no título).
+     * v2.2 — Structure of the `data-dashboard-context` that the JS bundle reads at
+     * boot and translates to `Chatbot.setPageContext({dashboard: {...}})`. It gives
+     * the LLM direct resolution of "the KPIs widget" → `widget_id` from
+     * `page_context.dashboard.widgets`, without going through fuzzy matching or
+     * hallucinations (the PR-B edit/delete tools require an ID, not a title).
      *
-     * Cap binario: si los widgets exceden `chatbot.limits.page_context_kb`
-     * (default 16 KB) tras serializar, se reduce el subset a `id` + `title`
-     * por widget — lo suficiente para que el LLM resuelva sin perder cuerpo
-     * en el system prompt. Por debajo del cap se incluye `block_type`,
-     * `position`, `refresh_policy`, `last_refresh_status` para que el LLM
-     * pueda razonar también sobre estado y geometría.
+     * Binary cap: if the widgets exceed `chatbot.limits.page_context_kb`
+     * (default 16 KB) after serializing, the subset is reduced to `id` + `title`
+     * per widget — enough for the LLM to resolve without losing body
+     * in the system prompt. Below the cap, `block_type`,
+     * `position`, `refresh_policy`, `last_refresh_status` are included so the LLM
+     * can also reason about state and geometry.
      *
-     * Devuelve `[]` (en lugar de null) cuando no hay dashboard a inyectar —
-     * la blade emite el attribute con `[]` y el bundle JS detecta el vacío
-     * para no setear page_context. Esto evita que el LLM "resuelva" widgets
-     * que ya no existen.
+     * Returns `[]` (instead of null) when there is no dashboard to inject —
+     * the blade emits the attribute with `[]` and the JS bundle detects the emptiness
+     * so as not to set page_context. This prevents the LLM from "resolving" widgets
+     * that no longer exist.
      *
      * @return array<string, mixed>
      */
@@ -170,11 +170,11 @@ class DashboardController extends Controller
             'widgets'    => $widgets,
         ];
 
-        // Cap: el page_context completo del chat tiene un tope binario para
-        // no inflar el system prompt. Si la lista de widgets nos hace pasar
-        // ese cap, degradamos a `id` + `title` (suficiente para que el LLM
-        // matchee títulos y emita widget_ids). Mejor un page_context
-        // funcionalmente útil pero limitado que ninguno.
+        // Cap: the chat's full page_context has a binary limit so as
+        // not to inflate the system prompt. If the widget list pushes us past
+        // that cap, we degrade to `id` + `title` (enough for the LLM to
+        // match titles and emit widget_ids). Better a page_context
+        // that is functionally useful but limited than none.
         $limitKb = (int) config('chatbot.limits.page_context_kb', 16);
         $limit   = max(1, $limitKb) * 1024;
 
@@ -206,9 +206,9 @@ class DashboardController extends Controller
 
         if (! ViewFactory::exists($extras)) {
             Log::warning(sprintf(
-                '[chatbot] chatbot.dashboard.extras_view="%s" no existe en el host. '
-                . 'La página /chatbot/dashboard se renderizará sin extras. '
-                . 'Verifica el nombre de la vista o quita la clave del config.',
+                '[chatbot] chatbot.dashboard.extras_view="%s" does not exist in the host. '
+                . 'The /chatbot/dashboard page will render without extras. '
+                . 'Check the view name or remove the key from the config.',
                 $extras,
             ));
 
@@ -219,10 +219,10 @@ class DashboardController extends Controller
     }
 
     /**
-     * v2.1.1 (#26) — URL del enlace "← volver a la app" de la vista
-     * standalone. Sólo se pinta si es una string no vacía; null deja la
-     * página sin enlace. En modo `layout` la navegación la da el chrome del
-     * host, así que la vista layout lo ignora.
+     * v2.1.1 (#26) — URL of the "← back to app" link in the standalone
+     * view. It is only painted if it is a non-empty string; null leaves the
+     * page without a link. In `layout` mode the navigation is provided by the
+     * host chrome, so the layout view ignores it.
      */
     protected function resolveBackUrl(): ?string
     {
@@ -232,17 +232,17 @@ class DashboardController extends Controller
     }
 
     /**
-     * v2.1 / #19 — decide si el dashboard debe usar las primitivas de
-     * Bootstrap del host (cuando está disponible) en vez del CSS propio del
-     * paquete para los block renderers (`table`/`card`/`list`).
+     * v2.1 / #19 — decides whether the dashboard should use the host's
+     * Bootstrap primitives (when available) instead of the package's own
+     * CSS for the block renderers (`table`/`card`/`list`).
      *
      * `chatbot.backpack.use_bootstrap`:
-     *   - `true`/`false` (o sus strings) → fuerza el modo.
-     *   - `'auto'` (default) → true sólo si el dashboard está en modo
-     *     `layout` (hereda el `<head>` del host, donde vive el Bootstrap de
-     *     Backpack) Y el paquete Backpack está instalado. El modo standalone
-     *     es una página HTML propia del paquete sin `<head>` del host — ahí
-     *     nunca hay Bootstrap, así que `auto` siempre resuelve a false.
+     *   - `true`/`false` (or their strings) → forces the mode.
+     *   - `'auto'` (default) → true only if the dashboard is in
+     *     `layout` mode (inherits the host's `<head>`, where Backpack's
+     *     Bootstrap lives) AND the Backpack package is installed. Standalone mode
+     *     is the package's own HTML page without the host's `<head>` — there
+     *     is never any Bootstrap there, so `auto` always resolves to false.
      */
     protected function resolveUseBootstrap(?string $layout): bool
     {
@@ -262,17 +262,17 @@ class DashboardController extends Controller
             return false;
         }
 
-        // 'auto' (o cualquier valor no reconocido): Bootstrap sólo es
-        // alcanzable en modo layout y con el paquete Backpack instalado.
+        // 'auto' (or any unrecognized value): Bootstrap is only
+        // reachable in layout mode and with the Backpack package installed.
         return $layout !== null
             && class_exists('Backpack\\CRUD\\BackpackServiceProvider');
     }
 
     /**
-     * v2.0 / E9 — bridge PHP → JS, idéntico al de `PageController`. La blade
-     * lo `json_encode`a en `data-i18n` sobre `#chatbot-dashboard-root`; el
-     * bundle del dashboard drena el subtree `dashboard.*` y `dashboard.kpi.*`
-     * desde aquí.
+     * v2.0 / E9 — PHP → JS bridge, identical to `PageController`'s. The blade
+     * `json_encode`s it in `data-i18n` on `#chatbot-dashboard-root`; the
+     * dashboard bundle drains the `dashboard.*` and `dashboard.kpi.*` subtree
+     * from here.
      */
     protected function resolveI18n(): array
     {
@@ -282,15 +282,15 @@ class DashboardController extends Controller
     }
 
     /**
-     * Resuelve el slug del dashboard a abrir. Prioridad:
+     * Resolves the slug of the dashboard to open. Priority:
      *
-     *   1. `?dashboard={slug}` válido y propio del usuario.
-     *   2. `is_default=true` del usuario.
-     *   3. null — sin dashboards (la vista pinta empty state vía E5).
+     *   1. `?dashboard={slug}` valid and owned by the user.
+     *   2. the user's `is_default=true`.
+     *   3. null — no dashboards (the view paints the empty state via E5).
      *
-     * Igual que `PageController::resolveInitialConversation()`, si el slug
-     * de la query no es propio degradamos a null (no 404) — el deep-link
-     * compartido por error no rompe la página.
+     * Like `PageController::resolveInitialConversation()`, if the query's
+     * slug is not owned we degrade to null (not 404) — the deep-link
+     * shared by mistake does not break the page.
      */
     protected function resolveDefaultSlug(Request $request): ?string
     {
@@ -323,9 +323,9 @@ class DashboardController extends Controller
     }
 
     /**
-     * Mismo patrón que `PageController::resolveLayout()`. Si la vista del
-     * layout configurado NO existe, loguea warning y degrada a standalone
-     * en vez de romper la página en runtime.
+     * Same pattern as `PageController::resolveLayout()`. If the configured
+     * layout's view does NOT exist, it logs a warning and degrades to standalone
+     * instead of breaking the page at runtime.
      */
     protected function resolveLayout(): ?string
     {
@@ -337,9 +337,9 @@ class DashboardController extends Controller
 
         if (! ViewFactory::exists($layout)) {
             Log::warning(sprintf(
-                '[chatbot] chatbot.dashboard.layout="%s" no existe en el host. '
-                . 'La página /chatbot/dashboard se renderizará en modo standalone. '
-                . 'Verifica el nombre del layout o publica el suyo.',
+                '[chatbot] chatbot.dashboard.layout="%s" does not exist in the host. '
+                . 'The /chatbot/dashboard page will render in standalone mode. '
+                . 'Check the layout name or publish your own.',
                 $layout,
             ));
 

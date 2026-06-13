@@ -16,9 +16,9 @@ beforeEach(function () {
 });
 
 /**
- * Crea un TestUser sin tabla real (mismo helper que ChatControllerStreamTest
- * y ChatServiceTest). El `id` se sincroniza vía `setRawAttributes` para que
- * `getKey()` y los morph relations no requieran persistencia.
+ * Creates a TestUser without a real table (same helper as ChatControllerStreamTest
+ * and ChatServiceTest). The `id` is synced via `setRawAttributes` so that
+ * `getKey()` and the morph relations do not require persistence.
  */
 function makeOwnedConversationUser(int $id = 1): TestUser
 {
@@ -29,8 +29,8 @@ function makeOwnedConversationUser(int $id = 1): TestUser
 }
 
 /**
- * Atajo para crear una conversación del usuario dado, con título opcional
- * y `updated_at` controlado para los tests de orden.
+ * Shortcut to create a conversation for the given user, with an optional title
+ * and a controlled `updated_at` for the ordering tests.
  */
 function makeOwnedConversation(TestUser $user, ?string $title = null, ?string $updatedAt = null): Conversation
 {
@@ -123,7 +123,7 @@ it('filters conversations by ?q= on the title (LIKE)', function () {
     makeOwnedConversation($user, 'Quarterly invoices review');
     makeOwnedConversation($user, 'Onboarding plan');
     makeOwnedConversation($user, 'Invoices follow-up');
-    makeOwnedConversation($user, null); // no title — debe quedar fuera del LIKE
+    makeOwnedConversation($user, null); // no title — should fall outside the LIKE
 
     $response = $this->actingAs($user, 'web')
         ->getJson('/chatbot/conversations?q=invoice');
@@ -259,15 +259,15 @@ it('returns the conversation with messages cursor-paginated, last first', functi
     $messages = $response->json('messages.data');
     expect($messages)->toHaveCount(3);
 
-    // Último primero: el primer item es el msg con el id más alto.
+    // Last first: the first item is the msg with the highest id.
     $texts = array_map(fn (array $m) => $m['content'][0]['text'], $messages);
     expect($texts[0])->toBe('msg-5')
         ->and($texts[1])->toBe('msg-4')
         ->and($texts[2])->toBe('msg-3');
 
-    // El cursor de paginación está presente para el siguiente page. Vive
-    // bajo `meta.next_cursor` por la envoltura que añade `ResourceCollection
-    // ->response()` cuando wrapea un cursor paginator.
+    // The pagination cursor is present for the next page. It lives under
+    // `meta.next_cursor` because of the wrapping that `ResourceCollection
+    // ->response()` adds when it wraps a cursor paginator.
     expect($response->json('messages.meta.next_cursor'))->not->toBeNull()
         ->and($response->json('messages.meta.prev_cursor'))->toBeNull()
         ->and((int) $response->json('messages.meta.per_page'))->toBe(3);
@@ -338,12 +338,12 @@ it('soft-deletes a conversation and responds 204 No Content', function () {
     $response->assertStatus(204);
     expect($response->getContent())->toBe('');
 
-    // Soft-deleted: la fila sigue en BD pero `deleted_at` está poblado.
+    // Soft-deleted: the row stays in the DB but `deleted_at` is populated.
     $row = Conversation::withTrashed()->find($conv->id);
     expect($row)->not->toBeNull()
         ->and($row->deleted_at)->not->toBeNull();
 
-    // El default scope (sin `withTrashed`) ya no la ve.
+    // The default scope (without `withTrashed`) no longer sees it.
     expect(Conversation::query()->find($conv->id))->toBeNull();
 });
 
@@ -357,7 +357,7 @@ it('returns 404 when destroying a conversation owned by another user (DoD policy
 
     $response->assertStatus(404);
 
-    // No se ha tocado la fila ajena.
+    // The foreign row has not been touched.
     expect(Conversation::query()->find($conv->id))->not->toBeNull();
 });
 

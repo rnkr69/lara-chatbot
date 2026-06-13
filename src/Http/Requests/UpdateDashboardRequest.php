@@ -7,18 +7,18 @@ namespace Rnkr69\LaraChatbot\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Valida el payload de `PATCH /chatbot/dashboards/{slug}` (v2.0 / E4).
+ * Validates the payload of `PATCH /chatbot/dashboards/{slug}` (v2.0 / E4).
  *
- *   - `name`        opcional. Si presente, el server regenera el slug
- *                   (Str::slug + sufijo numérico si colisiona) y lo persiste.
- *                   Mantener el slug viejo crearía links rotos al renombrar;
- *                   re-derivarlo es la opción que mejor matchea la mental
- *                   model "el slug es la representación URL del nombre".
- *   - `is_default`  opcional. true → el hook `saving` auto-demote al resto.
- *                   false → si era default, ningún reemplazo automático aquí;
- *                   la promoción ocurre en `DELETE` (no en `PATCH false`).
- *   - `metadata`    opcional. Reemplazo completo (no merge); el cliente envía
- *                   el shape final que quiere persistir.
+ *   - `name`        optional. If present, the server regenerates the slug
+ *                   (Str::slug + numeric suffix if it collides) and persists it.
+ *                   Keeping the old slug would create broken links on rename;
+ *                   re-deriving it is the option that best matches the mental
+ *                   model "the slug is the URL representation of the name".
+ *   - `is_default`  optional. true → the `saving` hook auto-demotes the rest.
+ *                   false → if it was the default, no automatic replacement here;
+ *                   promotion happens on `DELETE` (not on `PATCH false`).
+ *   - `metadata`    optional. Full replacement (not merge); the client sends
+ *                   the final shape it wants to persist.
  */
 class UpdateDashboardRequest extends FormRequest
 {

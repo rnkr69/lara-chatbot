@@ -3,23 +3,23 @@
 declare(strict_types=1);
 
 return [
-    // Las claves reales (etiquetas del widget, mensajes de error, prompts de
-    // confirmación, etc.) se incorporan a partir de E12/E16. Este archivo
-    // existe para que el tag `chatbot-lang` tenga algo que publicar y para
-    // documentar la estructura esperada por el host.
+    // The real keys (widget labels, error messages, confirmation prompts,
+    // etc.) are added from E12/E16 onwards. This file exists so the
+    // `chatbot-lang` tag has something to publish and to document the
+    // structure the host is expected to provide.
 
-    // E17 — página dedicada de chat.
+    // E17 — dedicated chat page.
     'page_title' => 'Chat',
 
-    // v2.0 / E4 — página dedicada del Personal Dashboard.
+    // v2.0 / E4 — dedicated Personal Dashboard page.
     'dashboard_title' => 'Dashboard',
 
-    // v2.1.1 (#26) — enlace "volver a la app" de las vistas STANDALONE del
-    // chat y del dashboard, cuando `chatbot.{page,dashboard}.back_url` está
-    // seteado. Sin él, la página standalone es una isla sin salida.
+    // v2.1.1 (#26) — "back to app" link in the STANDALONE chat and dashboard
+    // views, when `chatbot.{page,dashboard}.back_url` is set. Without it, the
+    // standalone page is a dead-end island.
     'back_to_app' => 'Back to app',
 
-    // v2.0 / E5 — UI del bundle del dashboard (sidebar, card, header).
+    // v2.0 / E5 — dashboard bundle UI (sidebar, card, header).
     'dashboard' => [
         // v2.1 (#2) — label for a host navigation link to /chatbot/dashboard.
         // Distinct from the top-level `dashboard_title` (the HTML <title>): a

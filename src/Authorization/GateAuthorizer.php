@@ -9,11 +9,11 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Rnkr69\LaraChatbot\Authorization\Contracts\Authorizer;
 
 /**
- * Implementación default del `Authorizer`. Itera la lista de permisos y
- * usa `Gate::forUser($user)->allows($permission)` — todos deben pasar.
+ * Default `Authorizer` implementation. Iterates the permission list and
+ * uses `Gate::forUser($user)->allows($permission)` — all must pass.
  *
- * No requiere ningún paquete adicional. Funciona contra Gates y Policies
- * que el host registre con `Gate::define(...)` o policies de Eloquent.
+ * Requires no additional package. Works against Gates and Policies the
+ * host registers with `Gate::define(...)` or Eloquent policies.
  */
 class GateAuthorizer implements Authorizer
 {

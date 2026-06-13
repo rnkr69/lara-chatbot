@@ -10,15 +10,15 @@ use Rnkr69\LaraChatbot\Models\WidgetRefreshPolicy;
 use Rnkr69\LaraChatbot\Models\WidgetRefreshStatus;
 
 /**
- * Shape JSON de un widget de dashboard (v2.0 / E4).
+ * JSON shape of a dashboard widget (v2.0 / E4).
  *
- * El `dashboard_id` se omite porque el endpoint que sirve los widgets ya
- * está scope-ado al dashboard padre (`/chatbot/dashboards/{slug}/widgets`).
+ * The `dashboard_id` is omitted because the endpoint serving the widgets is
+ * already scoped to the parent dashboard (`/chatbot/dashboards/{slug}/widgets`).
  *
- * `source.page_context_snapshot` SE INCLUYE en la respuesta — el frontend
- * puede mostrar al usuario qué contexto se capturó al pinear (badge "ligado
- * a esta factura", tooltip de auditoría) y necesita el snapshot completo
- * para repinear/clonar widgets sin perder el contexto.
+ * `source.page_context_snapshot` IS INCLUDED in the response — the frontend
+ * can show the user which context was captured on pin (a "linked to
+ * this invoice" badge, an audit tooltip) and needs the full snapshot
+ * to re-pin/clone widgets without losing the context.
  *
  * @property-read \Rnkr69\LaraChatbot\Models\DashboardWidget $resource
  */

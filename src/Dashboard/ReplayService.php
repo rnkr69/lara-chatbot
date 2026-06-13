@@ -22,74 +22,74 @@ use Rnkr69\LaraChatbot\Tools\ToolResult;
 use Throwable;
 
 /**
- * Motor de replay del Personal Dashboard (v2.0 / E3, plan §4.6).
+ * Personal Dashboard replay engine (v2.0 / E3, plan §4.6).
  *
- * Re-ejecuta el tool de origen de un widget respetando la MISMA cascada de
- * autorización que aplica el chat (`permission → scope → tenant → ownership`)
- * y mapea el resultado a un `WidgetRefreshStatus` que el frontend pinta como
- * badge en el header del widget.
+ * Re-executes a widget's source tool respecting the SAME authorization
+ * cascade that the chat applies (`permission → scope → tenant → ownership`)
+ * and maps the result to a `WidgetRefreshStatus` that the frontend paints as
+ * a badge in the widget header.
  *
- * Por qué la cascada vive "gratis": las tools que extienden `BaseBackendTool`
- * tienen un método `execute()` que aplica validate→permission→tenant→handle
- * antes de delegar a `handle()` (donde el tool aplica el `ScopeResolver` y
- * el ownership filter vía `accessibleQuery()`). Replay reusa ese punto de
- * entrada exactamente como `ChatService::executeTool()` (línea ~503): si la
- * tool no tiene `execute()` (caso de `McpBackendTool`), cae a `handle()` sin
- * cascada — coherente con el comportamiento del chat para esas tools.
+ * Why the cascade comes "for free": tools that extend `BaseBackendTool`
+ * have an `execute()` method that applies validate→permission→tenant→handle
+ * before delegating to `handle()` (where the tool applies the `ScopeResolver` and
+ * the ownership filter via `accessibleQuery()`). Replay reuses that entry
+ * point exactly like `ChatService::executeTool()` (line ~503): if the
+ * tool has no `execute()` (the `McpBackendTool` case), it falls to `handle()` without
+ * the cascade — consistent with the chat's behavior for those tools.
  *
- * Diferencias con la invocación del chat:
- *   - `ToolContext.conversation = null` (un widget del dashboard no está
- *     atado a ninguna conversación; lo escribimos para que un listener de
- *     audit lo distinga de un tool call dentro del chat).
- *   - `ToolContext.pageContext = source.page_context_snapshot` (el snapshot
- *     capturado al pinear; plan §4.9). La página `/chatbot/dashboard` no
- *     tiene contexto propio.
- *   - Confirmación: siempre `Auto` por contrato (el pin sólo se permite si
- *     `pinnable() && confirmation === Auto`; lo validamos defensivamente
- *     antes de ejecutar por si el tool author bajó el flag post-pin).
+ * Differences from the chat invocation:
+ *   - `ToolContext.conversation = null` (a dashboard widget is not tied to
+ *     any conversation; we set it so that an audit listener can
+ *     distinguish it from a tool call inside the chat).
+ *   - `ToolContext.pageContext = source.page_context_snapshot` (the snapshot
+ *     captured at pin time; plan §4.9). The `/chatbot/dashboard` page has no
+ *     context of its own.
+ *   - Confirmation: always `Auto` by contract (a pin is only allowed if
+ *     `pinnable() && confirmation === Auto`; we validate it defensively
+ *     before executing in case the tool author lowered the flag post-pin).
  *
- * Mapeo `ToolResult` → `WidgetRefreshStatus` (plan §4.6 paso 6):
+ * `ToolResult` → `WidgetRefreshStatus` mapping (plan §4.6 step 6):
  *
- *   tool no registrado                         → SourceMissing
+ *   tool not registered                        → SourceMissing
  *   pinnable=false / confirmation != Auto      → Error (category='not_pinnable')
  *   error('unauthorized' | 'out_of_scope' |    → Unauthorized
  *         'not_owner')
- *   error(otro)  / Throwable                   → Error
- *   ok + ningún block del tipo del widget      → Stale (snapshot conservado)
- *   ok + hay blocks del tipo pero no el nº N   → Stale (snapshot conservado)
- *   ok + existe el nº N del tipo del widget    → Fresh (snapshot reemplazado)
+ *   error(other) / Throwable                   → Error
+ *   ok + no block of the widget's type         → Stale (snapshot kept)
+ *   ok + blocks of the type but not the Nth    → Stale (snapshot kept)
+ *   ok + the Nth of the widget's type exists   → Fresh (snapshot replaced)
  *
- * v2.1.2 (#27) — selección de bloque por DESCRIPTOR, no por `blocks[0]`. Un
- * tool `pinnable()` puede emitir varios bloques (el caso canónico del
- * dashboard: KPIs + gráfica). El widget guarda en `source.block_ordinal` la
- * posición 0-based del bloque ENTRE los de su tipo en la salida del tool;
- * `mapResult()` re-selecciona el N-ésimo bloque de `widget.block_type`. Si
- * el tool cambió su salida y ya no existe ese bloque → `Stale` con mensaje
- * claro — JAMÁS se persiste otro bloque como si fuera el pineado (eso era
- * el bug #27: `blocks[0]` con datos de otro KPI marcado `Fresh`). Widgets
- * pineados antes de 2.1.2 no tienen `block_ordinal` → caen a ordinal 0
- * (primer bloque de su tipo), sin migración y sin empeorar respecto a 2.1.1.
+ * v2.1.2 (#27) — block selection by DESCRIPTOR, not by `blocks[0]`. A
+ * `pinnable()` tool can emit several blocks (the canonical dashboard case:
+ * KPIs + chart). The widget stores in `source.block_ordinal` the
+ * 0-based position of the block AMONG those of its type in the tool output;
+ * `mapResult()` re-selects the Nth block of `widget.block_type`. If
+ * the tool changed its output and that block no longer exists → `Stale` with a
+ * clear message — another block is NEVER persisted as if it were the pinned one (that was
+ * bug #27: `blocks[0]` with data from another KPI marked `Fresh`). Widgets
+ * pinned before 2.1.2 have no `block_ordinal` → they fall to ordinal 0
+ * (first block of their type), without migration and without regressing from 2.1.1.
  *
- * `replayBulk()` ejecuta hasta `chatbot.dashboard.replay.concurrency`
- * widgets en paralelo (default 8) usando
- * `Concurrency::driver(config('chatbot.dashboard.replay.driver'))`. El
- * driver lo elige el PAQUETE, no el `concurrency.default` del host: el
- * default de Laravel 11+ es `process`, que hace `proc_open()` de un
- * subproceso `artisan` y revienta en Windows/WAMP, shared hosting sin
- * `pcntl` y contenedores sin `proc_open`. Por eso el paquete fija su
- * propio default `sync` (ejecución secuencial en el mismo proceso, sin
- * serialización ni subproceso — viable en cualquier entorno). Un host con
- * infra adecuada sube a `process`/`fork` vía
- * `chatbot.dashboard.replay.driver`; en tests el default `sync` se deja.
+ * `replayBulk()` runs up to `chatbot.dashboard.replay.concurrency`
+ * widgets in parallel (default 8) using
+ * `Concurrency::driver(config('chatbot.dashboard.replay.driver'))`. The
+ * driver is chosen by the PACKAGE, not by the host's `concurrency.default`: the
+ * Laravel 11+ default is `process`, which does a `proc_open()` of an
+ * `artisan` subprocess and blows up on Windows/WAMP, shared hosting without
+ * `pcntl` and containers without `proc_open`. That is why the package sets its
+ * own `sync` default (sequential execution in the same process, without
+ * serialization or subprocess — viable in any environment). A host with
+ * adequate infrastructure bumps it to `process`/`fork` via
+ * `chatbot.dashboard.replay.driver`; in tests the `sync` default is kept.
  *
- * IMPORTANTE — los tasks de `replayBulk()` son closures STATIC: no pueden
- * capturar `$this`. Los drivers `process`/`fork` serializan cada task con
- * `laravel/serializable-closure`; una closure no-static bindea `$this`, y
- * serializar `$this` arrastra el grafo entero del `ReplayService`
- * (`ToolRegistry`, `Dispatcher`, el container) → 128 MB agotados → 500.
- * El task re-resuelve `ReplayService` desde el container, así el payload
- * serializado se reduce a `$widget` + `$user` — los drivers que sí
- * serializan (`process`/`fork`) quedan seguros. Ver `docs/deployment.md`
+ * IMPORTANT — the `replayBulk()` tasks are STATIC closures: they cannot
+ * capture `$this`. The `process`/`fork` drivers serialize each task with
+ * `laravel/serializable-closure`; a non-static closure binds `$this`, and
+ * serializing `$this` drags in the entire `ReplayService` object graph
+ * (`ToolRegistry`, `Dispatcher`, the container) → 128 MB exhausted → 500.
+ * The task re-resolves `ReplayService` from the container, so the serialized
+ * payload is reduced to `$widget` + `$user` — the drivers that do
+ * serialize (`process`/`fork`) stay safe. See `docs/deployment.md`
  * §7.5.
  */
 class ReplayService
@@ -100,9 +100,9 @@ class ReplayService
     ) {}
 
     /**
-     * Replay de un único widget. Persiste `last_refreshed_at`,
-     * `last_refresh_status`, `last_refresh_error` siempre; el `snapshot`
-     * sólo cuando el resultado es `Fresh`.
+     * Replay of a single widget. Always persists `last_refreshed_at`,
+     * `last_refresh_status`, `last_refresh_error`; the `snapshot`
+     * only when the result is `Fresh`.
      */
     public function replay(DashboardWidget $widget, Authenticatable $user): RefreshResult
     {
@@ -124,16 +124,16 @@ class ReplayService
             return $this->persist($widget, RefreshResult::sourceMissing($previousSnapshot, $toolName, $at));
         }
 
-        // Defensiva: el orquestador SSE sólo propaga `pinnable: true` cuando
-        // `pinnable() && confirmation === Auto`. Si llegamos aquí con un
-        // widget cuya tool ya no cumple, el author cambió el contrato post-
-        // pin; lo marcamos como Error (no Unauthorized: no es un fallo de
-        // permisos, sino de configuración del tool).
+        // Defensive: the SSE orchestrator only propagates `pinnable: true` when
+        // `pinnable() && confirmation === Auto`. If we get here with a
+        // widget whose tool no longer complies, the author changed the contract
+        // post-pin; we mark it as Error (not Unauthorized: it is not a
+        // permission failure, but a tool configuration one).
         if (! $tool->pinnable() || $tool->confirmation() !== ConfirmationLevel::Auto) {
             return $this->persist($widget, RefreshResult::error(
                 $previousSnapshot,
                 'not_pinnable',
-                sprintf('La tool `%s` ya no es pinnable o cambió su nivel de confirmación.', $toolName),
+                sprintf('Tool `%s` is no longer pinnable or changed its confirmation level.', $toolName),
                 $at,
             ));
         }
@@ -143,10 +143,10 @@ class ReplayService
             ? $source['page_context_snapshot']
             : [];
 
-        // `set_time_limit` es best-effort: hosts con `disable_functions` lo
-        // tienen no-op (devuelve false) y los tools confían en sus propios
-        // timeouts (Prism HTTP, queries DB). Lo aplicamos para el caso fácil
-        // (PHP-FPM standard) y documentamos la key como advisory.
+        // `set_time_limit` is best-effort: hosts with `disable_functions` have
+        // it as a no-op (returns false) and the tools rely on their own
+        // timeouts (Prism HTTP, DB queries). We apply it for the easy case
+        // (standard PHP-FPM) and document the key as advisory.
         $timeout = (int) config('chatbot.dashboard.replay.timeout_seconds', 15);
 
         if ($timeout > 0) {
@@ -164,10 +164,10 @@ class ReplayService
         $toolResult = $this->executeTool($tool, $args, $ctx);
         $durationMs = (microtime(true) - $start) * 1000.0;
 
-        // Audit/PII (paridad con ChatService.onToolCall, línea ~247): el
-        // host puede enganchar listeners de `ToolInvoked` para trazar
-        // replays como cualquier otra invocación. `conversation=null` lo
-        // distingue de un tool call del chat.
+        // Audit/PII (parity with ChatService.onToolCall, line ~247): the
+        // host can hook `ToolInvoked` listeners to trace replays like any
+        // other invocation. `conversation=null` distinguishes it from a
+        // chat tool call.
         $this->events->dispatch(new ToolInvoked(
             user: $user,
             tool: $tool,
@@ -183,19 +183,19 @@ class ReplayService
     }
 
     /**
-     * Replay de todos los widgets de un dashboard, en chunks de
-     * `chatbot.dashboard.replay.concurrency` (default 8). Devuelve un array
-     * `widget_id => RefreshResult` para que el caller (E4) lo serialice en
-     * el SSE de bulk-refresh.
+     * Replay of all of a dashboard's widgets, in chunks of
+     * `chatbot.dashboard.replay.concurrency` (default 8). Returns an array
+     * `widget_id => RefreshResult` for the caller (E4) to serialize in
+     * the bulk-refresh SSE.
      *
-     * `Concurrency::driver(...)->run()` no tiene cap propio (lanza N closures
-     * en paralelo); chunkeamos manualmente para no rebasar el cap configurado
-     * cuando un dashboard tiene >8 widgets.
+     * `Concurrency::driver(...)->run()` has no cap of its own (it launches N closures
+     * in parallel); we chunk manually so as not to exceed the configured cap
+     * when a dashboard has >8 widgets.
      *
-     * Los tasks son closures STATIC que re-resuelven `ReplayService` desde
-     * el container — ver el docblock de la clase para el porqué (los drivers
-     * `process`/`fork` serializan cada task; capturar `$this` agotaría la
-     * memoria).
+     * The tasks are STATIC closures that re-resolve `ReplayService` from
+     * the container — see the class docblock for why (the `process`/`fork`
+     * drivers serialize each task; capturing `$this` would exhaust
+     * memory).
      *
      * @return array<int, RefreshResult>  widget_id => RefreshResult
      */
@@ -212,11 +212,11 @@ class ReplayService
             $cap = 1;
         }
 
-        // Driver del paquete (default `sync`), NO el `concurrency.default`
-        // del host. `sync` corre los replays secuencialmente en el mismo
-        // proceso: sin serialización, sin subproceso, viable en cualquier
-        // entorno (Windows/WAMP, shared hosting, contenedores). El host con
-        // infra adecuada sube a `process`/`fork` — ver el docblock de la clase.
+        // Package driver (default `sync`), NOT the host's `concurrency.default`.
+        // `sync` runs the replays sequentially in the same
+        // process: no serialization, no subprocess, viable in any
+        // environment (Windows/WAMP, shared hosting, containers). The host with
+        // adequate infrastructure bumps it to `process`/`fork` — see the class docblock.
         $driver = (string) config('chatbot.dashboard.replay.driver', 'sync');
 
         $results = [];
@@ -240,8 +240,8 @@ class ReplayService
             /** @var array<int, RefreshResult> $chunkResults */
             $chunkResults = Concurrency::driver($driver)->run($tasks);
 
-            // `+` preserva claves enteras (los `widget->id`). `array_merge`
-            // las re-indexaría — bug subtle de PHP.
+            // `+` preserves integer keys (the `widget->id`). `array_merge`
+            // would re-index them — a subtle PHP bug.
             $results = $results + $chunkResults;
         }
 
@@ -269,34 +269,34 @@ class ReplayService
         }
 
         if (! $toolResult->isOk()) {
-            // Sólo backend tools en `Auto` entran al replay (validado arriba),
-            // así que `awaiting_user` aquí indica un tool que se autodeclaró
-            // pinnable pero pide confirmación al user — datos rotos.
+            // Only backend tools in `Auto` enter the replay (validated above),
+            // so `awaiting_user` here indicates a tool that self-declared
+            // pinnable but asks the user for confirmation — broken data.
             return RefreshResult::error(
                 $previousSnapshot,
                 'unexpected_status',
-                'El tool devolvió awaiting_user; no compatible con replay.',
+                'The tool returned awaiting_user; not compatible with replay.',
                 $at,
             );
         }
 
-        // v2.1.2 (#27) — selección por descriptor `{block_type, ordinal}`.
-        // NUNCA `blocks[0]`: un tool multi-bloque devolvería el bloque
-        // equivocado (corrupción silenciosa si casa el tipo, `Stale`
-        // perpetuo si no). El widget se fijó al N-ésimo bloque de su tipo.
+        // v2.1.2 (#27) — selection by descriptor `{block_type, ordinal}`.
+        // NEVER `blocks[0]`: a multi-block tool would return the wrong
+        // block (silent corruption if the type matches, perpetual `Stale`
+        // if not). The widget was pinned to the Nth block of its type.
         $source = is_array($widget->source) ? $widget->source : [];
 
-        // Widget pineado antes de 2.1.2: sin `block_ordinal` → ordinal 0
-        // (primer bloque de su tipo). No es peor que el `blocks[0]` de
-        // 2.1.1 y no exige migrar datos.
+        // Widget pinned before 2.1.2: no `block_ordinal` → ordinal 0
+        // (first block of its type). It is no worse than 2.1.1's `blocks[0]`
+        // and does not require migrating data.
         $ordinal = isset($source['block_ordinal'])
             && is_int($source['block_ordinal'])
             && $source['block_ordinal'] >= 0
                 ? $source['block_ordinal']
                 : 0;
 
-        // Bloques del resultado que casan el tipo del widget, en orden de
-        // emisión — el índice de este array ES el ordinal del descriptor.
+        // Result blocks that match the widget's type, in emission order
+        // — the index of this array IS the descriptor's ordinal.
         $matching = [];
         foreach ($toolResult->blocks as $block) {
             if (is_array($block) && ($block['type'] ?? null) === $widget->block_type) {
@@ -308,9 +308,9 @@ class ReplayService
             return RefreshResult::stale(
                 $previousSnapshot,
                 $toolResult->blocks === []
-                    ? 'El tool no devolvió ningún block en el último replay.'
+                    ? 'The tool did not return any block in the last replay.'
                     : sprintf(
-                        'El tool ya no emite ningún block `%s`; el widget está fijado a ese tipo.',
+                        'The tool no longer emits any `%s` block; the widget is pinned to that type.',
                         $widget->block_type,
                     ),
                 $at,
@@ -321,7 +321,7 @@ class ReplayService
             return RefreshResult::stale(
                 $previousSnapshot,
                 sprintf(
-                    'El tool emitió %d block(s) `%s`, pero el widget está fijado al nº %d.',
+                    'The tool emitted %d `%s` block(s), but the widget is pinned to #%d.',
                     count($matching),
                     $widget->block_type,
                     $ordinal + 1,
@@ -345,11 +345,11 @@ class ReplayService
     }
 
     /**
-     * Mirror de `ChatService::executeTool()` (línea ~496): prioriza
-     * `execute()` (BaseBackendTool) sobre `handle()` para que la cascada
-     * validate→permission→tenant aplique automáticamente. Tools que no
-     * extienden la base (e.g. `McpBackendTool`) caen a `handle()` directo
-     * y la cascada no se aplica — comportamiento igual al chat.
+     * Mirror of `ChatService::executeTool()` (line ~496): prioritizes
+     * `execute()` (BaseBackendTool) over `handle()` so the
+     * validate→permission→tenant cascade applies automatically. Tools that do
+     * not extend the base (e.g. `McpBackendTool`) fall to `handle()` directly
+     * and the cascade is not applied — same behavior as the chat.
      *
      * @param  array<string, mixed>  $args
      */

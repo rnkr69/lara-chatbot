@@ -12,21 +12,21 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * v2.2 / PR-B — Borra (soft-delete) un dashboard del usuario. Si era el
- * `is_default`, `DashboardCrudService::delete()` auto-promueve el próximo
- * más reciente — el response incluye `promoted_slug` para que el LLM lo
- * mencione al usuario ("borré X; ahora tu default es Y").
+ * v2.2 / PR-B — Deletes (soft-delete) a user's dashboard. If it was the
+ * `is_default`, `DashboardCrudService::delete()` auto-promotes the next-most-
+ * recent one — the response includes `promoted_slug` so the LLM can mention
+ * it to the user ("I deleted X; your default is now Y").
  *
- * **Nota sobre confirmación**: igual que `DeleteWidgetTool`, mantenemos
- * `confirmation = Auto` en v2.2 porque el flow de Confirm para backend
- * tools sigue pendiente del backlog. La `description()` instruye al LLM
- * a confirmar verbalmente antes de invocar. Soft-delete es el safety net
- * a nivel BD.
+ * **Note on confirmation**: like `DeleteWidgetTool`, we keep
+ * `confirmation = Auto` in v2.2 because the Confirm flow for backend tools
+ * is still pending in the backlog. The `description()` instructs the LLM
+ * to confirm verbally before invoking. Soft-delete is the safety net at
+ * the DB level.
  *
- * Guard `would_create_orphan_default`: si el dashboard a borrar es el
- * único del user, devolvemos error en vez de dejarlo huérfano sin
- * dashboards. Es más útil pedirle que cree otro antes que borrar lo único
- * que tiene.
+ * Guard `would_create_orphan_default`: if the dashboard to delete is the
+ * user's only one, we return an error instead of leaving them orphaned with
+ * no dashboards. It is more useful to ask them to create another before
+ * deleting the only one they have.
  */
 class DeleteDashboardTool extends BaseBackendTool
 {
@@ -92,8 +92,8 @@ class DeleteDashboardTool extends BaseBackendTool
             );
         }
 
-        // Guard: no dejar al user sin ningún dashboard. Cuenta los del user
-        // (no soft-deleted). Si éste es el único, error.
+        // Guard: don't leave the user without any dashboard. Count the user's
+        // dashboards (not soft-deleted). If this is the only one, error.
         $totalForUser = Dashboard::query()->forUser($ctx->user)->count();
         if ($totalForUser <= 1) {
             return ToolResult::error(
@@ -122,9 +122,10 @@ class DeleteDashboardTool extends BaseBackendTool
             $data['promoted_slug'] = $promotedSlug;
         }
 
-        // v2.2.1 (PR-B) — el bundle del dashboard quita el dashboard de la
-        // sidebar y, si el borrado era el activo, salta a `promoted_slug` o
-        // (si no hubo promote) al primero disponible sin F5.
+        // v2.2.1 (PR-B) — the dashboard bundle removes the dashboard from the
+        // sidebar and, if the deleted one was the active one, jumps to
+        // `promoted_slug` or (if there was no promote) to the first available
+        // one without an F5.
         $sideEffects = [
             'type'           => 'dashboard_deleted',
             'dashboard_slug' => $slug,

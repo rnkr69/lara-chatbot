@@ -17,34 +17,34 @@ use Prism\Prism\Schema\StringSchema;
 use Prism\Prism\Tool as PrismTool;
 
 /**
- * Adapta una `BackendTool` (contrato del paquete) a `Prism\Prism\Tool`
- * (contrato que `Prism::text()->withTools(...)` espera).
+ * Adapts a `BackendTool` (the package's contract) to `Prism\Prism\Tool`
+ * (the contract `Prism::text()->withTools(...)` expects).
  *
- * El orquestador `ChatService` (E08) es la fuente de verdad de la
- * ejecución: cuando recibe `ToolCallEvent` del stream, corre la cascada
- * (`BaseBackendTool::execute()` o `BackendTool::handle()`), dispara el
- * evento `ToolInvoked` y empuja el `ToolResult` resuelto al final del
- * `&$buffer` indexado por nombre de tool. Cuando Prism (en producción)
- * invoca el closure de la tool, este consume del FIFO con el mismo nombre
- * y devuelve la serialización para que el LLM la siga viendo como un
- * `tool_result` válido.
+ * The `ChatService` orchestrator (E08) is the source of truth for
+ * execution: when it receives a `ToolCallEvent` from the stream, it runs
+ * the cascade (`BaseBackendTool::execute()` or `BackendTool::handle()`),
+ * fires the `ToolInvoked` event and pushes the resolved `ToolResult` to the
+ * end of `&$buffer` indexed by tool name. When Prism (in production)
+ * invokes the tool's closure, it consumes from the FIFO with the same name
+ * and returns the serialization so the LLM keeps seeing it as a valid
+ * `tool_result`.
  *
- * Por qué FIFO por nombre y no por `tool_call_id`: el closure de Prism
- * recibe sólo `(...$args)`, no el id. Como Prism procesa los tool calls
- * de un nombre dado en orden de aparición en el stream, FIFO es seguro y
- * no exige ampliar el contrato del SDK.
+ * Why FIFO by name and not by `tool_call_id`: Prism's closure receives
+ * only `(...$args)`, not the id. Since Prism processes the tool calls
+ * of a given name in their order of appearance in the stream, FIFO is safe
+ * and doesn't require extending the SDK's contract.
  *
- * En tests con `Prism::fake()` el closure NO se invoca (el fake yield-ea
- * `ToolResultEvent` directamente), así que el buffer queda intacto. Eso
- * está bien: el orquestador comprueba sus aserciones sobre los `SseEvent`
- * emitidos.
+ * In tests with `Prism::fake()` the closure is NOT invoked (the fake yields
+ * a `ToolResultEvent` directly), so the buffer stays intact. That is
+ * fine: the orchestrator checks its assertions against the emitted
+ * `SseEvent`s.
  */
 final class PrismToolFactory
 {
     /**
-     * Construye un `Prism\Prism\Tool` para la `BackendTool` dada. El
-     * `&$buffer` se pasa por referencia para que el orquestador y el
-     * closure compartan el FIFO de resultados.
+     * Builds a `Prism\Prism\Tool` for the given `BackendTool`. The
+     * `&$buffer` is passed by reference so the orchestrator and the
+     * closure share the FIFO of results.
      *
      * @param  array<string, list<ToolResult>>  $buffer
      */
@@ -58,15 +58,15 @@ final class PrismToolFactory
 
         $this->applyParameters($prism, $tool->parameters());
 
-        // Capturar &$buffer y $name por uso. El closure se invoca en
-        // producción; en tests con `Prism::fake()` no se llama.
+        // Capture &$buffer and $name by use. The closure is invoked in
+        // production; in tests with `Prism::fake()` it is not called.
         $closure = function (...$args) use (&$buffer, $name): string {
             $queue = $buffer[$name] ?? [];
 
             if ($queue === []) {
-                // Fallback defensivo: el orquestador no precomputó el
-                // resultado (no debería pasar). Devolver un mensaje neutro
-                // para que el LLM no se quede colgado.
+                // Defensive fallback: the orchestrator did not precompute the
+                // result (shouldn't happen). Return a neutral message
+                // so the LLM doesn't hang.
                 return json_encode(['status' => 'error', 'error' => 'runtime', 'message' => 'No precomputed tool result available.']) ?: 'error';
             }
 
@@ -86,10 +86,10 @@ final class PrismToolFactory
     }
 
     /**
-     * Mapea el JSON Schema mínimo (`type=object`, `properties`, `required`,
-     * `enum`) al API fluido de Prism. Soporta el subset estable que
-     * `JsonSchemaToRules` ya cubre — cualquier rama no soportada se ignora
-     * silenciosamente; el LLM recibe la tool sin ese parámetro.
+     * Maps the minimal JSON Schema (`type=object`, `properties`, `required`,
+     * `enum`) to Prism's fluent API. Supports the stable subset that
+     * `JsonSchemaToRules` already covers — any unsupported branch is ignored
+     * silently; the LLM receives the tool without that parameter.
      *
      * @param  array<string, mixed>  $schema
      */

@@ -10,15 +10,15 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * Tool con `defaultScope = Team`. Sirve para validar que
- * `accessibleQuery()` aplica `whereIn('user_id', $teamUserIds)` con los
- * IDs que devuelve el `ScopeResolver` registrado.
+ * Tool with `defaultScope = Team`. Used to validate that
+ * `accessibleQuery()` applies `whereIn('user_id', $teamUserIds)` with the
+ * IDs returned by the registered `ScopeResolver`.
  */
 class TeamScopedTool extends BaseBackendTool
 {
     /**
-     * Capturado por el último `handle()` para que el test pueda asertar
-     * sobre los IDs que recibió.
+     * Captured by the last `handle()` so the test can assert on the IDs
+     * it received.
      *
      * @var array<int, int|string>|null
      */

@@ -16,31 +16,31 @@ use Rnkr69\LaraChatbot\Services\PendingActionStore;
 /**
  * E16 — endpoint `POST /chatbot/actions/{action}/confirm`.
  *
- * Sem ántica de dos pasos para `confirmation=confirm`:
+ * Two-step semantics for `confirmation=confirm`:
  *
- *   1. Body `{accept: false}`            → row `rejected` (terminal).
- *      El widget no ejecuta nada; el LLM lo verá en
- *      `## Pending actions` el siguiente turno.
- *   2. Body `{accept: true}`             → row `confirmed` (intermedio).
- *      El widget recibe 2xx y ejecuta la primitiva localmente; cuando
- *      acaba, repite el POST con `{accept: true, result: {...}}` para
- *      cerrar el ciclo en `executed` (terminal).
- *   3. Body `{accept: true, result: …}`  → row `executed` directamente
- *      (el widget también acepta primitivas que ejecuta antes de notificar
- *       al backend).
+ *   1. Body `{accept: false}`            → `rejected` row (terminal).
+ *      The widget executes nothing; the LLM will see it in
+ *      `## Pending actions` on the next turn.
+ *   2. Body `{accept: true}`             → `confirmed` row (intermediate).
+ *      The widget receives 2xx and executes the primitive locally; when
+ *      it finishes, it repeats the POST with `{accept: true, result: {...}}` to
+ *      close the cycle in `executed` (terminal).
+ *   3. Body `{accept: true, result: …}`  → `executed` row directly
+ *      (the widget also accepts primitives that it executes before notifying
+ *       the backend).
  *
- * Para `confirmation=manual` el flujo se simplifica: el widget llama
- * `{accept: true, result: ...}` cuando el usuario marca la acción como
- * hecha (o `{accept: false, result: {reason: '...'}}` si la marca como
- * no-hecha). El backend no diferencia el shape — la diferencia vive en la
- * UI del widget.
+ * For `confirmation=manual` the flow is simplified: the widget calls
+ * `{accept: true, result: ...}` when the user marks the action as
+ * done (or `{accept: false, result: {reason: '...'}}` if they mark it as
+ * not-done). The backend does not distinguish the shape — the difference lives in the
+ * widget's UI.
  *
- * Privacidad: el endpoint aplica la doctrina 404-no-403 de E10/D12. Si el
- * `action_id` no existe O pertenece a otra conversación del mismo o de otro
- * usuario, devuelve 404 (no 403): no filtra existencia.
+ * Privacy: the endpoint applies the 404-not-403 doctrine of E10/D12. If the
+ * `action_id` does not exist OR belongs to another conversation of the same or another
+ * user, it returns 404 (not 403): it does not leak existence.
  *
- * Idempotencia: tocar un row terminal (`rejected`/`executed`/`expired`)
- * devuelve 409 Conflict con la causa.
+ * Idempotency: touching a terminal row (`rejected`/`executed`/`expired`)
+ * returns 409 Conflict with the cause.
  */
 class ConfirmActionController extends Controller
 {
@@ -52,8 +52,8 @@ class ConfirmActionController extends Controller
     {
         $user = $request->user();
 
-        // 404-no-403 (E10/D12): cualquier action_id que no pertenezca a
-        // una conversación del usuario es indistinguible de "no existe".
+        // 404-not-403 (E10/D12): any action_id that does not belong to
+        // a conversation of the user is indistinguishable from "does not exist".
         $pending = PendingAction::query()
             ->where('action_id', $action)
             ->forUser($user)
@@ -63,9 +63,9 @@ class ConfirmActionController extends Controller
             abort(404);
         }
 
-        // Pre-check de expiración: si el row no está marcado todavía como
-        // expirado pero el TTL ha pasado, lo marcamos en este flow para
-        // que la respuesta sea coherente (no hace falta esperar al cron).
+        // Expiration pre-check: if the row is not marked as expired yet
+        // but the TTL has passed, we mark it in this flow so
+        // the response is coherent (no need to wait for the cron).
         if (
             $pending->status === PendingActionStatus::Pending
             && $pending->expires_at !== null
@@ -89,9 +89,9 @@ class ConfirmActionController extends Controller
                     ->setStatusCode(200);
             }
 
-            // accept=true: si trae result, el widget ya ejecutó (executed
-            // terminal); si no, sólo confirmamos (intermedio, el widget
-            // ejecutará y volverá a llamar con result).
+            // accept=true: if it carries result, the widget already executed (executed
+            // terminal); if not, we only confirm (intermediate, the widget
+            // will execute and call again with result).
             if ($result !== null) {
                 $updated = $this->store->markExecuted($pending, $result);
             } else {

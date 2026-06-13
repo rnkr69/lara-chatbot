@@ -9,13 +9,13 @@ use Rnkr69\LaraChatbot\Tests\Stubs\Tools\FakeUser;
 
 /*
 |--------------------------------------------------------------------------
-| NullScopeResolver — E20 hueco
+| NullScopeResolver — E20 gap
 |--------------------------------------------------------------------------
 |
-| Default cuando el host no declara scope_resolver. Sólo sabe responder
-| `Self`; `Team`/`All` lanzan `ScopeResolverNotConfiguredException` para
-| forzar al host a implementar el suyo. Antes de E20 sólo se verificaba la
-| instancia en boot, no su comportamiento.
+| Default when the host does not declare scope_resolver. It only knows how
+| to answer `Self`; `Team`/`All` throw `ScopeResolverNotConfiguredException`
+| to force the host to implement its own. Before E20 only the instance was
+| verified at boot, not its behavior.
 */
 
 it('returns the user id wrapped in an array for Self scope', function () {

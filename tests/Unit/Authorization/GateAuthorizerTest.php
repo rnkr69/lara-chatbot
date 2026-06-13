@@ -8,12 +8,12 @@ use Rnkr69\LaraChatbot\Tests\Stubs\Tools\FakeUser;
 
 /*
 |--------------------------------------------------------------------------
-| GateAuthorizer — E20 hueco
+| GateAuthorizer — E20 gap
 |--------------------------------------------------------------------------
 |
-| El algoritmo de iteración (AND, short-circuit en `false`) y el
-| short-circuit `[]` se ejercitaban indirectamente por BaseBackendToolTest.
-| Aquí cubrimos su contrato directo.
+| The iteration algorithm (AND, short-circuit on `false`) and the
+| short-circuit `[]` were exercised indirectly by BaseBackendToolTest.
+| Here we cover its direct contract.
 */
 
 it('returns true on an empty permissions list (short-circuit)', function () {

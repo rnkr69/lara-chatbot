@@ -7,13 +7,13 @@ use Illuminate\Support\Facades\View;
 use Rnkr69\LaraChatbot\Tests\Stubs\TestUser;
 
 /**
- * E17 — `GET /chatbot` (página dedicada de chat).
+ * E17 — `GET /chatbot` (dedicated chat page).
  *
- * Cubre el shape público:
- *   - autenticación heredada del middleware del grupo
- *   - render standalone vs `@extends($layout)`
- *   - fallback con log warning si el layout configurado no existe
- *   - desactivación vía `chatbot.page.enabled = false`
+ * Covers the public shape:
+ *   - authentication inherited from the group middleware
+ *   - standalone render vs `@extends($layout)`
+ *   - fallback with a log warning if the configured layout does not exist
+ *   - disabling via `chatbot.page.enabled = false`
  */
 
 beforeEach(function () {

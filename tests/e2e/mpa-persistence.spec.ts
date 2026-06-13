@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * DoD ROADMAP §5/E13: "MPA con 3 page loads consecutivos manteniendo
- * conversación". The fixture sets data-conversation-id="conv-42" and
+ * DoD ROADMAP §5/E13: "MPA with 3 consecutive page loads keeping the
+ * conversation". The fixture sets data-conversation-id="conv-42" and
  * data-default-open="true" on first load; we verify the widget rehydrates
  * the conversation id, the open state, and a draft after each reload.
  */

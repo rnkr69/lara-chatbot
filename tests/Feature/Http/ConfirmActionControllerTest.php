@@ -17,8 +17,8 @@ beforeEach(function () {
 });
 
 /**
- * Helper: crea un TestUser virtual + una conversación + un pending action en
- * estado `pending` listo para resolverse via el endpoint.
+ * Helper: creates a virtual TestUser + a conversation + a pending action in
+ * `pending` state ready to be resolved via the endpoint.
  *
  * @return array{user: TestUser, conversation: Conversation, pending: PendingAction}
  */

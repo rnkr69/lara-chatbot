@@ -1,16 +1,16 @@
 /**
- * E17 — sidebar de conversaciones para `mode="page"` del Web Component.
+ * E17 — conversations sidebar for the Web Component's `mode="page"`.
  *
- * Encapsula:
- *   - GET /chatbot/conversations (lista + búsqueda con `?q=`).
- *   - DELETE /chatbot/conversations/{id} (con `confirm()` nativo).
- *   - Click en un item → callback `onSelect(id)` (el widget hace el bridge a
- *     `setConversationId` + persistencia cross-tab).
+ * Encapsulates:
+ *   - GET /chatbot/conversations (list + search with `?q=`).
+ *   - DELETE /chatbot/conversations/{id} (with native `confirm()`).
+ *   - Click on an item → `onSelect(id)` callback (the widget bridges it to
+ *     `setConversationId` + cross-tab persistence).
  *
- * El módulo no toca el DOM del widget directamente — recibe un host element
- * (el sidebar root dentro del shadow DOM) y monta dentro. La devolución
- * (`SidebarHandle`) permite al widget refrescar la lista, marcar otro item
- * como activo o destruir el sidebar al desconectarse.
+ * The module does not touch the widget's DOM directly — it receives a host
+ * element (the sidebar root inside the shadow DOM) and mounts inside it. The
+ * return value (`SidebarHandle`) lets the widget refresh the list, mark
+ * another item as active, or destroy the sidebar on disconnect.
  */
 
 interface ConversationRow {
@@ -20,46 +20,47 @@ interface ConversationRow {
 }
 
 export interface SidebarOptions {
-  /** Base URL del CRUD de conversaciones (E10), p.ej. `/chatbot/conversations`. */
+  /** Base URL of the conversations CRUD (E10), e.g. `/chatbot/conversations`. */
   endpoint: string;
-  /** Bearer token opcional (auth-aware via `setUser`). */
+  /** Optional bearer token (auth-aware via `setUser`). */
   bearer?: string | null;
-  /** Conversación activa al montar; se resalta en la lista. null = sin selección. */
+  /** Active conversation on mount; highlighted in the list. null = no selection. */
   activeId?: string | number | null;
-  /** Llamado cuando el usuario hace click en un item del listado. */
+  /** Called when the user clicks an item in the list. */
   onSelect: (id: string | number) => void;
-  /** Llamado tras eliminar la conversación activa (el widget la limpia). */
+  /** Called after deleting the active conversation (the widget clears it). */
   onDeleteActive?: () => void;
   /**
-   * Llamado cuando el usuario pulsa "+ Nueva conversación". El widget aborta
-   * cualquier stream en curso, resetea el id activo y enfoca el input. La
-   * conversación se crea de hecho en el backend al enviar el primer mensaje.
+   * Called when the user presses "+ New conversation". The widget aborts any
+   * in-flight stream, resets the active id and focuses the input. The
+   * conversation is actually created on the backend when the first message is
+   * sent.
    */
   onNew?: () => void;
-  /** Etiqueta del botón "+ Nueva conversación". Default: "+ New conversation". */
+  /** Label of the "+ New conversation" button. Default: "+ New conversation". */
   newLabel?: string;
-  /** Aria-label del botón "+ Nueva conversación". Default: el mismo que la etiqueta. */
+  /** Aria-label of the "+ New conversation" button. Default: same as the label. */
   newAriaLabel?: string;
   /**
-   * Inyectable para tests — permite mockear `fetch` sin tocar `globalThis`.
-   * En producción se usa el `fetch` global.
+   * Injectable for tests — lets you mock `fetch` without touching `globalThis`.
+   * In production the global `fetch` is used.
    */
   fetcher?: typeof fetch;
   /**
-   * Inyectable para tests — sustituye `window.confirm` (que jsdom resuelve a
-   * `true` por default y obliga a `vi.spyOn`). En producción usa `confirm()`.
+   * Injectable for tests — replaces `window.confirm` (which jsdom resolves to
+   * `true` by default and forces a `vi.spyOn`). In production uses `confirm()`.
    */
   confirmer?: (message: string) => boolean;
-  /** Debounce en ms para el input de búsqueda. Default 300. */
+  /** Debounce in ms for the search input. Default 300. */
   searchDebounceMs?: number;
 }
 
 export interface SidebarHandle {
-  /** Recarga la lista (con el query actual de búsqueda). */
+  /** Reloads the list (with the current search query). */
   refresh(): Promise<void>;
-  /** Marca otro id como activo (no llama `onSelect`). */
+  /** Marks another id as active (does not call `onSelect`). */
   setActive(id: string | number | null): void;
-  /** Desmonta DOM + cancela timers. */
+  /** Unmounts DOM + cancels timers. */
   destroy(): void;
 }
 

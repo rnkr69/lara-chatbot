@@ -8,14 +8,14 @@ use Rnkr69\LaraChatbot\Models\Dashboard;
 use Rnkr69\LaraChatbot\Tests\Stubs\TestUser;
 
 /**
- * E4 — `GET /chatbot/dashboard` (página dedicada del Personal Dashboard).
+ * E4 — `GET /chatbot/dashboard` (dedicated Personal Dashboard page).
  *
- * Cubre el shape público de la vista HTML:
- *   - autenticación heredada del middleware del grupo
- *   - render standalone vs `@extends($layout)` (mismo split que E17 / D16)
- *   - fallback con log warning si el layout configurado no existe
- *   - desactivación vía `chatbot.dashboard.enabled = false`
- *   - resolución del `defaultSlug` (query string > is_default > null)
+ * Covers the public shape of the HTML view:
+ *   - authentication inherited from the group middleware
+ *   - standalone render vs `@extends($layout)` (same split as E17 / D16)
+ *   - fallback with a log warning if the configured layout does not exist
+ *   - disabling via `chatbot.dashboard.enabled = false`
+ *   - `defaultSlug` resolution (query string > is_default > null)
  */
 
 beforeEach(function () {

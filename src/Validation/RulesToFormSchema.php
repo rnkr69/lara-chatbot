@@ -9,10 +9,10 @@ use Illuminate\Validation\Rules\In;
 use Throwable;
 
 /**
- * Mapper de Laravel validation rules a schema simple consumible por el
- * page context y `fill_form` (v1.1.1, finding #13.a).
+ * Mapper from Laravel validation rules to a simple schema consumable by the
+ * page context and `fill_form` (v1.1.1, finding #13.a).
  *
- * Pasa de:
+ * Turns:
  *
  *     [
  *         'name'    => 'required|string|max:255',
@@ -21,7 +21,7 @@ use Throwable;
  *         'amount'  => 'nullable|numeric|min:0',
  *     ]
  *
- * A:
+ * Into:
  *
  *     [
  *         ['name' => 'name',    'type' => 'text',   'required' => true,
@@ -32,20 +32,20 @@ use Throwable;
  *         ['name' => 'amount',  'type' => 'number'],
  *     ]
  *
- * Soporta los tipos de regla más comunes (string/email/numeric/integer/
- * boolean/date/datetime/in/required/nullable/max/min). Reglas no
- * reconocidas se ignoran silenciosamente; reglas instancia (`Rule::in(...)`)
- * se inspeccionan para extraer values.
+ * Supports the most common rule types (string/email/numeric/integer/
+ * boolean/date/datetime/in/required/nullable/max/min). Unrecognized rules
+ * are silently ignored; instance rules (`Rule::in(...)`)
+ * are inspected to extract values.
  *
- * El mapper NO instancia FormRequests: el integrador es responsable de
- * obtener el array `rules()` (típicamente vía
- * `(new ContactRequest)->rules()` o `ContactRequest::rules()` si es static).
+ * The mapper does NOT instantiate FormRequests: the integrator is responsible for
+ * obtaining the `rules()` array (typically via
+ * `(new ContactRequest)->rules()` or `ContactRequest::rules()` if it is static).
  */
 class RulesToFormSchema
 {
     /**
      * @param  array<string, string|array<int, mixed>>  $rules
-     * @param  array<string, string>  $labels  Mapa name → label amigable (FormRequest::attributes()).
+     * @param  array<string, string>  $labels  name → friendly label map (FormRequest::attributes()).
      * @return list<array<string, mixed>>
      */
     public function fromRules(array $rules, array $labels = []): array
@@ -171,8 +171,8 @@ class RulesToFormSchema
     }
 
     /**
-     * Devuelve `[string, ...]` con las opciones del enum, o null si no
-     * encuentra ninguna regla `in:` o `Rule::in(...)`.
+     * Returns `[string, ...]` with the enum options, or null if it does not
+     * find any `in:` or `Rule::in(...)` rule.
      *
      * @param  list<string|object>  $tokens
      * @return list<string>|null

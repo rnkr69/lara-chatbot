@@ -1,15 +1,15 @@
 {{--
-    Override de `vendor:backpack/crud:src/resources/views/crud/inc/form_page.blade.php`
-    publicado por `chatbot:install --backpack-forms`.
+    Override of `vendor:backpack/crud:src/resources/views/crud/inc/form_page.blade.php`
+    published by `chatbot:install --backpack-forms`.
 
-    El único cambio respecto al original de Backpack es la inyección del
-    atributo `data-chatbot-form` en el `<form>`, con un id determinístico
-    `<kebab-entity>-<operation>` (mismo que el provider emite en
-    `crud.form.id`). Eso permite al LLM apuntar con `fill_form` sin
-    auto-discovery cuando hay múltiples forms en la página.
+    The only change from the Backpack original is the injection of the
+    `data-chatbot-form` attribute on the `<form>`, with a deterministic id
+    `<kebab-entity>-<operation>` (the same one the provider emits in
+    `crud.form.id`). This lets the LLM target it with `fill_form` without
+    auto-discovery when there are multiple forms on the page.
 
-    Mantén este archivo sincronizado con el de Backpack si actualizas a una
-    versión mayor (re-publica con `--force` para regenerarlo).
+    Keep this file in sync with Backpack's if you upgrade to a major version
+    (re-publish with `--force` to regenerate it).
 --}}
 @extends(backpack_view('blank'))
 

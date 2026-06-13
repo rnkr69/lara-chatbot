@@ -16,18 +16,18 @@ use Prism\Prism\Schema\StringSchema;
 
 /*
 |--------------------------------------------------------------------------
-| PrismToolFactory — E20 hueco
+| PrismToolFactory — E20 gap
 |--------------------------------------------------------------------------
 |
-| El factory traduce `BackendTool` (contrato del paquete) a `Prism\Tool`
-| (contrato del SDK). Pieza central del orquestador: si rompe la traducción
-| de schemas, el LLM recibe tools con parámetros incorrectos y los tool
-| calls fallan o se ignoran. Antes de E20 sólo se ejercitaba indirectamente
-| vía ChatServiceTest. Aquí cubrimos su API público.
+| The factory translates `BackendTool` (the package's contract) to `Prism\Tool`
+| (the SDK's contract). A central piece of the orchestrator: if it breaks
+| schema translation, the LLM receives tools with incorrect parameters and the
+| tool calls fail or are ignored. Before E20 it was only exercised indirectly
+| via ChatServiceTest. Here we cover its public API.
 */
 
 /**
- * Helper: crea una BackendTool ad-hoc con `parameters` arbitrarios.
+ * Helper: creates an ad-hoc BackendTool with arbitrary `parameters`.
  */
 function makeTool(array $parameters, string $name = 'demo_tool'): BaseBackendTool
 {
@@ -185,7 +185,7 @@ it('drains the FIFO buffer when the closure is invoked, in registration order', 
 
     $prism  = (new PrismToolFactory)->wrap($tool, new ToolContext(user: new FakeUser), $buffer);
 
-    // Acceso al closure registrado vía Reflection — Prism no expone un getter público.
+    // Access the registered closure via Reflection — Prism does not expose a public getter.
     $reflection = new \ReflectionClass($prism);
     $prop = $reflection->getProperty('fn');
     $prop->setAccessible(true);

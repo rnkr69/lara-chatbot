@@ -53,7 +53,7 @@ function makeWidget(Dashboard $d, array $overrides = []): DashboardWidget
     ], $overrides));
 }
 
-it('persiste un widget con casts correctos', function () {
+it('persists a widget with the correct casts', function () {
     $u = makeUserW(1);
     $d = makeDashboardW($u);
 
@@ -71,7 +71,7 @@ it('persiste un widget con casts correctos', function () {
     expect($reloaded->last_refreshed_at)->toBeInstanceOf(Carbon::class);
 });
 
-it('enums roundtrip a través de los casts', function () {
+it('enums roundtrip through the casts', function () {
     $u = makeUserW(1);
     $d = makeDashboardW($u);
 
@@ -92,7 +92,7 @@ it('enums roundtrip a través de los casts', function () {
     ]);
 });
 
-it('relación belongsTo Dashboard', function () {
+it('belongsTo Dashboard relation', function () {
     $u = makeUserW(1);
     $d = makeDashboardW($u);
     $w = makeWidget($d);
@@ -100,7 +100,7 @@ it('relación belongsTo Dashboard', function () {
     expect($w->dashboard->is($d))->toBeTrue();
 });
 
-it('scope staleAfter incluye nunca-refrescados y los anteriores al threshold', function () {
+it('scope staleAfter includes never-refreshed and those older than the threshold', function () {
     $u = makeUserW(1);
     $d = makeDashboardW($u);
 
@@ -115,7 +115,7 @@ it('scope staleAfter incluye nunca-refrescados y los anteriores al threshold', f
     expect($stales->contains('id', $fresh->id))->toBeFalse();
 });
 
-it('soft-delete excluye widgets en queries por defecto', function () {
+it('soft-delete excludes widgets from queries by default', function () {
     $u = makeUserW(1);
     $d = makeDashboardW($u);
 
@@ -126,9 +126,9 @@ it('soft-delete excluye widgets en queries por defecto', function () {
     expect(DashboardWidget::withTrashed()->count())->toBe(1);
 });
 
-it('FK cascade del Dashboard borra widgets hard-deletados', function () {
-    // SQLite no aplica FK constraints por defecto; activamos PRAGMA para
-    // este test concreto. Los hosts MySQL/Postgres lo aplican siempre.
+it('FK cascade of the Dashboard deletes hard-deleted widgets', function () {
+    // SQLite does not enforce FK constraints by default; we enable the PRAGMA
+    // for this specific test. MySQL/Postgres hosts always enforce them.
     DB::statement('PRAGMA foreign_keys = ON');
 
     $u = makeUserW(1);
@@ -142,10 +142,10 @@ it('FK cascade del Dashboard borra widgets hard-deletados', function () {
     expect(DashboardWidget::withTrashed()->count())->toBe(0);
 })->skip(
     fn () => DB::connection()->getDriverName() !== 'sqlite',
-    'Test diseñado para validar la migración en la connection sqlite del Testbench.'
+    'Test designed to validate the migration on the Testbench sqlite connection.'
 );
 
-it('source_signature null permitido cuando el block no procede de tool', function () {
+it('source_signature null allowed when the block does not come from a tool', function () {
     $u = makeUserW(1);
     $d = makeDashboardW($u);
 

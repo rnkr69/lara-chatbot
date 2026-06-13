@@ -1,24 +1,24 @@
 {{--
-    System prompt base del chatbot.
+    Chatbot base system prompt.
 
-    Esta vista la publica el tag `chatbot-prompts`. El host puede
-    sobrescribirla copiándola a
+    This view is published by the `chatbot-prompts` tag. The host can
+    override it by copying it to
     `resources/views/vendor/chatbot/system_prompt.blade.php`.
 
-    Variables disponibles:
-      - $user        — usuario autenticado (Authenticatable|null)
-      - $pageContext — array sanitizado del page context (compat: el render
-                       canónico de la sección `## Current page` lo emite
-                       SystemPromptBuilder programáticamente tras esta
-                       vista, NO la vista. Si tu override la incluye otra
-                       vez aquí dará lugar a una sección duplicada — usa
-                       sólo si necesitas un layout específico).
-      - $tools       — list<BackendTool> autorizadas para este usuario
-      - $locale      — locale efectivo (string|null). Aquí no se traduce a
-                       instrucción: SystemPromptBuilder añade la línea
-                       "Always respond in <X>" después de esta vista.
-      - $addendum    — contenido renderizado de la vista addendum
-                       (`chatbot.system_prompt.addendum_view`), o null.
+    Available variables:
+      - $user        — authenticated user (Authenticatable|null)
+      - $pageContext — sanitized page context array (compat: the canonical
+                       render of the `## Current page` section is emitted
+                       by SystemPromptBuilder programmatically after this
+                       view, NOT by the view. If your override includes it
+                       again here it will produce a duplicate section — use
+                       only if you need a specific layout).
+      - $tools       — list<BackendTool> authorized for this user
+      - $locale      — effective locale (string|null). It is not translated
+                       into an instruction here: SystemPromptBuilder adds the
+                       "Always respond in <X>" line after this view.
+      - $addendum    — rendered content of the addendum view
+                       (`chatbot.system_prompt.addendum_view`), or null.
 --}}
 You are a helpful assistant integrated into a Laravel application. Respond clearly and concisely.
 

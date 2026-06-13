@@ -14,47 +14,47 @@ use Rnkr69\LaraChatbot\Tools\ToolResult;
 use Throwable;
 
 /**
- * Genera una URL firmada con expiración para que el widget descargue un
- * archivo del filesystem del host. Gap cross-host inyectado en E11 (descarga
- * de documentos y adjuntos generados server-side).
+ * Generates a signed URL with expiration so the widget can download a file
+ * from the host's filesystem. Cross-host gap injected in E11 (download of
+ * server-side generated documents and attachments).
  *
- * **Excepción al patrón shim**: a diferencia del resto de FE primitivas,
- * `DownloadFileTool::handle()` SÍ ejecuta lógica de backend — firma la URL
- * con `Storage::disk()->temporaryUrl()` (S3/R2/cloud) y devuelve los
- * campos `download_url` + `expires_at` en `ToolResult::data`. El
- * `ChatService` (E08, modificado en E11) los mergea en
- * `frontend_action.args` para que el widget haga `<a href download>`.
+ * **Exception to the shim pattern**: unlike the rest of the FE primitives,
+ * `DownloadFileTool::handle()` DOES execute backend logic — it signs the URL
+ * with `Storage::disk()->temporaryUrl()` (S3/R2/cloud) and returns the
+ * `download_url` + `expires_at` fields in `ToolResult::data`.
+ * `ChatService` (E08, modified in E11) merges them into
+ * `frontend_action.args` so the widget does `<a href download>`.
  *
- * Modelo de seguridad por defecto (fail-secure):
- *   - `chatbot.tools.download_file.allowed_disks` lista los discos
- *     habilitados. Si está vacía, NINGÚN disk se considera firmable
- *     (la tool devolverá `error('runtime', ...)`).
- *   - URLs directas (`http://`/`https://`) están REHUSADAS: la tool no es
- *     un proxy de URLs arbitrarias; un LLM no debería poder forzar al
- *     usuario a descargar de cualquier dominio.
- *   - `assertCanDownload($disk, $path, $ctx)` es un hook protected que el
- *     host puede override para inyectar comprobaciones de ownership
- *     (ej. "¿es este PDF de OPA del usuario actual?"). Por defecto OK.
- *   - `expires_in` se clampa a `[30s, max_expires_in]` (default cap 1h).
+ * Default security model (fail-secure):
+ *   - `chatbot.tools.download_file.allowed_disks` lists the enabled disks.
+ *     If empty, NO disk is considered signable
+ *     (the tool will return `error('runtime', ...)`).
+ *   - Direct URLs (`http://`/`https://`) are REFUSED: the tool is not
+ *     a proxy for arbitrary URLs; an LLM should not be able to force the
+ *     user to download from any domain.
+ *   - `assertCanDownload($disk, $path, $ctx)` is a protected hook the
+ *     host can override to inject ownership checks
+ *     (e.g. "is this PDF the current user's?"). OK by default.
+ *   - `expires_in` is clamped to `[30s, max_expires_in]` (default cap 1h).
  *
  * Args (ROADMAP §4/E11):
- *   - `url_or_disk_path` (req) — path en el disk en formato `disk::path`
- *     (ej. `s3::invoices/2026/123.pdf`). Sin prefijo se asume el disk
- *     default de `config('filesystems.default')`.
- *   - `filename` (opt) — nombre sugerido para el download del navegador.
- *   - `mime` (opt) — content-type esperado (informativo para el widget).
- *   - `expires_in` (opt) — segundos de expiración. Default 300, max 3600
- *     (configurable en `chatbot.tools.download_file.max_expires_in`).
+ *   - `url_or_disk_path` (req) — path on the disk in `disk::path` format
+ *     (e.g. `s3::invoices/2026/123.pdf`). Without a prefix the default disk
+ *     from `config('filesystems.default')` is assumed.
+ *   - `filename` (opt) — suggested name for the browser download.
+ *   - `mime` (opt) — expected content-type (informative for the widget).
+ *   - `expires_in` (opt) — expiration in seconds. Default 300, max 3600
+ *     (configurable in `chatbot.tools.download_file.max_expires_in`).
  *
- * Confirmation: `auto` — la URL ya está firmada y limitada en el tiempo;
- * pedir confirmación adicional sólo añade fricción.
+ * Confirmation: `auto` — the URL is already signed and time-limited;
+ * asking for additional confirmation only adds friction.
  *
- * **Subclassing (1.1.4)**: si extiendes esta tool con un `name()` propio
- * (ej. `DownloadManifestTool` que valida ownership antes de delegar en
- * `parent::handle()`), override también `frontendPrimitiveName()` para
- * devolver `'download_file'`. El widget sólo conoce el primitive del
- * bundle (`download_file`); sin el override el SSE viajaría con tu nombre
- * custom y el widget toastearía `unknown_tool` (finding #25).
+ * **Subclassing (1.1.4)**: if you extend this tool with your own `name()`
+ * (e.g. `DownloadManifestTool` that validates ownership before delegating to
+ * `parent::handle()`), also override `frontendPrimitiveName()` to
+ * return `'download_file'`. The widget only knows the bundle primitive
+ * (`download_file`); without the override the SSE would travel with your
+ * custom name and the widget would toast `unknown_tool` (finding #25).
  */
 class DownloadFileTool extends BaseFrontendTool
 {
@@ -92,11 +92,11 @@ class DownloadFileTool extends BaseFrontendTool
         $rawPath = (string) ($args['url_or_disk_path'] ?? '');
 
         if ($rawPath === '') {
-            return ToolResult::error('validation', 'url_or_disk_path es obligatorio.');
+            return ToolResult::error('validation', 'url_or_disk_path is required.');
         }
 
         if (str_starts_with($rawPath, 'http://') || str_starts_with($rawPath, 'https://')) {
-            return ToolResult::error('runtime', 'URLs directas no están permitidas; usa un disk path (`disk::path`).');
+            return ToolResult::error('runtime', 'Direct URLs are not allowed; use a disk path (`disk::path`).');
         }
 
         [$disk, $path] = $this->parseDiskAndPath($rawPath);
@@ -106,13 +106,13 @@ class DownloadFileTool extends BaseFrontendTool
         if ($allowed === [] || ! in_array($disk, $allowed, true)) {
             return ToolResult::error(
                 'runtime',
-                "El disk `{$disk}` no está habilitado para descargas firmadas. "
-                . 'Configura `chatbot.tools.download_file.allowed_disks` para opt-in.'
+                "Disk `{$disk}` is not enabled for signed downloads. "
+                . 'Configure `chatbot.tools.download_file.allowed_disks` to opt in.'
             );
         }
 
         if ($path === '') {
-            return ToolResult::error('validation', 'Path vacío.');
+            return ToolResult::error('validation', 'Empty path.');
         }
 
         $ownership = $this->assertCanDownload($disk, $path, $ctx);
@@ -129,12 +129,12 @@ class DownloadFileTool extends BaseFrontendTool
         } catch (Throwable $e) {
             return ToolResult::error(
                 'runtime',
-                'No fue posible firmar la URL: ' . $e->getMessage(),
+                'Could not sign the URL: ' . $e->getMessage(),
             );
         }
 
         if (! is_string($url) || $url === '') {
-            return ToolResult::error('runtime', 'El disk no devolvió una URL firmada.');
+            return ToolResult::error('runtime', 'The disk did not return a signed URL.');
         }
 
         $payload = [
@@ -154,12 +154,12 @@ class DownloadFileTool extends BaseFrontendTool
     }
 
     /**
-     * Hook de ownership. Por defecto permite cualquier path en un disk
-     * habilitado — el host debe override en una subclase para inyectar
-     * comprobaciones de dominio (ej. "¿este invoice pertenece al usuario?").
+     * Ownership hook. By default allows any path on an enabled disk — the
+     * host must override in a subclass to inject domain checks
+     * (e.g. "does this invoice belong to the user?").
      *
-     * Devolver `null` cuando el download está autorizado;
-     * `ToolResult::error('not_owner'|'unauthorized', ...)` para denegarlo.
+     * Return `null` when the download is authorized;
+     * `ToolResult::error('not_owner'|'unauthorized', ...)` to deny it.
      */
     protected function assertCanDownload(string $disk, string $path, ToolContext $ctx): ?ToolResult
     {

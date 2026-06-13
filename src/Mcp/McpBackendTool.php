@@ -15,41 +15,41 @@ use Prism\Prism\ValueObjects\ToolOutput;
 use Throwable;
 
 /**
- * Adapter que envuelve una `Prism\Prism\Tool` (devuelta por
- * `Prism\Relay\Facades\Relay::tools($server)`) y la expone bajo el contrato
- * `BackendTool` del paquete, para que el `ToolRegistry` (E06) y el
- * `ChatService` (E08) la traten igual que una tool local.
+ * Adapter that wraps a `Prism\Prism\Tool` (returned by
+ * `Prism\Relay\Facades\Relay::tools($server)`) and exposes it under the
+ * package's `BackendTool` contract, so that the `ToolRegistry` (E06) and the
+ * `ChatService` (E08) treat it the same as a local tool.
  *
- * Convenciones del adapter:
+ * Adapter conventions:
  *
- *   - `name()` lleva prefijo `mcp.<server>.<tool>` (los puntos son válidos
- *     en JSON Schema y en el formato que Prism envía al LLM). Esto evita
- *     colisiones con tools locales y deja claro al operador qué tools son
- *     remotas al inspeccionar `chatbot:tools:list`.
- *   - `permissions()` se toma de `chatbot.mcp.servers.<server>.permissions`
- *     y aplica AND a TODAS las tools del server. Granularidad por tool MCP
- *     no se soporta en v1 (queda en backlog v1.1 si emerge).
- *   - `defaultScope()` devuelve `All` porque el server MCP es la fuente de
- *     verdad: filtrar por `accessibleUserIds` no tiene sentido cuando los
- *     datos viven fuera del host. La autorización efectiva es la lista de
- *     `permissions()` del server más cualquier guard que el server MCP
- *     aplique en su lado.
- *   - `tenantScope()` devuelve `false` siempre. Crítico: si fuera `true`,
- *     `ToolRegistry::register()` exigiría `TenantResolver` aunque el host
- *     no use tenant scope; rompería el boot del paquete por el sólo hecho
- *     de configurar un server MCP. El gap cross-host de tenant scope (E04)
- *     aplica sólo a tools locales que filtran datos del host.
- *   - `handle()` invoca el handler de la `Prism\Prism\Tool` con los args
- *     spread como named parameters. El retorno se normaliza:
- *       * `string` o `ToolOutput` → `ToolResult::success(['result' => ...])`.
+ *   - `name()` carries the prefix `mcp.<server>.<tool>` (dots are valid
+ *     in JSON Schema and in the format Prism sends to the LLM). This avoids
+ *     collisions with local tools and makes it clear to the operator which
+ *     tools are remote when inspecting `chatbot:tools:list`.
+ *   - `permissions()` is taken from `chatbot.mcp.servers.<server>.permissions`
+ *     and AND-applied to ALL the server's tools. Per-MCP-tool granularity
+ *     is not supported in v1 (it stays in the v1.1 backlog if it emerges).
+ *   - `defaultScope()` returns `All` because the MCP server is the source of
+ *     truth: filtering by `accessibleUserIds` makes no sense when the data
+ *     lives outside the host. The effective authorization is the server's
+ *     `permissions()` list plus whatever guard the MCP server applies on
+ *     its side.
+ *   - `tenantScope()` always returns `false`. Critical: if it were `true`,
+ *     `ToolRegistry::register()` would require a `TenantResolver` even if the
+ *     host does not use tenant scope; it would break the package's boot for
+ *     the mere fact of configuring an MCP server. The tenant scope cross-host
+ *     gap (E04) applies only to local tools that filter host data.
+ *   - `handle()` invokes the `Prism\Prism\Tool` handler with the args
+ *     spread as named parameters. The return value is normalized:
+ *       * `string` or `ToolOutput` → `ToolResult::success(['result' => ...])`.
  *       * `ToolError`             → `ToolResult::error('runtime', message)`.
- *       * `Throwable` no atrapado → `ToolResult::error('runtime', getMessage)`.
+ *       * uncaught `Throwable`    → `ToolResult::error('runtime', getMessage)`.
  *
- * No extiende `BaseBackendTool` a propósito: la cascada local (validación
- * JSON Schema → Authorizer → tenant) no aplica de la misma forma. La
- * autorización (`Authorizer::check` con `permissions()`) la sigue aplicando
- * el `ToolRegistry::forUser()`. La validación de args es responsabilidad
- * del LLM y del server MCP en el otro extremo.
+ * It deliberately does not extend `BaseBackendTool`: the local cascade
+ * (JSON Schema validation → Authorizer → tenant) does not apply the same way.
+ * Authorization (`Authorizer::check` with `permissions()`) is still applied by
+ * the `ToolRegistry::forUser()`. Validating the args is the responsibility
+ * of the LLM and the MCP server at the other end.
  */
 class McpBackendTool implements BackendTool
 {
@@ -112,11 +112,11 @@ class McpBackendTool implements BackendTool
     }
 
     /**
-     * v2.0 (E1) — MCP tools son opacas: el paquete no sabe si una invocación
-     * MCP es read-only o muta estado en el servidor remoto. Por defecto
-     * tratamos cualquier MCP tool como NO pinnable; los hosts que confían
-     * en que un MCP server concreto sólo expone tools de lectura pueden
-     * subclasificar `McpBackendTool` y override este método.
+     * v2.0 (E1) — MCP tools are opaque: the package does not know whether an
+     * MCP invocation is read-only or mutates state on the remote server. By
+     * default we treat any MCP tool as NOT pinnable; hosts that trust that a
+     * specific MCP server only exposes read tools can subclass
+     * `McpBackendTool` and override this method.
      */
     public function pinnable(): bool
     {
@@ -143,8 +143,8 @@ class McpBackendTool implements BackendTool
     }
 
     /**
-     * Acceso al server name (útil para tests y para listar tools agrupadas
-     * por server desde el comando `chatbot:tools:list`).
+     * Access to the server name (useful for tests and for listing tools
+     * grouped by server from the `chatbot:tools:list` command).
      */
     public function serverName(): string
     {

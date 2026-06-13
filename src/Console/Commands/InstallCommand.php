@@ -9,51 +9,52 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
 
 /**
- * `php artisan chatbot:install` — setup interactivo del paquete (E18).
+ * `php artisan chatbot:install` — interactive package setup (E18).
  *
- * Pasos (todos idempotentes; el comando se puede re-ejecutar):
- *   1. Publica config, migraciones, vistas, prompts, assets y lang.
- *   2. Pregunta provider/model y los persiste en `.env` y `.env.example`
- *      (junto con la API key del provider, vacía si no existe).
- *   3. Detecta Spatie y propone el resolver de autorización.
- *   4. Genera stub de `ScopeResolver` (`chatbot:make:scope-resolver`).
- *   5. Si el host necesita tenant scope, genera stub de `TenantResolver`.
- *   6. Si el host quiere `system_prompt_addendum`, publica la vista base.
- *   7. Genera tool de ejemplo (`ListMyInvoicesTool`) desde stub propio.
- *   8. Inyecta `<script>` + `<chatbot-widget>` en un layout Blade del host
- *      (auto-detect + prompt confirmable + skip → instrucciones manuales).
- *   9. Imprime instrucciones finales (rutas, registrar tools, comandos).
+ * Steps (all idempotent; the command can be re-run):
+ *   1. Publishes config, migrations, views, prompts, assets and lang.
+ *   2. Asks for provider/model and persists them in `.env` and `.env.example`
+ *      (along with the provider API key, empty if it does not exist).
+ *   3. Detects Spatie and proposes the authorization resolver.
+ *   4. Generates a `ScopeResolver` stub (`chatbot:make:scope-resolver`).
+ *   5. If the host needs tenant scope, generates a `TenantResolver` stub.
+ *   6. If the host wants `system_prompt_addendum`, publishes the base view.
+ *   7. Generates an example tool (`ListMyInvoicesTool`) from its own stub.
+ *   8. Injects `<script>` + `<chatbot-widget>` into a host Blade layout
+ *      (auto-detect + confirmable prompt + skip → manual instructions).
+ *   9. Prints final instructions (routes, registering tools, commands).
  *
- * Soporta `--no-interaction`:
- *   - Provider/model = defaults del config (anthropic / claude-sonnet-4-6).
- *   - Resolver = `spatie` si la clase está, `gate` si no.
- *   - Genera stub de ScopeResolver siempre (fast win).
- *   - NO genera tenant resolver, NO genera tool ejemplo, NO inyecta layout
- *     (esos pasos tocan código del host y exigen consentimiento explícito).
+ * Supports `--no-interaction`:
+ *   - Provider/model = config defaults (anthropic / claude-sonnet-4-6).
+ *   - Resolver = `spatie` if the class is present, `gate` otherwise.
+ *   - Always generates the ScopeResolver stub (fast win).
+ *   - Does NOT generate a tenant resolver, does NOT generate an example tool,
+ *     does NOT inject the layout (those steps touch host code and require
+ *     explicit consent).
  *
- * Soporta `--force` para sobrescribir publishables ya publicados.
+ * Supports `--force` to overwrite already published publishables.
  */
 class InstallCommand extends Command
 {
     /** @var string */
     protected $signature = 'chatbot:install
-                            {--force : Sobrescribe publishables ya publicados.}
-                            {--backpack-forms : Publica el override de form_page.blade.php para tagear forms Backpack con data-chatbot-form (v1.1.1).}
-                            {--backpack-admin : Publica 3 CrudControllers read-only para inspeccionar conversations/messages/pending_actions desde el admin Backpack (v1.1.1).}';
+                            {--force : Overwrite already published publishables.}
+                            {--backpack-forms : Publish the form_page.blade.php override to tag Backpack forms with data-chatbot-form (v1.1.1).}
+                            {--backpack-admin : Publish 3 read-only CrudControllers to inspect conversations/messages/pending_actions from the Backpack admin (v1.1.1).}';
 
     /** @var string */
-    protected $description = 'Instalación interactiva del paquete chatbot (publica assets, configura .env, genera stubs).';
+    protected $description = 'Interactive installation of the chatbot package (publishes assets, configures .env, generates stubs).';
 
     /**
-     * Marcador HTML que `injectWidgetIntoLayout()` busca para no duplicar
-     * la inyección si el comando se re-ejecuta. Es un comentario inerte.
+     * HTML marker that `injectWidgetIntoLayout()` looks for so it does not
+     * duplicate the injection if the command is re-run. It is an inert comment.
      */
     private const WIDGET_MARKER = '<!-- chatbot:widget -->';
 
     /**
-     * Lista de provider Prism conocidos con la env-var de su API key y un
-     * modelo razonable por defecto. El host puede elegir cualquiera; los
-     * que no aparezcan aquí son válidos pero no auto-completan API key.
+     * List of known Prism providers with their API key env-var and a
+     * reasonable default model. The host can choose any; the ones not
+     * listed here are valid but do not auto-complete the API key.
      *
      * @var array<string, array{env: ?string, model: string}>
      */
@@ -73,7 +74,7 @@ class InstallCommand extends Command
 
     public function handle(): int
     {
-        $this->components->info('Instalando rnkr69/lara-chatbot…');
+        $this->components->info('Installing rnkr69/lara-chatbot…');
 
         $this->publishAssets();
         $this->configureProviderAndModel();
@@ -91,11 +92,11 @@ class InstallCommand extends Command
     }
 
     /**
-     * Paso 1 — Publica los seis tags del paquete. Si `--force`, sobrescribe.
+     * Step 1 — Publishes the package's six tags. With `--force`, overwrites.
      */
     private function publishAssets(): void
     {
-        $this->components->task('Publicando configuración y assets', function (): bool {
+        $this->components->task('Publishing configuration and assets', function (): bool {
             foreach (['chatbot-config', 'chatbot-migrations', 'chatbot-views', 'chatbot-prompts', 'chatbot-assets', 'chatbot-lang'] as $tag) {
                 $this->callSilent('vendor:publish', array_filter([
                     '--tag'   => $tag,
@@ -108,7 +109,7 @@ class InstallCommand extends Command
     }
 
     /**
-     * Paso 2 — Pregunta provider+model y persiste a .env / .env.example.
+     * Step 2 — Asks for provider+model and persists to .env / .env.example.
      */
     private function configureProviderAndModel(): void
     {
@@ -117,12 +118,12 @@ class InstallCommand extends Command
 
         if ($this->isInteractive()) {
             $provider = strtolower(trim((string) $this->components->ask(
-                'Provider del LLM (anthropic, openai, groq, gemini, mistral, ollama, …)',
+                'LLM provider (anthropic, openai, groq, gemini, mistral, ollama, …)',
                 $defaultProvider,
             )));
 
             $suggestedModel = self::PROVIDERS[$provider]['model'] ?? $defaultModel;
-            $model = trim((string) $this->components->ask('Modelo a usar', $suggestedModel));
+            $model = trim((string) $this->components->ask('Model to use', $suggestedModel));
         } else {
             $provider = $defaultProvider;
             $model    = $defaultModel;
@@ -137,13 +138,13 @@ class InstallCommand extends Command
             $created = $this->writeEnvKey($apiKeyEnv, '', overwrite: false);
 
             if ($created) {
-                $this->components->info("Añadida la clave `{$apiKeyEnv}` vacía a tu `.env`. Pega tu API key antes de probar el chatbot.");
+                $this->components->info("Added the empty `{$apiKeyEnv}` key to your `.env`. Paste your API key before testing the chatbot.");
             }
         }
     }
 
     /**
-     * Paso 3 — Detecta Spatie y propone el resolver. Persiste a `.env`.
+     * Step 3 — Detects Spatie and proposes the resolver. Persists to `.env`.
      */
     private function configureAuthorization(): void
     {
@@ -157,13 +158,13 @@ class InstallCommand extends Command
 
         if ($spatieAvailable) {
             $useSpatie = $this->components->confirm(
-                'Detectado spatie/laravel-permission. ¿Usar como authorizer (recomendado)?',
+                'spatie/laravel-permission detected. Use it as the authorizer (recommended)?',
                 true,
             );
             $resolver = $useSpatie ? 'spatie' : 'gate';
         } else {
-            $this->components->warn('spatie/laravel-permission no detectado. Se usará Gate por defecto.');
-            $this->components->info('Para activar Spatie luego: `composer require spatie/laravel-permission` y cambia `CHATBOT_AUTH_RESOLVER` a `spatie`.');
+            $this->components->warn('spatie/laravel-permission not detected. Gate will be used by default.');
+            $this->components->info('To enable Spatie later: `composer require spatie/laravel-permission` and change `CHATBOT_AUTH_RESOLVER` to `spatie`.');
             $resolver = 'gate';
         }
 
@@ -171,13 +172,13 @@ class InstallCommand extends Command
     }
 
     /**
-     * Paso 4 — Stub de ScopeResolver. Default: sí (fast win) salvo que el
-     * usuario lo rechace explícitamente. En `--no-interaction` siempre sí.
+     * Step 4 — ScopeResolver stub. Default: yes (fast win) unless the
+     * user explicitly declines. In `--no-interaction` always yes.
      */
     private function generateScopeResolverStub(): void
     {
         $shouldGenerate = $this->isInteractive()
-            ? $this->components->confirm('¿Generar stub de ScopeResolver en `app/Chatbot/`?', true)
+            ? $this->components->confirm('Generate a ScopeResolver stub in `app/Chatbot/`?', true)
             : true;
 
         if (! $shouldGenerate) {
@@ -185,23 +186,23 @@ class InstallCommand extends Command
         }
 
         $name = $this->isInteractive()
-            ? trim((string) $this->components->ask('Nombre de la clase ScopeResolver', 'ChatbotScopeResolver'))
+            ? trim((string) $this->components->ask('ScopeResolver class name', 'ChatbotScopeResolver'))
             : 'ChatbotScopeResolver';
 
         $exit = $this->call('chatbot:make:scope-resolver', ['name' => $name]);
 
         if ($exit !== self::SUCCESS) {
-            $this->components->warn("No se pudo generar el ScopeResolver ({$name}). Continuando.");
+            $this->components->warn("Could not generate the ScopeResolver ({$name}). Continuing.");
 
             return;
         }
 
-        $this->components->info("Recuerda apuntar `chatbot.authorization.scope_resolver` a `App\\Chatbot\\{$name}::class` en `config/chatbot.php`.");
+        $this->components->info("Remember to point `chatbot.authorization.scope_resolver` to `App\\Chatbot\\{$name}::class` in `config/chatbot.php`.");
     }
 
     /**
-     * Paso 5 — TenantResolver opt-in. Sólo si el host indica que necesita
-     * la 4ª dimensión (multi-tenant / entity-scoped). En no-interactive: no.
+     * Step 5 — TenantResolver opt-in. Only if the host indicates it needs
+     * the 4th dimension (multi-tenant / entity-scoped). In no-interactive: no.
      */
     private function maybeGenerateTenantResolverStub(): void
     {
@@ -210,7 +211,7 @@ class InstallCommand extends Command
         }
 
         $needsTenantScope = $this->components->confirm(
-            '¿Tu host necesita tenant scope (multi-corporación, multi-evento, etc.)?',
+            'Does your host need tenant scope (multi-corporation, multi-event, etc.)?',
             false,
         );
 
@@ -218,22 +219,22 @@ class InstallCommand extends Command
             return;
         }
 
-        $name = trim((string) $this->components->ask('Nombre de la clase TenantResolver', 'ChatbotTenantResolver'));
+        $name = trim((string) $this->components->ask('TenantResolver class name', 'ChatbotTenantResolver'));
 
         $exit = $this->call('chatbot:make:tenant-resolver', ['name' => $name]);
 
         if ($exit !== self::SUCCESS) {
-            $this->components->warn("No se pudo generar el TenantResolver ({$name}). Continuando.");
+            $this->components->warn("Could not generate the TenantResolver ({$name}). Continuing.");
 
             return;
         }
 
-        $this->components->info("Recuerda apuntar `chatbot.authorization.tenant_resolver` a `App\\Chatbot\\{$name}::class` en `config/chatbot.php`.");
+        $this->components->info("Remember to point `chatbot.authorization.tenant_resolver` to `App\\Chatbot\\{$name}::class` in `config/chatbot.php`.");
     }
 
     /**
-     * Paso 6 — Vista de addendum del system prompt (gap E05). Pregunta si
-     * el host quiere personalizar instrucciones específicas de dominio.
+     * Step 6 — System prompt addendum view (gap E05). Asks whether the host
+     * wants to customize domain-specific instructions.
      */
     private function maybePublishSystemPromptAddendum(): void
     {
@@ -242,7 +243,7 @@ class InstallCommand extends Command
         }
 
         $wants = $this->components->confirm(
-            '¿Publicar la vista de "addendum" del system prompt? (instrucciones de dominio adicionales)',
+            'Publish the system prompt "addendum" view? (additional domain-specific instructions)',
             false,
         );
 
@@ -257,19 +258,19 @@ class InstallCommand extends Command
         }
 
         if ($this->files->exists($target) && ! $this->option('force')) {
-            $this->components->info('La vista ya existe; usa `--force` para sobrescribir.');
+            $this->components->info('The view already exists; use `--force` to overwrite.');
 
             return;
         }
 
         $this->files->put($target, $this->systemPromptAddendumStub());
 
-        $this->components->info("Creada `resources/views/vendor/chatbot/system_prompt_addendum.blade.php`. Apúntala desde `config/chatbot.php` en `system_prompt.addendum_view` (o vía la env-var CHATBOT_SYSTEM_PROMPT_ADDENDUM).");
+        $this->components->info("Created `resources/views/vendor/chatbot/system_prompt_addendum.blade.php`. Point to it from `config/chatbot.php` in `system_prompt.addendum_view` (or via the CHATBOT_SYSTEM_PROMPT_ADDENDUM env var).");
     }
 
     /**
-     * Paso 7 — Tool de ejemplo. Sólo opt-in interactivo (no queremos
-     * polucionar el `app/` del host sin consentimiento).
+     * Step 7 — Example tool. Interactive opt-in only (we do not want to
+     * pollute the host's `app/` without consent).
      */
     private function maybeGenerateExampleTool(): void
     {
@@ -278,7 +279,7 @@ class InstallCommand extends Command
         }
 
         $wants = $this->components->confirm(
-            '¿Generar un tool de ejemplo (ListMyInvoicesTool) en app/Chatbot/Tools/?',
+            'Generate an example tool (ListMyInvoicesTool) in app/Chatbot/Tools/?',
             true,
         );
 
@@ -290,7 +291,7 @@ class InstallCommand extends Command
         $target   = app_path('Chatbot/Tools/ListMyInvoicesTool.php');
 
         if ($this->files->exists($target) && ! $this->option('force')) {
-            $this->components->info('app/Chatbot/Tools/ListMyInvoicesTool.php ya existe; usa `--force` para sobrescribir.');
+            $this->components->info('app/Chatbot/Tools/ListMyInvoicesTool.php already exists; use `--force` to overwrite.');
 
             return;
         }
@@ -307,16 +308,16 @@ class InstallCommand extends Command
 
         $this->files->put($target, $rendered);
 
-        $this->components->info('Creado `app/Chatbot/Tools/ListMyInvoicesTool.php`. Auto-discovery lo registrará en boot.');
+        $this->components->info('Created `app/Chatbot/Tools/ListMyInvoicesTool.php`. Auto-discovery will register it at boot.');
     }
 
     /**
-     * Paso 7.5 — Override de `vendor/backpack/crud/inc/form_page.blade.php`
-     * con `data-chatbot-form` para que `fill_form` tenga targeting
-     * determinístico (findings #9.e). Solo se ejecuta con el flag CLI
-     * `--backpack-forms` para no añadir más prompts al wizard interactivo;
-     * el step se documenta en `docs/integrations/backpack.md §5.5` para
-     * que el dev lo invoque cuando lo necesite.
+     * Step 7.5 — Override of `vendor/backpack/crud/inc/form_page.blade.php`
+     * with `data-chatbot-form` so that `fill_form` has deterministic
+     * targeting (findings #9.e). Only runs with the CLI flag
+     * `--backpack-forms` so as not to add more prompts to the interactive
+     * wizard; the step is documented in `docs/integrations/backpack.md §5.5`
+     * so the dev can invoke it when needed.
      */
     private function maybePublishBackpackFormPage(): void
     {
@@ -337,7 +338,7 @@ class InstallCommand extends Command
         $target   = resource_path('views/vendor/backpack/crud/inc/form_page.blade.php');
 
         if (! $this->files->exists($stubPath)) {
-            $this->components->warn("Stub no encontrado en {$stubPath}; omitiendo.");
+            $this->components->warn("Stub not found at {$stubPath}; skipping.");
             return;
         }
 
@@ -347,22 +348,22 @@ class InstallCommand extends Command
 
         if ($this->files->exists($target) && ! $this->option('force')) {
             $this->components->info(
-                "El override `{$this->relativePath($target)}` ya existe; usa `--force` para sobrescribir."
+                "The override `{$this->relativePath($target)}` already exists; use `--force` to overwrite."
             );
             return;
         }
 
         $this->files->put($target, $this->files->get($stubPath));
 
-        $this->components->info("Publicado `{$this->relativePath($target)}`. Los `<form>` Backpack incluirán `data-chatbot-form='<entity>-<operation>'`.");
+        $this->components->info("Published `{$this->relativePath($target)}`. Backpack `<form>`s will include `data-chatbot-form='<entity>-<operation>'`.");
     }
 
     /**
-     * Paso 7.6 — Admin panel auto-generado (findings #14.f). Solo se
-     * ejecuta con el flag CLI `--backpack-admin`. Mismo razonamiento que
-     * 7.5: evitar añadir prompts al wizard interactivo. Documentado en el
-     * comando `chatbot:install --help` y en la sección "Recetas
-     * adicionales" de backpack.md.
+     * Step 7.6 — Auto-generated admin panel (findings #14.f). Only runs
+     * with the CLI flag `--backpack-admin`. Same reasoning as 7.5: avoid
+     * adding prompts to the interactive wizard. Documented in the
+     * `chatbot:install --help` command and in the "Additional recipes"
+     * section of backpack.md.
      */
     private function maybePublishBackpackAdmin(): void
     {
@@ -397,12 +398,12 @@ class InstallCommand extends Command
             $target = $targetDir . DIRECTORY_SEPARATOR . $filename;
 
             if (! $this->files->exists($stubPath)) {
-                $this->components->warn("Stub no encontrado: {$stubPath}; saltando.");
+                $this->components->warn("Stub not found: {$stubPath}; skipping.");
                 continue;
             }
 
             if ($this->files->exists($target) && ! $this->option('force')) {
-                $this->components->info("`{$this->relativePath($target)}` ya existe; usa `--force` para sobrescribir.");
+                $this->components->info("`{$this->relativePath($target)}` already exists; use `--force` to overwrite.");
                 continue;
             }
 
@@ -417,8 +418,8 @@ class InstallCommand extends Command
         }
 
         if ($created !== []) {
-            $this->components->info('Backpack admin CRUDs publicados: ' . implode(', ', $created));
-            $this->components->info("Añade en `routes/backpack/custom.php`:");
+            $this->components->info('Backpack admin CRUDs published: ' . implode(', ', $created));
+            $this->components->info("Add to `routes/backpack/custom.php`:");
             foreach ($created as $filename) {
                 $class = pathinfo($filename, PATHINFO_FILENAME);
                 $slug  = \Illuminate\Support\Str::kebab(str_replace('CrudController', '', $class));
@@ -428,14 +429,14 @@ class InstallCommand extends Command
     }
 
     /**
-     * Paso 8 — Inyección del widget en un layout Blade del host.
+     * Step 8 — Injection of the widget into a host Blade layout.
      *
-     * Algoritmo:
-     *   1. Buscar candidatos en `resources/views/layouts/{app,main,master,base}.blade.php`.
-     *   2. Si hay >= 1, ofrecer al usuario el primero (o lista en multi).
-     *   3. Si no hay o el usuario rechaza, prompt con path libre.
-     *   4. Si el path final está vacío → skip (instrucciones manuales en el paso 9).
-     *   5. Idempotente: si el marker ya está en el archivo, no re-inyectar.
+     * Algorithm:
+     *   1. Look for candidates in `resources/views/layouts/{app,main,master,base}.blade.php`.
+     *   2. If there is >= 1, offer the user the first one (or a list in multi).
+     *   3. If there are none or the user declines, prompt with a free path.
+     *   4. If the final path is empty → skip (manual instructions in step 9).
+     *   5. Idempotent: if the marker is already in the file, do not re-inject.
      */
     private function maybeInjectWidgetIntoLayout(): void
     {
@@ -450,7 +451,7 @@ class InstallCommand extends Command
         if ($candidates !== []) {
             $list = implode(', ', array_map(fn ($p) => $this->relativePath($p), $candidates));
             $useDetected = $this->components->confirm(
-                "Detectado(s) layout(s) Blade: {$list}. ¿Inyectar el widget en el primero?",
+                "Detected Blade layout(s): {$list}. Inject the widget into the first one?",
                 true,
             );
 
@@ -461,12 +462,12 @@ class InstallCommand extends Command
 
         if ($chosen === null) {
             $manual = trim((string) $this->components->ask(
-                'Ruta absoluta o relativa del layout donde inyectar el widget (vacío = skip)',
+                'Absolute or relative path of the layout to inject the widget into (empty = skip)',
                 '',
             ));
 
             if ($manual === '') {
-                $this->components->warn('Inyección de widget omitida. Las instrucciones manuales están al final.');
+                $this->components->warn('Widget injection skipped. Manual instructions are at the end.');
 
                 return;
             }
@@ -475,7 +476,7 @@ class InstallCommand extends Command
         }
 
         if (! $this->files->exists($chosen)) {
-            $this->components->error("El archivo `{$this->relativePath($chosen)}` no existe. Inyección omitida.");
+            $this->components->error("The file `{$this->relativePath($chosen)}` does not exist. Injection skipped.");
 
             return;
         }
@@ -483,7 +484,7 @@ class InstallCommand extends Command
         $contents = $this->files->get($chosen);
 
         if (str_contains($contents, self::WIDGET_MARKER)) {
-            $this->components->info('El widget ya está inyectado en ese layout (marker detectado). Nada que hacer.');
+            $this->components->info('The widget is already injected into that layout (marker detected). Nothing to do.');
 
             return;
         }
@@ -491,28 +492,28 @@ class InstallCommand extends Command
         $injected = $this->injectWidgetSnippet($contents);
 
         if ($injected === null) {
-            $this->components->warn('No encontré `</body>` en el layout — pega el snippet manualmente (ver final).');
+            $this->components->warn('Could not find `</body>` in the layout — paste the snippet manually (see end).');
 
             return;
         }
 
         $this->files->put($chosen, $injected);
-        $this->components->info("Widget inyectado en `{$this->relativePath($chosen)}` justo antes de `</body>`.");
+        $this->components->info("Widget injected into `{$this->relativePath($chosen)}` right before `</body>`.");
     }
 
     /**
-     * Paso 9 — Resumen final con next steps.
+     * Step 9 — Final summary with next steps.
      */
     private function printFinalInstructions(): void
     {
         $this->newLine();
-        $this->components->info('Instalación completa. Próximos pasos:');
+        $this->components->info('Installation complete. Next steps:');
 
         $this->components->bulletList([
-            'Ejecuta `php artisan migrate` para crear `chatbot_conversations` y `chatbot_messages`.',
-            'Verifica la conexión con el LLM: `php artisan chatbot:test-connection`.',
-            'Lista las tools registradas: `php artisan chatbot:tools:list`.',
-            'Si no se inyectó el widget automáticamente, añade en tu layout principal antes de `</body>`:',
+            'Run `php artisan migrate` to create `chatbot_conversations` and `chatbot_messages`.',
+            'Verify the connection to the LLM: `php artisan chatbot:test-connection`.',
+            'List the registered tools: `php artisan chatbot:tools:list`.',
+            'If the widget was not injected automatically, add this to your main layout before `</body>`:',
             $this->widgetSnippet(),
         ]);
     }
@@ -525,10 +526,10 @@ class InstallCommand extends Command
     }
 
     /**
-     * Escribe (o conserva si `overwrite=false`) una clave en `.env` y `.env.example`.
-     * Si el archivo no existe, no lo crea (no inventamos `.env` en repos vacíos).
+     * Writes (or keeps if `overwrite=false`) a key in `.env` and `.env.example`.
+     * If the file does not exist, it does not create it (we do not invent `.env` in empty repos).
      *
-     * @return bool true si la clave se escribió o existía vacía, false si se preservó un valor previo.
+     * @return bool true if the key was written or existed empty, false if a previous value was preserved.
      */
     private function writeEnvKey(string $key, string $value, bool $overwrite = true): bool
     {
@@ -572,7 +573,7 @@ class InstallCommand extends Command
     }
 
     /**
-     * @return array<int, string>  Paths absolutos a candidatos existentes.
+     * @return array<int, string>  Absolute paths to existing candidates.
      */
     private function detectLayoutCandidates(): array
     {
@@ -647,16 +648,15 @@ class InstallCommand extends Command
     private function systemPromptAddendumStub(): string
     {
         return <<<'BLADE'
-{{-- Addendum del system prompt --}}
-{{-- Este texto se concatena al final del system prompt base. Úsalo para
-     instrucciones específicas de tu dominio: jerga, formatos, glosario,
-     reglas estrictas (eg. "responde siempre en español", "nunca menciones
-     X"). El contexto del chat (page, user, tools) ya está inyectado en
-     la vista base. --}}
+{{-- System prompt addendum --}}
+{{-- This text is concatenated to the end of the base system prompt. Use it for
+     domain-specific instructions: jargon, formats, glossary, strict rules
+     (e.g. "always respond in English", "never mention X"). The chat context
+     (page, user, tools) is already injected in the base view. --}}
 
-# Reglas adicionales de dominio
+# Additional domain rules
 
-- TODO: añade tus instrucciones aquí.
+- TODO: add your instructions here.
 BLADE;
     }
 }

@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Models;
 
 /**
- * Roles posibles de un mensaje en una conversación, espejo del enum de la
- * columna `chatbot_messages.role`. El modelo `Message` lo usa como cast.
+ * Possible roles of a message in a conversation, mirroring the enum of the
+ * `chatbot_messages.role` column. The `Message` model uses it as a cast.
  *
- * - User      — mensaje escrito por el usuario humano.
- * - Assistant — respuesta del LLM (incluye tool_calls cuando invoca tools).
- * - Tool      — resultado de una tool ejecutada (sólo poblado en tool_results).
- * - System    — mensaje de sistema (raramente persistido; el system prompt
- *               se renderiza en cada turno desde la vista Blade).
+ * - User      — message written by the human user.
+ * - Assistant — LLM response (includes tool_calls when it invokes tools).
+ * - Tool      — result of an executed tool (only populated in tool_results).
+ * - System    — system message (rarely persisted; the system prompt is
+ *               rendered each turn from the Blade view).
  */
 enum MessageRole: string
 {

@@ -8,9 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Shape JSON de una conversación devuelta por el controller (E10). El
- * `user_type`/`user_id` morph se omiten — el cliente nunca los necesita
- * porque siempre opera dentro de su propio scope.
+ * JSON shape of a conversation returned by the controller (E10). The
+ * `user_type`/`user_id` morph are omitted — the client never needs them
+ * because it always operates within its own scope.
  *
  * @property-read \Rnkr69\LaraChatbot\Models\Conversation $resource
  */

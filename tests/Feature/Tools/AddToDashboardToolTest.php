@@ -15,11 +15,11 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolRegistry;
 
 /**
- * v2.2 / PR-A — `AddToDashboardTool`. Pinea desde el chat sin pasar por
- * el modal manual. Cubre la cascada completa: resolución del source tool,
- * pinnable enforcement, dashboard target (slug o default), widget cap,
- * ejecución del source tool + map de su error, selección de block
- * (`block_type` + `block_ordinal`) y persistencia via `PinService`.
+ * v2.2 / PR-A — `AddToDashboardTool`. Pins from the chat without going
+ * through the manual modal. Covers the full cascade: source tool resolution,
+ * pinnable enforcement, dashboard target (slug or default), widget cap,
+ * source tool execution + mapping of its error, block selection
+ * (`block_type` + `block_ordinal`) and persistence via `PinService`.
  */
 
 beforeEach(function () {

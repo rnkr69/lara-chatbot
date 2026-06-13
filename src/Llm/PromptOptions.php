@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Llm;
 
 /**
- * Value object con las opciones de una llamada al LLM.
+ * Value object with the options for an LLM call.
  *
- * Pensado para ser construido por el orquestador (E08 `ChatService`) a
- * partir de la `Conversation` activa: si `conversation.metadata.provider`
- * o `conversation.metadata.model` están definidos, sobrescriben la config
- * global; si no, `LlmGateway` cae a `chatbot.provider` / `chatbot.model`.
+ * Intended to be built by the orchestrator (E08 `ChatService`) from
+ * the active `Conversation`: if `conversation.metadata.provider`
+ * or `conversation.metadata.model` are defined, they override the global
+ * config; otherwise, `LlmGateway` falls back to `chatbot.provider` / `chatbot.model`.
  *
- * `promptContext` es el array que se entrega al `SystemPromptBuilder`
- * (claves `user`, `pageContext`, `tools`, `locale`). `systemPrompt` es un
- * escape hatch: si está set, el builder no se invoca y se usa la cadena
- * dada tal cual (útil para `chatbot:test-connection` y para tests).
+ * `promptContext` is the array handed to the `SystemPromptBuilder`
+ * (keys `user`, `pageContext`, `tools`, `locale`). `systemPrompt` is an
+ * escape hatch: if set, the builder is not invoked and the given string is
+ * used as-is (useful for `chatbot:test-connection` and for tests).
  */
 final class PromptOptions
 {

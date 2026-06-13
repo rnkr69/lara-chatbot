@@ -50,7 +50,7 @@ it('persists a dashboard with the expected casts', function () {
     expect($reloaded->deleted_at)->toBeNull();
 });
 
-it('scopeForUser filtra cross-user', function () {
+it('scopeForUser filters cross-user', function () {
     $alice = makeUser(1, 'Alice');
     $bob   = makeUser(2, 'Bob');
 
@@ -66,7 +66,7 @@ it('scopeForUser filtra cross-user', function () {
     expect($aliceDashboards->pluck('slug')->all())->toEqualCanonicalizing(['alice-1', 'alice-2']);
 });
 
-it('scopeDefault filtra al is_default=true', function () {
+it('scopeDefault filters to is_default=true', function () {
     $u = makeUser(1);
 
     makeDashboard($u, ['slug' => 'panel-a', 'is_default' => false]);
@@ -78,7 +78,7 @@ it('scopeDefault filtra al is_default=true', function () {
     expect($found->id)->toBe($b->id);
 });
 
-it('hook saving auto-demote del resto del mismo usuario al setear is_default=true', function () {
+it('hook saving auto-demotes the rest of the same user when setting is_default=true', function () {
     $u = makeUser(1);
 
     $a = makeDashboard($u, ['slug' => 'panel-a', 'is_default' => true]);
@@ -90,7 +90,7 @@ it('hook saving auto-demote del resto del mismo usuario al setear is_default=tru
     expect($c->fresh()->is_default)->toBeTrue();
 });
 
-it('hook saving no toca dashboards de otros usuarios', function () {
+it('hook saving does not touch dashboards of other users', function () {
     $alice = makeUser(1);
     $bob   = makeUser(2);
 
@@ -101,7 +101,7 @@ it('hook saving no toca dashboards de otros usuarios', function () {
     expect($bobDefault->fresh()->is_default)->toBeTrue();
 });
 
-it('hook saving al actualizar un dashboard a is_default no se demote a sí mismo', function () {
+it('hook saving when updating a dashboard to is_default does not demote itself', function () {
     $u = makeUser(1);
 
     // #10 — `$a` (first) is auto-promoted to default on insert; creating `$b`
@@ -118,7 +118,7 @@ it('hook saving al actualizar un dashboard a is_default no se demote a sí mismo
     expect($b->fresh()->is_default)->toBeFalse();
 });
 
-it('hook saving auto-promueve el primer dashboard del usuario a is_default (#10)', function () {
+it('hook saving auto-promotes the user first dashboard to is_default (#10)', function () {
     $u = makeUser(1);
 
     // First dashboard — created WITHOUT is_default → auto-promoted, so the
@@ -132,7 +132,7 @@ it('hook saving auto-promueve el primer dashboard del usuario a is_default (#10)
     expect($first->fresh()->is_default)->toBeTrue();
 });
 
-it('hook saving es inerte cuando is_default queda en false', function () {
+it('hook saving is inert when is_default stays false', function () {
     $u = makeUser(1);
 
     $a = makeDashboard($u, ['slug' => 'panel-a', 'is_default' => true]);
@@ -142,7 +142,7 @@ it('hook saving es inerte cuando is_default queda en false', function () {
     expect($a->fresh()->is_default)->toBeTrue();
 });
 
-it('unique (user_type, user_id, slug) rechaza duplicados del mismo usuario', function () {
+it('unique (user_type, user_id, slug) rejects duplicates of the same user', function () {
     $u = makeUser(1);
 
     makeDashboard($u, ['slug' => 'mi-panel']);
@@ -151,7 +151,7 @@ it('unique (user_type, user_id, slug) rechaza duplicados del mismo usuario', fun
         ->toThrow(QueryException::class);
 });
 
-it('mismo slug en distintos usuarios convive sin conflicto', function () {
+it('same slug for different users coexists without conflict', function () {
     $alice = makeUser(1);
     $bob   = makeUser(2);
 
@@ -161,7 +161,7 @@ it('mismo slug en distintos usuarios convive sin conflicto', function () {
     expect(Dashboard::count())->toBe(2);
 });
 
-it('soft-delete excluye en queries por defecto y conserva la fila', function () {
+it('soft-delete excludes from queries by default and keeps the row', function () {
     $u = makeUser(1);
 
     $d = makeDashboard($u, ['slug' => 'panel-a']);
@@ -173,7 +173,7 @@ it('soft-delete excluye en queries por defecto y conserva la fila', function () 
     expect($d->fresh()->deleted_at)->not->toBeNull();
 });
 
-it('relación widgets devuelve los DashboardWidget del dashboard', function () {
+it('widgets relation returns the dashboard DashboardWidget records', function () {
     $u = makeUser(1);
     $d = makeDashboard($u);
 

@@ -15,16 +15,16 @@ use Rnkr69\LaraChatbot\Tools\ConfirmationLevel;
 use Rnkr69\LaraChatbot\Tools\ToolRegistry;
 
 /**
- * E4 — API JSON + SSE bulk refresh para widgets de dashboard.
+ * E4 — JSON API + SSE bulk refresh for dashboard widgets.
  *
- * Cubre:
- *   - store (pin): validación de tool pinnable+Auto, source_signature,
- *     snapshot truncado, page_context filtrado, cap widgets, position default.
+ * Covers:
+ *   - store (pin): pinnable+Auto tool validation, source_signature,
+ *     truncated snapshot, filtered page_context, widget cap, default position.
  *   - update (move/resize/retitle/refresh_policy).
- *   - refresh single (delega a ReplayService) + rate limit.
- *   - refreshAll SSE (emite widget_refreshed por cada widget + done).
+ *   - single refresh (delegates to ReplayService) + rate limit.
+ *   - refreshAll SSE (emits widget_refreshed per widget + done).
  *   - destroy (soft-delete unpin).
- *   - Política 404-no-403 en todas las ops cross-user.
+ *   - 404-not-403 policy on every cross-user op.
  */
 
 beforeEach(function () {
@@ -32,8 +32,8 @@ beforeEach(function () {
     $this->withoutMiddleware(VerifyCsrfToken::class);
     Cache::flush();
 
-    // Tests del bulk SSE (igual que E3): driver `sync` para que
-    // Concurrency::run corra inline en el mismo proceso PHP.
+    // Bulk SSE tests (same as E3): `sync` driver so that
+    // Concurrency::run runs inline in the same PHP process.
     config(['concurrency.default' => 'sync']);
 
     app(ToolRegistry::class)->clear();
@@ -221,7 +221,7 @@ it('rejects pin when source.tool is not registered with 422', function () {
 });
 
 it('rejects pin when the tool has pinnable=false with 422', function () {
-    // Default: BaseBackendTool::pinnable() = false. EchoBackendTool sin override.
+    // Default: BaseBackendTool::pinnable() = false. EchoBackendTool without override.
     app(ToolRegistry::class)->register(new EchoBackendTool());
     $u = adwMakeUser();
     $d = adwMakeDashboard($u);
@@ -549,8 +549,8 @@ it('refresh returns 404 when the widget id does not belong to the dashboard', fu
     $b = adwMakeDashboard($u, 'b');
     $w = adwMakeWidget($a);
 
-    // El widget existe pero pertenece al otro dashboard del MISMO usuario:
-    // sigue siendo 404 — el scope del path es `{slug}/widgets/{id}`.
+    // The widget exists but belongs to the other dashboard of the SAME user:
+    // it is still 404 — the path scope is `{slug}/widgets/{id}`.
     $response = $this->actingAs($u, 'web')->postJson(
         "/chatbot/dashboards/{$b->slug}/widgets/{$w->id}/refresh"
     );
@@ -583,7 +583,7 @@ it('refreshAll emits a widget_refreshed SSE frame per widget plus a done frame',
 
     $body = $response->streamedContent();
 
-    // Parser laxo: cuenta eventos por su `event: ...` header.
+    // Lax parser: counts events by their `event: ...` header.
     preg_match_all('/^event: (\w+)$/m', $body, $matches);
     $events = $matches[1];
 
@@ -593,7 +593,7 @@ it('refreshAll emits a widget_refreshed SSE frame per widget plus a done frame',
     $refreshedCount = count(array_filter($events, fn ($e) => $e === 'widget_refreshed'));
     expect($refreshedCount)->toBe(2);
 
-    // El body contiene los widget_ids reales.
+    // The body contains the real widget_ids.
     expect($body)->toContain('"widget_id":' . $w1->id);
     expect($body)->toContain('"widget_id":' . $w2->id);
 });
@@ -661,10 +661,10 @@ it('returns 404 when unpinning a widget from a foreign dashboard', function () {
 });
 
 it('rejects unauthenticated widget endpoints via the auth middleware', function () {
-    // postJson fuerza Accept: application/json para que la middleware `auth`
-    // devuelva 401 en lugar de intentar redirect a una ruta `login` que el
-    // testbench no tiene registrada (resultaría en 500). Mismo patrón que
-    // las suites existentes (ConversationControllerTest, etc.).
+    // postJson forces Accept: application/json so the `auth` middleware
+    // returns 401 instead of attempting a redirect to a `login` route that
+    // testbench does not have registered (which would result in 500). Same
+    // pattern as the existing suites (ConversationControllerTest, etc.).
     expect($this->postJson('/chatbot/dashboards/nope/widgets', [])->status())->toBeIn([401, 302, 419, 403]);
     expect($this->postJson('/chatbot/dashboards/nope/widgets/1/refresh')->status())->toBeIn([401, 302, 419, 403]);
     expect($this->postJson('/chatbot/dashboards/nope/refresh')->status())->toBeIn([401, 302, 419, 403]);

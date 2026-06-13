@@ -5,23 +5,24 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Models;
 
 /**
- * Estado del último replay de un widget (v2.0 / E2). Lo setea
- * `ReplayService` (E3) tras cada ejecución; al pinear se inicializa a
- * `Fresh` con `last_refreshed_at = now()` porque el snapshot recién creado
- * ya es fresco por definición.
+ * Status of a widget's last replay (v2.0 / E2). Set by `ReplayService`
+ * (E3) after each execution; on pinning it is initialized to `Fresh` with
+ * `last_refreshed_at = now()` because the freshly created snapshot is
+ * already fresh by definition.
  *
- *  - `Fresh`: el último replay devolvió un block del mismo type que el
- *    snapshot; los datos están al día.
- *  - `Stale`: el replay funcionó pero el tool devolvió un block de otro
- *    tipo (p. ej. una table mutó a un text). El snapshot anterior queda
- *    visible con badge ⚠️ — la UI sugiere "repinear desde el chat".
- *  - `Error`: error de runtime/validation durante el replay. Snapshot
- *    anterior visible + detalle en `last_refresh_error`.
- *  - `Unauthorized`: cascada `permission → scope → tenant → ownership`
- *    falló. Snapshot anterior se mantiene pero NUNCA se entregan datos
- *    nuevos no autorizados.
- *  - `SourceMissing`: la tool original ya no existe en el registry (host
- *    la borró o cambió el nombre). Snapshot frozen; UI invita a unpin.
+ *  - `Fresh`: the last replay returned a block of the same type as the
+ *    snapshot; the data is up to date.
+ *  - `Stale`: the replay worked but the tool returned a block of a
+ *    different type (e.g. a table mutated into a text). The previous
+ *    snapshot stays visible with a ⚠️ badge — the UI suggests "re-pin from
+ *    the chat".
+ *  - `Error`: runtime/validation error during the replay. Previous
+ *    snapshot visible + detail in `last_refresh_error`.
+ *  - `Unauthorized`: the `permission → scope → tenant → ownership` cascade
+ *    failed. The previous snapshot is kept but new unauthorized data is
+ *    NEVER delivered.
+ *  - `SourceMissing`: the original tool no longer exists in the registry
+ *    (host deleted it or renamed it). Snapshot frozen; UI invites to unpin.
  */
 enum WidgetRefreshStatus: string
 {

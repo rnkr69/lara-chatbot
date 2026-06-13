@@ -7,14 +7,14 @@ namespace Rnkr69\LaraChatbot\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Valida el payload del endpoint `GET /chatbot/conversations` (E10).
+ * Validates the payload of the endpoint `GET /chatbot/conversations` (E10).
  *
- *   - `q`        opcional. Búsqueda LIKE sobre `title`. Recortado a 200 chars
- *                porque títulos del paquete son nullable y no pueden ser
- *                arbitrariamente largos en la UI.
- *   - `page`     opcional. Entero ≥ 1 (Laravel default = 1 si no se envía).
- *   - `per_page` opcional. Entero entre 1 y `chatbot.limits.conversations_per_page.max`.
- *                Si no se envía, el controller aplica el default
+ *   - `q`        optional. LIKE search over `title`. Trimmed to 200 chars
+ *                because the package's titles are nullable and cannot be
+ *                arbitrarily long in the UI.
+ *   - `page`     optional. Integer ≥ 1 (Laravel default = 1 if not sent).
+ *   - `per_page` optional. Integer between 1 and `chatbot.limits.conversations_per_page.max`.
+ *                If not sent, the controller applies the default
  *                `chatbot.limits.conversations_per_page.default`.
  */
 class IndexConversationsRequest extends FormRequest

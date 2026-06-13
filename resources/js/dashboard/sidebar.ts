@@ -1,15 +1,15 @@
 /**
- * v2.0 / E5 — sidebar de dashboards del usuario.
+ * v2.0 / E5 — sidebar of the user's dashboards.
  *
- * Misma forma que `resources/js/sidebar.ts` (sidebar de conversaciones) pero
- * sobre `DashboardApi`. Encapsula la lista + crear + renombrar inline +
- * borrar (`confirm()` nativo) + set-default.
+ * Same shape as `resources/js/sidebar.ts` (the conversations sidebar) but over
+ * `DashboardApi`. Encapsulates the list + create + inline rename + delete
+ * (native `confirm()`) + set-default.
  *
- * Empty state: CTA inline con input + "Crear" (voto del usuario, no modal).
+ * Empty state: inline CTA with input + "Create" (user's choice, not a modal).
  *
- * El host del sidebar recibe sólo `onSelect(slug)` + `onActiveDeleted()` y
- * `onChanged()` para que la app re-consulte la lista si lo necesita (p. ej.
- * tras un set-default que reordena el is_default).
+ * The sidebar host receives only `onSelect(slug)` + `onActiveDeleted()` and
+ * `onChanged()` so the app can re-query the list if it needs to (e.g. after a
+ * set-default that reorders is_default).
  */
 
 import type { DashboardApi } from './api.js';
@@ -69,7 +69,7 @@ export interface DashboardSidebarOptions {
    * localStorage in sync.
    */
   onChanged?(active: DashboardRow | null): void;
-  /** Inyectable para tests. */
+  /** Injectable for tests. */
   confirmer?: (message: string) => boolean;
 }
 
@@ -80,11 +80,11 @@ export interface DashboardSidebarHandle {
    * awaits this to auto-select a dashboard without racing a fixed timeout.
    */
   ready: Promise<void>;
-  /** Refresca la lista vía API. */
+  /** Refreshes the list via API. */
   refresh(): Promise<void>;
-  /** Marca otro slug como activo (no llama `onSelect`). */
+  /** Marks another slug as active (does not call `onSelect`). */
   setActive(slug: string | null): void;
-  /** Devuelve la última lista cargada (defensivo para tests/app). */
+  /** Returns the last loaded list (defensive for tests/app). */
   getRows(): readonly DashboardRow[];
   destroy(): void;
 }

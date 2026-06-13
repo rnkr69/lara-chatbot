@@ -21,26 +21,26 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * Endpoint `POST /chatbot/stream` (E09 ROADMAP §5/E09).
  *
- * Responsabilidad: serializar al protocolo SSE (`event: <name>\ndata: <json>\n\n`)
- * los `SseEvent` que `ChatService::handle` (E08) produce para el turno
- * actual del usuario.
+ * Responsibility: serialize to the SSE protocol (`event: <name>\ndata: <json>\n\n`)
+ * the `SseEvent`s that `ChatService::handle` (E08) produces for the user's
+ * current turn.
  *
- * Aplica rate limit por usuario (`chatbot:stream:{user_id}`) usando
- * `Illuminate\Support\Facades\RateLimiter` y respetando
- * `chatbot.limits.rate_limit.{enabled,requests_per_minute}`. Si el cliente
- * cierra la conexión, el loop rompe el `foreach` sobre el Generator del
- * orquestador — esto fuerza la suspensión del Generator y, por tanto, deja
- * de iterarse el stream de Prism (no se gastan más tokens). La detección
- * de cierre se hace vía un Closure inyectable (binding container
- * `chatbot.connection_aborted`) cuyo default llama a la función PHP
+ * Applies a per-user rate limit (`chatbot:stream:{user_id}`) using
+ * `Illuminate\Support\Facades\RateLimiter` and respecting
+ * `chatbot.limits.rate_limit.{enabled,requests_per_minute}`. If the client
+ * closes the connection, the loop breaks the `foreach` over the
+ * orchestrator's Generator — this forces the Generator to suspend and,
+ * therefore, the Prism stream stops being iterated (no more tokens are
+ * spent). Close detection is done via an injectable Closure (container
+ * binding `chatbot.connection_aborted`) whose default calls the PHP function
  * `connection_aborted()`.
  *
- * Page context (E14, D13): la sanitización tipo a tipo la aplica el
- * `PageContextSanitizer` (drop de closures/objects/recursos/null/floats no
- * finitos; preserva string/int/float/bool/array). Si TRAS sanitizar el JSON
- * sigue excediendo `chatbot.limits.page_context_kb`, se aplica D11 como
- * fallback: descarte binario completo + `Log::info` (no 422). El turno
- * sigue sin contexto.
+ * Page context (E14, D13): type-by-type sanitization is applied by the
+ * `PageContextSanitizer` (drops closures/objects/resources/null/non-finite
+ * floats; preserves string/int/float/bool/array). If AFTER sanitizing the JSON
+ * still exceeds `chatbot.limits.page_context_kb`, D11 applies as a
+ * fallback: full binary discard + `Log::info` (no 422). The turn
+ * continues without context.
  */
 class ChatController extends Controller
 {
@@ -89,11 +89,11 @@ class ChatController extends Controller
     }
 
     /**
-     * Devuelve un `Response` 429 si el usuario excedió el rate limit, o
-     * `null` si está dentro del límite. Cuando está dentro del límite,
-     * cuenta el hit antes de devolver `null`. Si el rate limit está
-     * deshabilitado por config (`chatbot.limits.rate_limit.enabled=false`),
-     * devuelve `null` sin hacer nada.
+     * Returns a 429 `Response` if the user exceeded the rate limit, or
+     * `null` if within the limit. When within the limit, it counts the
+     * hit before returning `null`. If the rate limit is
+     * disabled by config (`chatbot.limits.rate_limit.enabled=false`),
+     * it returns `null` without doing anything.
      */
     protected function checkRateLimit(mixed $user): ?Response
     {
@@ -125,10 +125,10 @@ class ChatController extends Controller
     }
 
     /**
-     * Recupera la conversación del usuario (si `conversation_id` viene en
-     * el payload — la regla `exists` ya garantizó la propiedad) o crea una
-     * nueva. La conversación devuelta tiene `user` cargado como relación
-     * para evitar la query morphTo posterior en `ChatService`.
+     * Retrieves the user's conversation (if `conversation_id` comes in
+     * the payload — the `exists` rule already guaranteed ownership) or creates a
+     * new one. The returned conversation has `user` loaded as a relation
+     * to avoid the later morphTo query in `ChatService`.
      */
     protected function resolveConversation(SendMessageRequest $request, mixed $user): Conversation
     {
@@ -139,8 +139,8 @@ class ChatController extends Controller
                 ->forUser($user)
                 ->find((int) $conversationId);
 
-            // Defensivo: la regla `exists` del FormRequest ya cubre este caso
-            // con 422; si llegamos aquí con null algo se desincronizó.
+            // Defensive: the FormRequest's `exists` rule already covers this
+            // case with 422; if we reach here with null, something got out of sync.
             abort_if($conversation === null, 404);
         } else {
             $conversation = Conversation::create([
@@ -157,12 +157,12 @@ class ChatController extends Controller
     }
 
     /**
-     * Sanitización en dos fases (E14):
-     *   1. Tipo a tipo via `PageContextSanitizer` (drop closures/objects/
-     *      recursos/null/floats no finitos; preserva primitivas + arrays).
-     *   2. Truncado binario fallback (D11): si el JSON resultante todavía
-     *      excede `chatbot.limits.page_context_kb`, se descarta entero y se
-     *      loguea info — el turno continúa sin page context.
+     * Two-phase sanitization (E14):
+     *   1. Type by type via `PageContextSanitizer` (drops closures/objects/
+     *      resources/null/non-finite floats; preserves primitives + arrays).
+     *   2. Binary truncation fallback (D11): if the resulting JSON still
+     *      exceeds `chatbot.limits.page_context_kb`, it is discarded entirely and
+     *      logged at info level — the turn continues without page context.
      *
      * @return array<string, mixed>
      */
@@ -184,7 +184,7 @@ class ChatController extends Controller
         $encoded = json_encode($sanitized);
         if (! is_string($encoded) || strlen($encoded) > $limit) {
             Log::info(sprintf(
-                '[chatbot] page_context descartado por exceder %d bytes (limit %d KB) tras sanitizar.',
+                '[chatbot] page_context dropped for exceeding %d bytes (limit %d KB) after sanitizing.',
                 $limit,
                 $limitKb,
             ));
@@ -196,8 +196,8 @@ class ChatController extends Controller
     }
 
     /**
-     * Formatea un `SseEvent` al frame `event: <name>\ndata: <json>\n\n`
-     * exigido por el protocolo SSE (W3C EventSource).
+     * Formats an `SseEvent` to the frame `event: <name>\ndata: <json>\n\n`
+     * required by the SSE protocol (W3C EventSource).
      */
     protected function formatSseFrame(SseEvent $event): string
     {
@@ -211,10 +211,10 @@ class ChatController extends Controller
     }
 
     /**
-     * El paquete inyecta el detector de cierre via container binding
-     * `chatbot.connection_aborted`. Default = closure que invoca
-     * `connection_aborted()` (PHP runtime). Tests lo sobrescriben con un
-     * closure determinista para verificar que el loop rompe.
+     * The package injects the close detector via the container binding
+     * `chatbot.connection_aborted`. Default = closure that invokes
+     * `connection_aborted()` (PHP runtime). Tests override it with a
+     * deterministic closure to verify that the loop breaks.
      */
     protected function resolveAbortDetector(): Closure
     {

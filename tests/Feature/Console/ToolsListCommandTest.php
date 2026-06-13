@@ -24,7 +24,7 @@ it('reports empty registry when no tools are registered', function () {
     Artisan::call('chatbot:tools:list');
     $output = Artisan::output();
 
-    expect($output)->toContain('No hay tools registradas');
+    expect($output)->toContain('No tools registered');
 });
 
 it('lists registered local tools with origin=local', function () {
@@ -118,6 +118,6 @@ it('reports MCP active when servers are configured and the bridge is available',
     Artisan::call('chatbot:tools:list');
     $output = Artisan::output();
 
-    expect($output)->toContain('Bridge MCP activo')
+    expect($output)->toContain('MCP bridge active')
         ->and($output)->toContain('tickets');
 });

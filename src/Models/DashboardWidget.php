@@ -80,11 +80,11 @@ class DashboardWidget extends Model
     }
 
     /**
-     * Widgets cuyo último refresh es anterior al threshold (o nunca se han
-     * refrescado). Lo usa E3 para encontrar candidatos al replay bulk al
-     * abrir el dashboard. Null en `last_refreshed_at` se considera stale —
-     * cubre el caso teórico de un widget creado fuera del flujo de pin
-     * normal (importación, seed, etc.).
+     * Widgets whose last refresh is older than the threshold (or that have
+     * never been refreshed). Used by E3 to find candidates for the bulk
+     * replay when opening the dashboard. A null `last_refreshed_at` is
+     * considered stale — covering the theoretical case of a widget created
+     * outside the normal pin flow (import, seed, etc.).
      */
     public function scopeStaleAfter(Builder $query, Carbon $threshold): Builder
     {

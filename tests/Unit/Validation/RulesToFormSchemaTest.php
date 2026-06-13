@@ -35,10 +35,10 @@ it('preserves labels from FormRequest::attributes()', function () {
 
     $schema = $mapper->fromRules(
         ['email' => 'required|email'],
-        ['email' => 'Tu correo electrónico'],
+        ['email' => 'Your email address'],
     );
 
-    expect($schema[0]['label'])->toBe('Tu correo electrónico');
+    expect($schema[0]['label'])->toBe('Your email address');
 });
 
 it('maps numeric, integer, date and date_format rules', function () {

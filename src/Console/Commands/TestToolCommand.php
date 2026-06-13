@@ -17,38 +17,38 @@ use Throwable;
 /**
  * `php artisan chatbot:tools:test <name>` (v1.1.1, finding #14.b).
  *
- * Invoca una tool desde CLI sin pasar por el LLM ni el browser. Útil
- * para iterar `handle()` en TDD rápido (cambias el código, lanzas el
- * comando, miras el resultado).
+ * Invokes a tool from the CLI without going through the LLM or the browser.
+ * Useful for iterating on `handle()` in fast TDD (you change the code, run
+ * the command, look at the result).
  *
- * Uso típico:
+ * Typical usage:
  *   php artisan chatbot:tools:test list_my_missions \
  *       --user=pilot1@andromeda.test \
  *       --args='{"status":"draft","limit":5}'
  *
- * Cómo funciona:
- *   1. Resuelve la tool por nombre desde el ToolRegistry.
- *   2. Resuelve el usuario invocante (--user= email|id, default = primer User).
- *   3. Construye un ToolContext sin conversation ni page context.
- *   4. Llama `execute(args, ctx)` → la cascada de validación + autorización
- *      del BaseBackendTool se aplica igual que en runtime.
- *   5. Imprime el ToolResult JSON-formatted.
+ * How it works:
+ *   1. Resolves the tool by name from the ToolRegistry.
+ *   2. Resolves the invoking user (--user= email|id, default = first User).
+ *   3. Builds a ToolContext without conversation or page context.
+ *   4. Calls `execute(args, ctx)` → the BaseBackendTool's validation +
+ *      authorization cascade is applied just as at runtime.
+ *   5. Prints the ToolResult JSON-formatted.
  *
- * NO simula confirmations ni pending actions; útil sólo para tools backend
- * (Auto). Para frontend tools con confirm/manual, este comando devuelve
- * `awaiting_user` directamente.
+ * It does NOT simulate confirmations or pending actions; useful only for
+ * backend (Auto) tools. For frontend tools with confirm/manual, this command
+ * returns `awaiting_user` directly.
  */
 class TestToolCommand extends Command
 {
     /** @var string */
     protected $signature = 'chatbot:tools:test
-                            {name : Nombre de la tool (snake_case, e.g. list_my_missions).}
-                            {--user= : Email o ID del usuario a usar como ToolContext->user (default: primero).}
-                            {--args= : Args JSON (e.g. \'{"status":"draft"}\').}
+                            {name : Tool name (snake_case, e.g. list_my_missions).}
+                            {--user= : Email or ID of the user to use as ToolContext->user (default: first).}
+                            {--args= : JSON args (e.g. \'{"status":"draft"}\').}
                             {--page-context= : Page context JSON.}';
 
     /** @var string */
-    protected $description = 'Invoca una tool por nombre desde CLI sin LLM ni browser. Útil para TDD rápido.';
+    protected $description = 'Invoke a tool by name from the CLI without the LLM or a browser. Useful for fast TDD.';
 
     public function handle(ToolRegistry $registry): int
     {
@@ -56,18 +56,18 @@ class TestToolCommand extends Command
 
         $tool = $registry->get($name);
         if ($tool === null) {
-            $this->components->error("Tool `{$name}` no registrada. Lista las disponibles con `chatbot:tools:list`.");
+            $this->components->error("Tool `{$name}` not registered. List the available ones with `chatbot:tools:list`.");
             return self::FAILURE;
         }
 
         $user = $this->resolveUser();
         if ($user === null) {
-            $this->components->error('No pude resolver un usuario invocante. Pasa `--user=<email|id>` o asegúrate de tener al menos un User en la BD.');
+            $this->components->error('Could not resolve an invoking user. Pass `--user=<email|id>` or make sure there is at least one User in the database.');
             return self::FAILURE;
         }
 
-        // Bind auth manager para que policies/can/$user->can(...) funcionen
-        // exactamente como en runtime real.
+        // Bind the auth manager so that policies/can/$user->can(...) work
+        // exactly as in real runtime.
         try {
             Auth::setUser($user);
         } catch (Throwable) { /* fall through — auth driver may not support setUser in CLI */ }
@@ -93,7 +93,7 @@ class TestToolCommand extends Command
                 ? $tool->execute(is_array($args) ? $args : [], $ctx)
                 : $tool->handle(is_array($args) ? $args : [], $ctx);
         } catch (Throwable $e) {
-            $this->components->error('Excepción: ' . $e::class . ' — ' . $e->getMessage());
+            $this->components->error('Exception: ' . $e::class . ' — ' . $e->getMessage());
             $this->line($e->getTraceAsString());
             return self::FAILURE;
         }
@@ -190,7 +190,7 @@ class TestToolCommand extends Command
         try {
             $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException $e) {
-            $this->components->error("--{$label} no es JSON válido: " . $e->getMessage());
+            $this->components->error("--{$label} is not valid JSON: " . $e->getMessage());
             return false;
         }
         return is_array($decoded) ? $decoded : [];

@@ -8,38 +8,38 @@ use Rnkr69\LaraChatbot\Models\DashboardWidget;
 use Rnkr69\LaraChatbot\Models\WidgetRefreshPolicy;
 
 /**
- * v2.2 — Capa de edición/borrado de widgets compartida entre dos callers:
+ * v2.2 — Widget edit/delete layer shared between two callers:
  *
- *   1. **Controller HTTP** (`PATCH/DELETE /chatbot/dashboards/{slug}/widgets/{id}`).
- *      El cliente JS de gridstack envía cambios atómicos (mover, redimensionar,
- *      retitular, cambiar refresh policy) en una sola request.
- *   2. **`EditWidgetTool` / `DeleteWidgetTool`** (edición conversacional v2.2).
- *      El LLM resuelve `widget_id` desde el page_context auto-inyectado al
- *      abrir `/chatbot/dashboard` y aplica los cambios pedidos en lenguaje
- *      natural ("mueve KPIs a la izquierda y hazlo más grande").
+ *   1. **HTTP controller** (`PATCH/DELETE /chatbot/dashboards/{slug}/widgets/{id}`).
+ *      The gridstack JS client sends atomic changes (move, resize,
+ *      retitle, change refresh policy) in a single request.
+ *   2. **`EditWidgetTool` / `DeleteWidgetTool`** (conversational editing v2.2).
+ *      The LLM resolves `widget_id` from the page_context auto-injected on
+ *      opening `/chatbot/dashboard` and applies the changes requested in natural
+ *      language ("move KPIs to the left and make them bigger").
  *
- * El servicio NO valida ownership ni autoriza — el caller (controller
- * gracias a `findOwnedOr404` + middleware auth, o la tool gracias a su
- * cascada de scope) ya ha confirmado que el widget pertenece al usuario.
- * Aquí sólo aplicamos cambios y persistimos.
+ * The service does NOT validate ownership or authorize — the caller (the controller
+ * thanks to `findOwnedOr404` + auth middleware, or the tool thanks to its
+ * scope cascade) has already confirmed that the widget belongs to the user.
+ * Here we only apply changes and persist.
  *
- * Sin cambios de contrato HTTP: la `update()` produce exactamente el mismo
- * patrón de `fill()` selectivo que vivía inline en el controller; el shape
- * del Resource emitido al cliente es idéntico al de v2.1.x.
+ * No HTTP contract changes: `update()` produces exactly the same
+ * selective `fill()` pattern that lived inline in the controller; the shape
+ * of the Resource emitted to the client is identical to v2.1.x.
  */
 class WidgetCrudService
 {
     /**
-     * Aplica cambios selectivos al widget. Sólo las claves PRESENTES en
-     * `$changes` se tocan; las ausentes se preservan (semántica PATCH).
+     * Applies selective changes to the widget. Only the keys PRESENT in
+     * `$changes` are touched; absent ones are preserved (PATCH semantics).
      *
-     * `position` se normaliza con `WidgetPositionNormalizer`. `title` acepta
-     * `null` para limpiar. `refresh_policy` se ignora silenciosamente si
-     * no es un valor válido del enum (mismo comportamiento histórico —
-     * `tryFrom` devuelve null → no se asigna).
+     * `position` is normalized with `WidgetPositionNormalizer`. `title` accepts
+     * `null` to clear it. `refresh_policy` is silently ignored if
+     * it is not a valid enum value (same historical behavior —
+     * `tryFrom` returns null → it is not assigned).
      *
      * @param  array{position?: array<string,mixed>|null, title?: string|null, refresh_policy?: string} $changes
-     * @return array<string, mixed> $appliedChanges  diff resumen ("qué cambió") para devolver al LLM.
+     * @return array<string, mixed> $appliedChanges  diff summary ("what changed") to return to the LLM.
      */
     public function update(DashboardWidget $widget, array $changes): array
     {
@@ -77,8 +77,8 @@ class WidgetCrudService
     }
 
     /**
-     * Soft-delete del widget. El dashboard se "touchea" para que la sidebar
-     * refleje la edición reciente.
+     * Soft-delete of the widget. The dashboard is "touched" so the sidebar
+     * reflects the recent edit.
      */
     public function delete(DashboardWidget $widget): void
     {

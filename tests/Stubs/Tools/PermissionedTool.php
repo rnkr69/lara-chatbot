@@ -9,8 +9,8 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * Tool con permiso `orders.read` requerido. Debe aparecer en `forUser` sólo
- * si el `Authorizer` lo concede.
+ * Tool requiring the `orders.read` permission. Must appear in `forUser` only
+ * if the `Authorizer` grants it.
  */
 class PermissionedTool extends BaseBackendTool
 {

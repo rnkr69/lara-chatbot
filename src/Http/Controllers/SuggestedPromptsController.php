@@ -13,15 +13,15 @@ use Throwable;
 /**
  * `GET /chatbot/suggested-prompts` (v1.1.1, finding #14.d).
  *
- * Devuelve la lista de prompts sugeridos que el widget muestra en su
- * empty state. La config `chatbot.widget.suggested_prompts` puede ser:
+ * Returns the list of suggested prompts that the widget shows in its
+ * empty state. The config `chatbot.widget.suggested_prompts` can be:
  *
- *   - array<{label, prompt}>  estático.
- *   - Closure(Authenticatable): array<{label, prompt}>  dinámico por rol.
+ *   - array<{label, prompt}>  static.
+ *   - Closure(Authenticatable): array<{label, prompt}>  dynamic per role.
  *
- * El controller resuelve el closure server-side (donde tiene acceso al
- * usuario autenticado vía Auth) y devuelve siempre el shape plano para
- * que el widget JS no tenga que saber del closure.
+ * The controller resolves the closure server-side (where it has access to the
+ * authenticated user via Auth) and always returns the flat shape so
+ * the JS widget does not have to know about the closure.
  */
 class SuggestedPromptsController
 {

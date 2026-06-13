@@ -9,28 +9,28 @@ use Rnkr69\LaraChatbot\Models\Conversation;
 use Rnkr69\LaraChatbot\Models\Message;
 
 /**
- * Evento que el `ChatService` dispara tras persistir el assistant message
- * que cierra un turn. Es el gancho oficial del paquete para telemetría de
- * coste y sinks externos (Prometheus, BigQuery, OpenTelemetry, etc.) — el
- * host engancha listeners desde su `EventServiceProvider` sin tocar el
- * paquete.
+ * Event that `ChatService` fires after persisting the assistant message
+ * that closes a turn. It is the package's official hook for cost
+ * telemetry and external sinks (Prometheus, BigQuery, OpenTelemetry, etc.) — the
+ * host hooks listeners from its `EventServiceProvider` without touching the
+ * package.
  *
- * Diseñado para responder a la pregunta "¿cuánto cuesta el bot al mes?"
- * sin imponer una solución concreta:
+ * Designed to answer the question "how much does the bot cost per month?"
+ * without imposing a concrete solution:
  *
- *   - El paquete persiste `tokens_in` / `tokens_out` por `Message` (ya
- *     existía como columna) y emite este evento. Cero ingestión hacia
- *     fuera por defecto.
- *   - El host decide qué hacer: incrementar contadores de Prometheus,
- *     stream a BigQuery, agregar a un dashboard interno, etc.
- *   - Para una agregación ad-hoc sin instrumentar nada, ejecutar
- *     `php artisan chatbot:cost-report --since=YYYY-MM-DD` — lee la
- *     tabla, multiplica por `chatbot.telemetry.prices.{provider}.{model}`
- *     y escupe el coste.
+ *   - The package persists `tokens_in` / `tokens_out` per `Message` (it
+ *     already existed as a column) and emits this event. Zero outbound
+ *     ingestion by default.
+ *   - The host decides what to do: increment Prometheus counters,
+ *     stream to BigQuery, aggregate to an internal dashboard, etc.
+ *   - For an ad-hoc aggregation without instrumenting anything, run
+ *     `php artisan chatbot:cost-report --since=YYYY-MM-DD` — it reads the
+ *     table, multiplies by `chatbot.telemetry.prices.{provider}.{model}`
+ *     and spits out the cost.
  *
- * Se dispara **una vez por turn** (después de persistir el assistant
- * message, antes del `done` SSE). Si la pipeline crasheó antes de
- * persistir, NO se emite — sólo lo que llegó al disco se contabiliza.
+ * It fires **once per turn** (after persisting the assistant
+ * message, before the `done` SSE). If the pipeline crashed before
+ * persisting, it is NOT emitted — only what reached disk is counted.
  */
 final class MessagePersisted
 {

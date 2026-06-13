@@ -13,21 +13,21 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * v2.2 / PR-B — Edita propiedades de un widget del dashboard del usuario
- * (mover, redimensionar, retitular, cambiar refresh_policy). El LLM la
- * invoca cuando el usuario pide algo como "mueve el widget de KPIs a la
- * izquierda y hazlo más grande" o "renombra el chart a Ventas Q1".
+ * v2.2 / PR-B — Edits properties of a widget on the user's dashboard
+ * (move, resize, retitle, change refresh_policy). The LLM invokes it when
+ * the user asks something like "move the KPIs widget to the left and make
+ * it bigger" or "rename the chart to Ventas Q1".
  *
- * Convencionalmente la tool sólo se ofrece en `/chatbot/dashboard` — la
- * resolución del `widget_id` desde un título legible la hace el LLM contra
- * el `page_context.dashboard.widgets` auto-inyectado en esa página (E7 de
- * v2.2). Fuera del dashboard la tool sigue activa pero el LLM no tiene
- * cómo nombrar widgets sin id.
+ * By convention the tool is only offered on `/chatbot/dashboard` — the LLM
+ * resolves the `widget_id` from a readable title against the
+ * `page_context.dashboard.widgets` auto-injected on that page (E7 of
+ * v2.2). Outside the dashboard the tool stays active but the LLM has no
+ * way to name widgets without an id.
  *
- * Sin banner: `confirmation = Auto`. Edición no destructiva (mover/resize/
- * rename son fácilmente revertibles desde la propia UI gridstack). Si más
- * adelante se promueve a `Confirm`, hace falta el flow BE-confirm en el
- * orquestador (backlog).
+ * No banner: `confirmation = Auto`. Non-destructive edit (move/resize/
+ * rename are easily reversible from the gridstack UI itself). If it is
+ * later promoted to `Confirm`, the BE-confirm flow in the orchestrator is
+ * needed (backlog).
  */
 class EditWidgetTool extends BaseBackendTool
 {
@@ -98,9 +98,9 @@ class EditWidgetTool extends BaseBackendTool
             );
         }
 
-        // Política 404-no-403: scope la query a widgets de dashboards del
-        // user. Cross-user resuelve a "widget_not_found", no a "unauthorized"
-        // (mismo patrón que el controller HTTP).
+        // 404-not-403 policy: scope the query to widgets of the user's
+        // dashboards. Cross-user resolves to "widget_not_found", not to
+        // "unauthorized" (same pattern as the HTTP controller).
         $widget = $this->findOwnedWidget($ctx, $widgetId);
         if ($widget === null) {
             return ToolResult::error(
@@ -181,13 +181,13 @@ class EditWidgetTool extends BaseBackendTool
                         'summary' => $summary,
                     ]),
                 ],
-                // v2.2.1 (PR-B) — `changes` lleva las CLAVES tocadas (title /
-                // position / refresh_policy), no los valores nuevos — el bundle
-                // re-fetchea el dashboard activo si la mutación afecta al que
-                // el usuario tiene abierto, evitando filtrar lógica de merge al
-                // cliente. `dashboard_slug` puede ser null si el cargo eager
-                // del relation falló por un motivo raro; el listener lo trata
-                // como "refresca lo que tengas abierto" igualmente.
+                // v2.2.1 (PR-B) — `changes` carries the KEYS touched (title /
+                // position / refresh_policy), not the new values — the bundle
+                // re-fetches the active dashboard if the mutation affects the
+                // one the user has open, avoiding leaking merge logic to the
+                // client. `dashboard_slug` may be null if the relation's eager
+                // load failed for some odd reason; the listener treats it
+                // as "refresh whatever you have open" anyway.
                 'meta' => [
                     'side_effects' => array_filter([
                         'type'           => 'widget_updated',
@@ -202,7 +202,7 @@ class EditWidgetTool extends BaseBackendTool
 
     /**
      * Find a widget by id, scoped to dashboards of the calling user.
-     * Cross-user lookup returns `null` — política 404-no-403.
+     * Cross-user lookup returns `null` — 404-not-403 policy.
      */
     protected function findOwnedWidget(ToolContext $ctx, int $widgetId): ?DashboardWidget
     {
@@ -244,15 +244,15 @@ class EditWidgetTool extends BaseBackendTool
         $parts = [];
         if (isset($applied['position'])) {
             $p = $applied['position'];
-            $parts[] = sprintf('posición (x:%d, y:%d, w:%d, h:%d)', $p['x'] ?? 0, $p['y'] ?? 0, $p['w'] ?? 0, $p['h'] ?? 0);
+            $parts[] = sprintf('position (x:%d, y:%d, w:%d, h:%d)', $p['x'] ?? 0, $p['y'] ?? 0, $p['w'] ?? 0, $p['h'] ?? 0);
         }
         if (array_key_exists('title', $applied)) {
-            $parts[] = $applied['title'] === null ? 'título limpiado' : sprintf("título → '%s'", (string) $applied['title']);
+            $parts[] = $applied['title'] === null ? 'title cleared' : sprintf("title → '%s'", (string) $applied['title']);
         }
         if (isset($applied['refresh_policy'])) {
             $parts[] = sprintf("refresh → '%s'", (string) $applied['refresh_policy']);
         }
 
-        return $parts === [] ? '(sin cambios)' : implode(', ', $parts);
+        return $parts === [] ? '(no changes)' : implode(', ', $parts);
     }
 }

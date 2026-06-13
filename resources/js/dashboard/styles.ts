@@ -1,26 +1,26 @@
 /**
- * v2.0 / E5 — styles injectados al document.head al bootstrap.
+ * v2.0 / E5 — styles injected into document.head at bootstrap.
  *
- * Combina:
+ * Combines:
  *   1. `gridstack/dist/gridstack.min.css` + `gridstack-extra.min.css` —
- *      importados como `text` via el loader de esbuild (configurado en
- *      `scripts/build.mjs`). Sin esto, los `.grid-stack-item` no se
- *      posicionan ni los handles de resize aparecen.
- *   2. Nuestras propias clases (`.cb-dashboard-*`) para sidebar, header,
- *      card y status pills. Mantiene el bundle como UN ÚNICO archivo JS;
- *      no hay `<link rel="stylesheet">` adicional que la blade tenga que
- *      cargar.
+ *      imported as `text` via the esbuild loader (configured in
+ *      `scripts/build.mjs`). Without this, the `.grid-stack-item`s are not
+ *      positioned and the resize handles don't appear.
+ *   2. Our own classes (`.cb-dashboard-*`) for sidebar, header, card and
+ *      status pills. Keeps the bundle as a SINGLE JS file; there is no extra
+ *      `<link rel="stylesheet">` the blade has to load.
  *
- * El archivo NO es importado por `app.ts`/`grid.ts`/`widget-card.ts`/
- * `sidebar.ts`. Sólo lo carga `index.ts` (entry de producción). De ese
- * modo los tests Vitest no chocan con el resolver de CSS (el grid se
- * mockea, las cards renderizan en DOM plano, los assertions van contra
- * clases y atributos).
+ * The file is NOT imported by `app.ts`/`grid.ts`/`widget-card.ts`/
+ * `sidebar.ts`. Only `index.ts` (the production entry) loads it. That way the
+ * Vitest tests don't clash with the CSS resolver (the grid is mocked, the
+ * cards render in plain DOM, the assertions go against classes and
+ * attributes).
  */
 
-// @ts-expect-error — los .css resuelven como string via el loader 'text' que
-// `scripts/build.mjs` configura en esbuild. Para `tsc --noEmit` (typecheck)
-// no hay declaración; el expect-error la oculta sin afectar al runtime.
+// @ts-expect-error — the .css files resolve as a string via the 'text' loader
+// that `scripts/build.mjs` configures in esbuild. For `tsc --noEmit`
+// (typecheck) there is no declaration; the expect-error hides it without
+// affecting the runtime.
 import gridstackCss from 'gridstack/dist/gridstack.min.css';
 // @ts-expect-error — ditto.
 import gridstackExtraCss from 'gridstack/dist/gridstack-extra.min.css';

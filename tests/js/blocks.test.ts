@@ -402,9 +402,9 @@ describe('renderBlock — v1.1 alias resolution & meta.customError (findings #5/
   });
 
   it('setChartLabels overrides the invalid-data placeholder message (#25)', () => {
-    setChartLabels({ invalid_data: 'Datos del gráfico inválidos.' });
+    setChartLabels({ invalid_data: 'Invalid chart data.' });
     const node = renderChartBlock({ title: 'D' }, { send: () => undefined }, { invalidData: true });
-    expect(node.querySelector('.cb-chart-note')!.textContent).toBe('Datos del gráfico inválidos.');
+    expect(node.querySelector('.cb-chart-note')!.textContent).toBe('Invalid chart data.');
   });
 });
 

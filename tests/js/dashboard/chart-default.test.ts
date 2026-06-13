@@ -1,19 +1,19 @@
 /**
- * v2.0 / E7 — Vitest para `chart-default.ts`.
+ * v2.0 / E7 — Vitest for `chart-default.ts`.
  *
- * Chart.js no funciona en jsdom (no implementa canvas). En lugar de
- * polyfillear, mockeamos `chart.js/auto` con un constructor stub que captura
- * args + expone `.destroy()` para verificar el WeakMap lifecycle. El smoke
- * test "Chart.js dibuja de verdad" se hace en Playwright (Chromium tiene
- * canvas real) — aquí cubrimos contrato + sanity + lifecycle.
+ * Chart.js does not work in jsdom (it does not implement canvas). Instead of
+ * polyfilling, we mock `chart.js/auto` with a stub constructor that captures
+ * args + exposes `.destroy()` to verify the WeakMap lifecycle. The smoke
+ * test "Chart.js actually draws" is done in Playwright (Chromium has a
+ * real canvas) — here we cover contract + sanity + lifecycle.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-// vi.mock se hoistea al top del archivo; los símbolos compartidos con la
-// factory tienen que vivir dentro de `vi.hoisted` para evitar el TDZ. La
-// factory devuelve `{ default: ChartStub }` porque
-// `import Chart from 'chart.js/auto'` resuelve el export default.
+// vi.mock is hoisted to the top of the file; symbols shared with the
+// factory must live inside `vi.hoisted` to avoid the TDZ. The
+// factory returns `{ default: ChartStub }` because
+// `import Chart from 'chart.js/auto'` resolves the default export.
 const mocks = vi.hoisted(() => {
   const chartInstances: Array<{
     canvas: HTMLCanvasElement;

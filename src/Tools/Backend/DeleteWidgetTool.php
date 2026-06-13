@@ -12,20 +12,20 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * v2.2 / PR-B — Borra (soft-delete) un widget del dashboard del usuario.
+ * v2.2 / PR-B — Deletes (soft-delete) a widget from the user's dashboard.
  *
- * **Nota sobre confirmación**: el plan original de PR-B (chatbot_package_
- * 2.1.3_upstream_prs.md) proponía `confirmation = Confirm` para emitir el
- * banner del orquestador antes de aplicar. En v2.2.0 mantenemos
- * `confirmation = Auto` porque el flow de Confirm para backend tools
- * (filtro `ChatService:578` + banner SSE específico para BE + endpoint
- * `POST /actions/{id}/confirm` para BE) está pendiente del backlog v2.x.
- * La acción es soft-delete (recuperable a nivel BD), pero igualmente la
- * `description()` instruye al LLM a confirmar verbalmente con el usuario
- * antes de invocar — el safety net es lingüístico, no UI.
+ * **Note on confirmation**: the original PR-B plan (chatbot_package_
+ * 2.1.3_upstream_prs.md) proposed `confirmation = Confirm` to emit the
+ * orchestrator's banner before applying. In v2.2.0 we keep
+ * `confirmation = Auto` because the Confirm flow for backend tools
+ * (filter `ChatService:578` + BE-specific SSE banner + endpoint
+ * `POST /actions/{id}/confirm` for BE) is pending in the v2.x backlog.
+ * The action is a soft-delete (recoverable at the DB level), but the
+ * `description()` still instructs the LLM to confirm verbally with the user
+ * before invoking — the safety net is linguistic, not UI.
  *
- * Resolución del `widget_id`: el LLM lo obtiene del `page_context.dashboard
- * .widgets` auto-inyectado en `/chatbot/dashboard`.
+ * Resolving the `widget_id`: the LLM obtains it from the `page_context.dashboard
+ * .widgets` auto-injected on `/chatbot/dashboard`.
  */
 class DeleteWidgetTool extends BaseBackendTool
 {
@@ -112,7 +112,7 @@ class DeleteWidgetTool extends BaseBackendTool
                         'title' => $widgetTitle,
                     ]),
                 ],
-                // v2.2.1 (PR-B) — el bundle del dashboard quita la card sin F5.
+                // v2.2.1 (PR-B) — the dashboard bundle removes the card without an F5.
                 'meta' => [
                     'side_effects' => array_filter([
                         'type'           => 'widget_deleted',

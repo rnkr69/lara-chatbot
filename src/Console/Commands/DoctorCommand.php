@@ -18,28 +18,28 @@ use Throwable;
 /**
  * `php artisan chatbot:doctor` (v1.1.1, finding #14.a).
  *
- * Health check del setup del paquete. Reporta una checklist con
- * ✓ / ✗ / ⚠ por categoría. Bajo coste, altísimo valor onboarding —
- * es el primer comando que cualquier dev nuevo va a correr al integrar.
+ * Health check of the package setup. Reports a checklist with
+ * ✓ / ✗ / ⚠ per category. Low cost, very high onboarding value —
+ * it is the first command any new dev will run when integrating.
  *
- * Categorías:
- *   - Configuration (provider, model, scope_resolver, env vars básicas).
+ * Categories:
+ *   - Configuration (provider, model, scope_resolver, basic env vars).
  *   - Authorization (resolver / scope / tenant).
- *   - Database (tablas, conexión).
- *   - Assets (bundle JS + sourcemap publicados).
- *   - LLM (env var de API key, opcionalmente ping).
- *   - Tools (count de registradas, mcp warnings, tenant scope sin resolver).
+ *   - Database (tables, connection).
+ *   - Assets (published JS bundle + sourcemap).
+ *   - LLM (API key env var, optionally ping).
+ *   - Tools (registered count, mcp warnings, tenant scope without resolver).
  *
- * Exit code 0 si no hay errores. 1 si al menos un error (no warnings).
+ * Exit code 0 if there are no errors. 1 if at least one error (not warnings).
  */
 class DoctorCommand extends Command
 {
     /** @var string */
     protected $signature = 'chatbot:doctor
-                            {--no-ping : Omite el ping al LLM (más rápido, no consume tokens).}';
+                            {--no-ping : Skip the LLM ping (faster, consumes no tokens).}';
 
     /** @var string */
-    protected $description = 'Health check del setup del paquete chatbot (config, auth, DB, assets, LLM, tools).';
+    protected $description = 'Health check of the chatbot package setup (config, auth, DB, assets, LLM, tools).';
 
     private int $errors = 0;
     private int $warnings = 0;
@@ -71,7 +71,7 @@ class DoctorCommand extends Command
     private function summary(): void
     {
         if ($this->errors === 0 && $this->warnings === 0) {
-            $this->components->info('All checks passed. Listo para usar.');
+            $this->components->info('All checks passed. Ready to use.');
             return;
         }
 
@@ -118,9 +118,9 @@ class DoctorCommand extends Command
 
         $configPath = function_exists('config_path') ? config_path('chatbot.php') : '';
         if ($configPath !== '' && $this->files->exists($configPath)) {
-            $this->ok('config/chatbot.php publicado');
+            $this->ok('config/chatbot.php published');
         } else {
-            $this->checkWarn('config/chatbot.php no publicado (corriendo desde defaults del package). Ejecuta `chatbot:install`.');
+            $this->checkWarn('config/chatbot.php not published (running from package defaults). Run `chatbot:install`.');
         }
 
         $provider = (string) config('chatbot.provider', '');
@@ -129,13 +129,13 @@ class DoctorCommand extends Command
         if ($provider !== '') {
             $this->ok("chatbot.provider = <info>{$provider}</info>");
         } else {
-            $this->err('chatbot.provider está vacío.');
+            $this->err('chatbot.provider is empty.');
         }
 
         if ($model !== '') {
             $this->ok("chatbot.model = <info>{$model}</info>");
         } else {
-            $this->err('chatbot.model está vacío.');
+            $this->err('chatbot.model is empty.');
         }
 
         $scopeResolver = config('chatbot.authorization.scope_resolver');
@@ -143,10 +143,10 @@ class DoctorCommand extends Command
             if (class_exists($scopeResolver)) {
                 $this->ok("scope_resolver → <info>{$scopeResolver}</info>");
             } else {
-                $this->err("chatbot.authorization.scope_resolver apunta a `{$scopeResolver}` pero esa clase no existe.");
+                $this->err("chatbot.authorization.scope_resolver points to `{$scopeResolver}` but that class does not exist.");
             }
         } else {
-            $this->checkWarn('chatbot.authorization.scope_resolver no configurado (usando NullScopeResolver — sólo AccessScope::Self).');
+            $this->checkWarn('chatbot.authorization.scope_resolver not configured (using NullScopeResolver — AccessScope::Self only).');
         }
     }
 
@@ -159,9 +159,9 @@ class DoctorCommand extends Command
 
         if ($resolver === 'spatie') {
             if (class_exists(\Spatie\Permission\PermissionServiceProvider::class)) {
-                $this->ok('spatie/laravel-permission detectado');
+                $this->ok('spatie/laravel-permission detected');
             } else {
-                $this->err('resolver=spatie pero spatie/laravel-permission no está instalado.');
+                $this->err('resolver=spatie but spatie/laravel-permission is not installed.');
             }
         }
 
@@ -171,7 +171,7 @@ class DoctorCommand extends Command
                 $this->ok('ScopeResolver bind OK (' . $scope::class . ')');
             }
         } catch (Throwable $e) {
-            $this->err('ScopeResolver no resoluble: ' . $e->getMessage());
+            $this->err('ScopeResolver not resolvable: ' . $e->getMessage());
         }
 
         try {
@@ -179,10 +179,10 @@ class DoctorCommand extends Command
                 $tenant = app(TenantResolver::class);
                 $this->ok('TenantResolver bind OK (' . $tenant::class . ')');
             } else {
-                $this->checkWarn('TenantResolver no bind (OK si tu app es single-tenant).');
+                $this->checkWarn('TenantResolver not bound (OK if your app is single-tenant).');
             }
         } catch (Throwable $e) {
-            $this->err('TenantResolver no resoluble: ' . $e->getMessage());
+            $this->err('TenantResolver not resolvable: ' . $e->getMessage());
         }
     }
 
@@ -194,7 +194,7 @@ class DoctorCommand extends Command
             $conv = Conversation::query()->count();
             $this->ok("chatbot_conversations: <info>{$conv}</info> rows");
         } catch (Throwable $e) {
-            $this->err('chatbot_conversations no accesible — ¿corriste `php artisan migrate`? ('. $e->getMessage() .')');
+            $this->err('chatbot_conversations not accessible — did you run `php artisan migrate`? ('. $e->getMessage() .')');
             return;
         }
 
@@ -202,14 +202,14 @@ class DoctorCommand extends Command
             $msg = Message::query()->count();
             $this->ok("chatbot_messages: <info>{$msg}</info> rows");
         } catch (Throwable $e) {
-            $this->err('chatbot_messages no accesible: ' . $e->getMessage());
+            $this->err('chatbot_messages not accessible: ' . $e->getMessage());
         }
 
         try {
             $pa = PendingAction::query()->count();
             $this->ok("chatbot_pending_actions: <info>{$pa}</info> rows");
         } catch (Throwable $e) {
-            $this->err('chatbot_pending_actions no accesible: ' . $e->getMessage());
+            $this->err('chatbot_pending_actions not accessible: ' . $e->getMessage());
         }
     }
 
@@ -221,16 +221,16 @@ class DoctorCommand extends Command
         if ($path !== '' && $this->files->exists($path)) {
             $size = $this->files->size($path);
             $kb = number_format($size / 1024, 1);
-            $this->ok("chatbot-widget.js publicado ({$kb} KB)");
+            $this->ok("chatbot-widget.js published ({$kb} KB)");
         } else {
-            $this->err('public/vendor/chatbot/chatbot-widget.js no existe. Ejecuta `php artisan vendor:publish --tag=chatbot-assets --force`.');
+            $this->err('public/vendor/chatbot/chatbot-widget.js does not exist. Run `php artisan vendor:publish --tag=chatbot-assets --force`.');
         }
 
         $mapPath = function_exists('public_path') ? public_path('vendor/chatbot/chatbot-widget.js.map') : '';
         if ($mapPath !== '' && $this->files->exists($mapPath)) {
-            $this->ok('chatbot-widget.js.map presente');
+            $this->ok('chatbot-widget.js.map present');
         } else {
-            $this->checkWarn('chatbot-widget.js.map ausente (debugging del bundle será limitado).');
+            $this->checkWarn('chatbot-widget.js.map missing (bundle debugging will be limited).');
         }
     }
 
@@ -251,28 +251,28 @@ class DoctorCommand extends Command
         if ($envKey !== null) {
             $val = function_exists('env') ? env($envKey) : null;
             if (is_string($val) && $val !== '') {
-                $this->ok("{$envKey} presente");
+                $this->ok("{$envKey} present");
             } else {
-                $this->err("{$envKey} no está seteada en `.env` (provider={$provider}).");
+                $this->err("{$envKey} is not set in `.env` (provider={$provider}).");
             }
         }
 
         $verify = config('chatbot.http.verify', true);
         if ($verify === false) {
-            $this->checkWarn('chatbot.http.verify = false (SSL deshabilitado globalmente — sólo aceptable en dev/staging).');
+            $this->checkWarn('chatbot.http.verify = false (SSL disabled globally — only acceptable in dev/staging).');
         } else {
             $this->ok('chatbot.http.verify = true');
         }
 
         if ($this->option('no-ping')) {
-            $this->line('    (skipping LLM ping — usa sin `--no-ping` para hacer un test real)');
+            $this->line('    (skipping LLM ping — run without `--no-ping` to perform a real test)');
             return;
         }
 
         try {
             $gateway = function_exists('app') ? app(LlmGateway::class) : null;
             if ($gateway === null) {
-                $this->checkWarn('LlmGateway no resoluble — ping omitido.');
+                $this->checkWarn('LlmGateway not resolvable — ping skipped.');
                 return;
             }
             $started = microtime(true);
@@ -281,10 +281,10 @@ class DoctorCommand extends Command
             if (stripos($reply, 'pong') !== false) {
                 $this->ok("ping → <info>pong</info> ({$ms} ms)");
             } else {
-                $this->checkWarn("ping respondió: " . substr($reply, 0, 60) . " ({$ms} ms)");
+                $this->checkWarn("ping replied: " . substr($reply, 0, 60) . " ({$ms} ms)");
             }
         } catch (Throwable $e) {
-            $this->err('LLM ping falló: ' . $e->getMessage());
+            $this->err('LLM ping failed: ' . $e->getMessage());
         }
     }
 
@@ -295,13 +295,13 @@ class DoctorCommand extends Command
         try {
             $registry = function_exists('app') ? app(ToolRegistry::class) : null;
             if ($registry === null) {
-                $this->err('ToolRegistry no resoluble.');
+                $this->err('ToolRegistry not resolvable.');
                 return;
             }
             $count = count($registry->all());
-            $this->ok("{$count} tools registradas");
+            $this->ok("{$count} tools registered");
         } catch (Throwable $e) {
-            $this->err('No pude listar tools: ' . $e->getMessage());
+            $this->err('Could not list tools: ' . $e->getMessage());
             return;
         }
 
@@ -309,9 +309,9 @@ class DoctorCommand extends Command
         $autoDiscover = (bool) config('chatbot.tools.auto_discover', true);
         $paths = (array) config('chatbot.tools.paths', []);
         if ($autoDiscover && $paths !== []) {
-            $this->ok('auto_discover activo en: ' . implode(', ', $paths));
+            $this->ok('auto_discover active in: ' . implode(', ', $paths));
         } elseif (! $autoDiscover) {
-            $this->checkWarn('auto_discover desactivado — registra tools manualmente desde AppServiceProvider.');
+            $this->checkWarn('auto_discover disabled — register tools manually from AppServiceProvider.');
         }
     }
 }

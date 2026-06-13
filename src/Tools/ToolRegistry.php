@@ -16,25 +16,25 @@ use RuntimeException;
 use Symfony\Component\Finder\Finder;
 
 /**
- * Registro central de backend tools.
+ * Central registry of backend tools.
  *
- * El host registra tools de tres formas:
- *   1. Auto-discovery (default): el ServiceProvider escanea las paths de
- *      `chatbot.tools.paths` y registra cualquier clase concreta que
- *      implemente `BackendTool`.
- *   2. Manual: el AppServiceProvider del host llama
+ * The host registers tools in three ways:
+ *   1. Auto-discovery (default): the ServiceProvider scans the paths in
+ *      `chatbot.tools.paths` and registers any concrete class that
+ *      implements `BackendTool`.
+ *   2. Manual: the host's AppServiceProvider calls
  *      `app(ToolRegistry::class)->register(MyTool::class)`.
- *   3. Bridge MCP (E07): el `McpToolBridge` registra tools remotas con
- *      prefijo `mcp.<server>.<tool>`.
+ *   3. MCP bridge (E07): the `McpToolBridge` registers remote tools with
+ *      the `mcp.<server>.<tool>` prefix.
  *
- * `forUser($user)` devuelve sólo las tools cuya `permissions()` el usuario
- * cumple. Se usa por el orquestador (E08) para construir el array de tools
- * que enseña al LLM en cada turno.
+ * `forUser($user)` returns only the tools whose `permissions()` the user
+ * satisfies. It is used by the orchestrator (E08) to build the array of
+ * tools it shows the LLM on each turn.
  *
- * Boot ruidoso del gap cross-host E04: al `register()`, si la tool declara
- * `tenantScope=true` y el contenedor no tiene `TenantResolver` bind,
- * lanza `MissingTenantResolverException`. La idea es fallar pronto, no en
- * la primera invocación de la tool en producción.
+ * Noisy boot of the E04 cross-host gap: on `register()`, if the tool declares
+ * `tenantScope=true` and the container has no `TenantResolver` bound,
+ * it throws `MissingTenantResolverException`. The idea is to fail early, not
+ * on the tool's first invocation in production.
  */
 class ToolRegistry
 {
@@ -48,7 +48,7 @@ class ToolRegistry
     ) {}
 
     /**
-     * Registra una tool. Acepta una instancia ya construida o un class-string.
+     * Registers a tool. Accepts an already-built instance or a class-string.
      */
     public function register(string|BackendTool $tool): self
     {
@@ -74,8 +74,8 @@ class ToolRegistry
     }
 
     /**
-     * Tools cuyas `permissions()` el usuario cumple. Una tool sin permisos
-     * declarados es pública y siempre pasa.
+     * Tools whose `permissions()` the user satisfies. A tool with no declared
+     * permissions is public and always passes.
      *
      * @return array<string, BackendTool>
      */
@@ -95,7 +95,7 @@ class ToolRegistry
     }
 
     /**
-     * Todas las tools registradas, sin filtro.
+     * All registered tools, unfiltered.
      *
      * @return array<string, BackendTool>
      */
@@ -122,10 +122,10 @@ class ToolRegistry
     }
 
     /**
-     * Auto-discovery: escanea las paths declaradas en `chatbot.tools.paths`
-     * (relativas al `base_path()`) y registra cualquier clase concreta que
-     * implemente `BackendTool`. Idempotente: re-registrar una tool con el
-     * mismo `name()` la sobreescribe.
+     * Auto-discovery: scans the paths declared in `chatbot.tools.paths`
+     * (relative to `base_path()`) and registers any concrete class that
+     * implements `BackendTool`. Idempotent: re-registering a tool with the
+     * same `name()` overwrites it.
      *
      * @param  array<int, string>  $paths
      */
@@ -180,9 +180,9 @@ class ToolRegistry
     }
 
     /**
-     * Extrae el FQCN de un archivo PHP buscando `namespace` + `class` /
-     * `final class`. Suficiente para auto-discovery (un archivo = una clase
-     * top-level por convención).
+     * Extracts the FQCN from a PHP file by looking for `namespace` + `class` /
+     * `final class`. Sufficient for auto-discovery (one file = one top-level
+     * class by convention).
      */
     protected function classFromFile(string $path): ?string
     {
@@ -206,14 +206,14 @@ class ToolRegistry
     protected function resolve(string $class): BackendTool
     {
         if (! class_exists($class)) {
-            throw new RuntimeException("La clase `{$class}` no existe.");
+            throw new RuntimeException("Class `{$class}` does not exist.");
         }
 
         $instance = $this->container->make($class);
 
         if (! $instance instanceof BackendTool) {
             throw new RuntimeException(
-                "La clase `{$class}` no implementa Rnkr69\\LaraChatbot\\Tools\\Contracts\\BackendTool."
+                "Class `{$class}` does not implement Rnkr69\\LaraChatbot\\Tools\\Contracts\\BackendTool."
             );
         }
 

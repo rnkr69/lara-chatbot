@@ -11,16 +11,16 @@ use Rnkr69\LaraChatbot\Models\WidgetRefreshStatus;
 use Rnkr69\LaraChatbot\Tests\Stubs\TestUser;
 
 /**
- * E4 — CRUD JSON `/chatbot/dashboards*`.
+ * E4 — JSON CRUD `/chatbot/dashboards*`.
  *
- * Cubre:
- *   - index: paginación + count widgets + scope forUser
- *   - store: derivación server-side de slug + cap max_dashboards_per_user
- *   - show: widgets inline + 404 ajenos / soft-deleted
- *   - update: rename re-deriva slug, set is_default auto-demotes resto
- *   - destroy: soft-delete + auto-promote del próximo si era default
+ * Covers:
+ *   - index: pagination + widget count + forUser scope
+ *   - store: server-side slug derivation + max_dashboards_per_user cap
+ *   - show: inline widgets + 404 for foreign / soft-deleted
+ *   - update: rename re-derives slug, setting is_default auto-demotes the rest
+ *   - destroy: soft-delete + auto-promote of the next one if it was default
  *
- * Política 404-no-403 en todas las operaciones sobre slugs ajenos.
+ * 404-not-403 policy on every operation over foreign slugs.
  */
 
 beforeEach(function () {
@@ -173,8 +173,8 @@ it('appends a numeric suffix when a slug collides within the user scope', functi
 
 it('skips slugs occupied by soft-deleted dashboards on store (#21)', function () {
     $u = adcMakeUser();
-    // Un dashboard soft-deleted sigue ocupando su tupla (user, slug) en la
-    // constraint UNIQUE de la BD — `deleted_at` no entra en el índice.
+    // A soft-deleted dashboard still occupies its (user, slug) tuple in the
+    // DB UNIQUE constraint — `deleted_at` is not part of the index.
     $trashed = adcMakeDashboard($u, ['slug' => 'operations', 'name' => 'Operations']);
     $trashed->delete();
 
@@ -182,8 +182,8 @@ it('skips slugs occupied by soft-deleted dashboards on store (#21)', function ()
         'name' => 'Operations',
     ]);
 
-    // Antes de #21: 500 `Duplicate entry` — `slugExists()` no veía la fila
-    // soft-deleted y proponía `operations`, ya ocupado por la constraint.
+    // Before #21: 500 `Duplicate entry` — `slugExists()` did not see the
+    // soft-deleted row and proposed `operations`, already taken by the constraint.
     $response->assertStatus(201);
     expect($response->json('data.slug'))->toBe('operations-2');
 });
@@ -357,14 +357,14 @@ it('keeps the same slug when renaming yields a colliding slug (suffix applied)',
     ]);
 
     $response->assertOk();
-    // El nuevo slug NO debe ser `analytics` (en uso por otro dashboard
-    // del mismo usuario): se aplica sufijo.
+    // The new slug must NOT be `analytics` (in use by another dashboard of
+    // the same user): a suffix is applied.
     expect($response->json('data.slug'))->toBe('analytics-2');
 });
 
 it('skips slugs occupied by soft-deleted dashboards on rename (#21)', function () {
     $u = adcMakeUser();
-    // Slug soft-deleted que la constraint UNIQUE sigue contando.
+    // Soft-deleted slug that the UNIQUE constraint still counts.
     $trashed = adcMakeDashboard($u, ['slug' => 'operations-qa', 'name' => 'Operations QA']);
     $trashed->delete();
     adcMakeDashboard($u, ['slug' => 'operations', 'name' => 'Operations']);
@@ -373,8 +373,8 @@ it('skips slugs occupied by soft-deleted dashboards on rename (#21)', function (
         'name' => 'Operations QA',
     ]);
 
-    // Antes de #21: 500 `Duplicate entry` al renombrar contra un slug
-    // ocupado por un dashboard soft-deleted.
+    // Before #21: 500 `Duplicate entry` when renaming against a slug
+    // occupied by a soft-deleted dashboard.
     $response->assertOk();
     expect($response->json('data.slug'))->toBe('operations-qa-2');
 });
@@ -450,7 +450,7 @@ it('soft-deletes the dashboard and responds 204', function () {
 it('auto-promotes the most recent dashboard to default when destroying the current default', function () {
     $u = adcMakeUser();
     $oldDefault = adcMakeDashboard($u, ['slug' => 'old', 'name' => 'Old', 'is_default' => true]);
-    // Crea otro dashboard tras el default; updated_at más reciente → debe ser promovido.
+    // Create another dashboard after the default; more recent updated_at → should be promoted.
     $newer = adcMakeDashboard($u, ['slug' => 'newer', 'name' => 'Newer']);
 
     $this->actingAs($u, 'web')->deleteJson('/chatbot/dashboards/old')->assertStatus(204);

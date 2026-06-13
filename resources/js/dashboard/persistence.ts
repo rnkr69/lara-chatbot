@@ -1,11 +1,11 @@
 /**
  * v2.0 / E5 — `chatbot:active-dashboard:v1` cross-tab mirror.
  *
- * Mismo patrón que `ACTIVE_CONVERSATION_KEY` (D16) pero para el slug del
- * dashboard que el usuario tenía abierto la última vez. Sirve para deep-link
- * tras reload + navegar fuera y volver. Vive en `localStorage` para que el
- * widget flotante (cuando E9 enlace al dashboard) y la página `/chatbot/dashboard`
- * acuerden el mismo slug entre pestañas.
+ * Same pattern as `ACTIVE_CONVERSATION_KEY` (D16) but for the slug of the
+ * dashboard the user had open last time. Useful for deep-linking after a
+ * reload + navigating away and back. Lives in `localStorage` so the floating
+ * widget (when E9 links to the dashboard) and the `/chatbot/dashboard` page
+ * agree on the same slug across tabs.
  */
 
 export const ACTIVE_DASHBOARD_KEY = 'chatbot:active-dashboard:v1';

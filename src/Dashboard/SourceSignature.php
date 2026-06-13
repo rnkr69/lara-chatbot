@@ -5,20 +5,20 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Dashboard;
 
 /**
- * Calcula el `source_signature` (sha256 hex de 64 chars) de un block que
- * procede de una tool. Lo usan E4 al pinear (POST /widgets) y E3 al
- * deduplicar replay candidates.
+ * Computes the `source_signature` (64-char sha256 hex) of a block that
+ * comes from a tool. It is used by E4 on pin (POST /widgets) and by E3 to
+ * deduplicate replay candidates.
  *
- * Canonicalización determinística:
- *   - Arrays asociativos → `ksort` recursivo, mismas claves en cualquier
- *     orden colisionan: `{a:1,b:2}` ≡ `{b:2,a:1}`.
- *   - Arrays indexados (lists) → preservan orden. El orden es semántico
- *     en muchos casos (paginación, sorting, top-N): `[1,2,3]` ≢ `[3,2,1]`.
- *   - `JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE` para estabilidad
- *     de bytes entre runtimes con/sin extensiones intl.
+ * Deterministic canonicalization:
+ *   - Associative arrays → recursive `ksort`, the same keys in any
+ *     order collide: `{a:1,b:2}` ≡ `{b:2,a:1}`.
+ *   - Indexed arrays (lists) → preserve order. Order is semantic
+ *     in many cases (pagination, sorting, top-N): `[1,2,3]` ≢ `[3,2,1]`.
+ *   - `JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE` for byte stability
+ *     across runtimes with/without intl extensions.
  *
- * El input del tool y los args se concatenan con `|` como separador
- * inyectable-seguro: no es base64, no es URL, sólo entra a sha256.
+ * The tool input and the args are concatenated with `|` as an
+ * injection-safe separator: it is not base64, not a URL, it only feeds sha256.
  */
 final class SourceSignature
 {

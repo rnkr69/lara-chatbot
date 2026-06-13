@@ -15,14 +15,14 @@ use Rnkr69\LaraChatbot\Models\MessageRole;
  * `php artisan chatbot:cost-report --since=YYYY-MM-DD [--until=YYYY-MM-DD]
  *                                  [--user=ID] [--format=table|json|csv]`
  *
- * Agrega `tokens_in` / `tokens_out` por usuario (o globalmente) en un rango
- * temporal y los multiplica por las tarifas declaradas en
- * `chatbot.telemetry.prices.{provider}.{model}.{input|output}` (USD por
+ * Aggregates `tokens_in` / `tokens_out` per user (or globally) over a time
+ * range and multiplies them by the rates declared in
+ * `chatbot.telemetry.prices.{provider}.{model}.{input|output}` (USD per
  * 1M tokens).
  *
- * Sin tarifas para un (provider, model) la fila aparece con coste `n/a`;
- * los tokens se reportan igualmente. Esto es deliberado — preferimos
- * un report parcial visible a fingir un coste cero.
+ * Without rates for a (provider, model) the row shows cost `n/a`;
+ * the tokens are reported regardless. This is deliberate — we prefer
+ * a visible partial report over pretending a zero cost.
  *
  * Output (default `table`):
  *
@@ -34,17 +34,17 @@ use Rnkr69\LaraChatbot\Models\MessageRole;
  *     +---------+----------+-------------+---------------+--------------+
  *     Total:    20,300     6,600          $0.06           $0.10
  *
- * `--format=json` / `--format=csv` emiten el mismo dataset, machine-readable.
+ * `--format=json` / `--format=csv` emit the same dataset, machine-readable.
  */
 class CostReportCommand extends Command
 {
     protected $signature = 'chatbot:cost-report
-                            {--since= : Fecha desde (YYYY-MM-DD). Default: primer día del mes actual.}
-                            {--until= : Fecha hasta (YYYY-MM-DD), exclusiva. Default: ahora.}
-                            {--user= : Filtra por user_id concreto.}
-                            {--format=table : Formato de salida: table | json | csv.}';
+                            {--since= : Start date (YYYY-MM-DD). Default: first day of the current month.}
+                            {--until= : End date (YYYY-MM-DD), exclusive. Default: now.}
+                            {--user= : Filter by a specific user_id.}
+                            {--format=table : Output format: table | json | csv.}';
 
-    protected $description = 'Agrega tokens_in/out y coste por usuario en un rango temporal.';
+    protected $description = 'Aggregate tokens_in/out and cost per user over a time range.';
 
     public function handle(): int
     {
@@ -58,13 +58,13 @@ class CostReportCommand extends Command
         $format = $this->option('format');
 
         if (! in_array($format, ['table', 'json', 'csv'], true)) {
-            $this->error("Formato inválido: {$format}. Usar table | json | csv.");
+            $this->error("Invalid format: {$format}. Use table | json | csv.");
             return self::INVALID;
         }
 
-        // Cargamos los assistant messages del rango con conversación + meta
-        // para resolver provider/model efectivo (override por conversación o
-        // default de config).
+        // Load the assistant messages in the range with conversation + meta
+        // to resolve the effective provider/model (per-conversation override
+        // or config default).
         $query = Message::query()
             ->where('role', MessageRole::Assistant->value)
             ->whereBetween('created_at', [$since, $until])
@@ -79,8 +79,8 @@ class CostReportCommand extends Command
         $defaultProvider = is_string(config('chatbot.provider')) ? config('chatbot.provider') : null;
         $defaultModel    = is_string(config('chatbot.model')) ? config('chatbot.model') : null;
 
-        // Acumula por (user_id, provider, model) — la tarifa puede diferir por
-        // conversación si el host pasa override en `metadata`.
+        // Accumulate per (user_id, provider, model) — the rate may differ per
+        // conversation if the host passes an override in `metadata`.
         $bucket = [];
         foreach ($query->cursor() as $msg) {
             /** @var Message $msg */

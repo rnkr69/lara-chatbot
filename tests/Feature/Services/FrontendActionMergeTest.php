@@ -25,10 +25,10 @@ use Prism\Prism\ValueObjects\ToolResult as PrismToolResult;
 | ChatService merges `ToolResult::data` into `frontend_action.args` (E11)
 |--------------------------------------------------------------------------
 |
-| El test cubre el flujo completo extremo-a-extremo de `DownloadFileTool`:
-| el LLM llama la tool con un disk path, el `handle()` firma la URL, y el
-| widget recibe `frontend_action` con `download_url`/`expires_at` mergeados
-| en los args. El LLM ve un `tool_result` "queued" neutro.
+| The test covers the full end-to-end flow of `DownloadFileTool`: the LLM
+| calls the tool with a disk path, `handle()` signs the URL, and the widget
+| receives `frontend_action` with `download_url`/`expires_at` merged into the
+| args. The LLM sees a neutral "queued" `tool_result`.
 */
 
 beforeEach(function () {
@@ -93,7 +93,7 @@ it('merges DownloadFileTool data (download_url + expires_at) into frontend_actio
                     ])
                     ->withFinishReason(FinishReason::ToolCalls),
                 TextStepFake::make()
-                    ->withText('Aquí tienes la factura.')
+                    ->withText('Here is the invoice.')
                     ->withFinishReason(FinishReason::Stop),
             ]))
             ->withFinishReason(FinishReason::Stop),
@@ -171,13 +171,13 @@ it('emits NO frontend_action when DownloadFileTool fails the cascade (disk not a
 
     $kinds = array_map(fn (SseEvent $e) => $e->event, $events);
 
-    // No `frontend_action`: la cascada falló (allowed_disks vacía). En su
-    // lugar, ChatService emite un `tool_result` informativo con ok=false.
+    // No `frontend_action`: the cascade failed (empty allowed_disks). Instead,
+    // ChatService emits an informative `tool_result` with ok=false.
     expect(in_array('frontend_action', $kinds, true))->toBeFalse()
         ->and(in_array('tool_result', $kinds, true))->toBeTrue();
 
-    // ToolInvoked se dispara igualmente (gap E08 — listeners de audit ven
-    // el rechazo).
+    // ToolInvoked fires regardless (gap E08 — audit listeners see the
+    // rejection).
     Event::assertDispatched(ToolInvoked::class);
 });
 
@@ -186,10 +186,9 @@ it('emits frontend_action with the canonical primitive name when a subclass over
 
     Storage::disk('attachments')->put('manifests/op-1.pdf', 'fake');
 
-    // El host registra una subclase que se llama `download_manifest`
-    // (para que el LLM la descubra como una tool diferenciada con su
-    // propia description) pero declara `download_file` como primitive
-    // canónico del widget.
+    // The host registers a subclass named `download_manifest` (so the LLM
+    // discovers it as a distinct tool with its own description) but declares
+    // `download_file` as the widget's canonical primitive.
     app(ToolRegistry::class)->clear()->register(new DownloadManifestStub);
 
     Prism::fake([
@@ -216,7 +215,7 @@ it('emits frontend_action with the canonical primitive name when a subclass over
                     ])
                     ->withFinishReason(FinishReason::ToolCalls),
                 TextStepFake::make()
-                    ->withText('Aquí tienes el manifest.')
+                    ->withText('Here is the manifest.')
                     ->withFinishReason(FinishReason::Stop),
             ]))
             ->withFinishReason(FinishReason::Stop),
@@ -235,6 +234,6 @@ it('emits frontend_action with the canonical primitive name when a subclass over
         ->and($feEvents[0]->data['tool'])->toBe('download_file')
         ->and($feEvents[0]->data['args'])->toHaveKey('download_url');
 
-    // ToolInvoked sigue viendo el `name()` real de la tool host-side.
+    // ToolInvoked still sees the tool's real host-side `name()`.
     Event::assertDispatched(ToolInvoked::class, fn (ToolInvoked $e) => $e->tool->name() === 'download_manifest');
 });

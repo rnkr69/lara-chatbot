@@ -9,16 +9,16 @@ use Backpack\CRUD\app\Library\CrudPanel\CrudPanelFacade as CRUD;
 use Rnkr69\LaraChatbot\Models\Message;
 
 /**
- * Backpack CRUD read-only para `chatbot_messages`. Publicado por
+ * Read-only Backpack CRUD for `chatbot_messages`. Published by
  * `chatbot:install --backpack-admin` (rnkr69/lara-chatbot v1.1.1, finding #14.f).
  *
- * Para activar la ruta en tu admin Backpack añade en `routes/backpack/custom.php`:
+ * To enable the route in your Backpack admin, add to `routes/backpack/custom.php`:
  *
  *     Route::crud('chatbot-message', '\\App\\Http\\Controllers\\Admin\\ChatbotMessageCrudController');
  *
- * Sólo expone List + Show. Útil para auditoría: ver el contenido de los
- * mensajes que un usuario intercambió con el chatbot, qué tools llamó el
- * LLM, qué pending actions se generaron.
+ * Only exposes List + Show. Useful for auditing: inspect the content of the
+ * messages a user exchanged with the chatbot, which tools the LLM called, and
+ * which pending actions were generated.
  */
 class {{ class }} extends CrudController
 {

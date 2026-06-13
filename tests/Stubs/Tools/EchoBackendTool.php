@@ -10,9 +10,9 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * Backend tool de prueba para los tests de `ChatService`. Echo simple del
- * arg `message` y, opcionalmente, fuerza un error de runtime si la flag
- * está activa.
+ * Test backend tool for the `ChatService` tests. Simple echo of the
+ * `message` arg and, optionally, forces a runtime error if the flag
+ * is set.
  */
 class EchoBackendTool extends BaseBackendTool
 {

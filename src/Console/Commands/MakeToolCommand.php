@@ -10,16 +10,16 @@ use Symfony\Component\Console\Input\InputOption;
 /**
  * `php artisan chatbot:make:tool ListMyInvoices [--type=read|write]`
  *
- * Stubea una clase que extiende `BaseBackendTool` en
- * `app/Chatbot/Tools/{Name}.php`. Con `--type=read` (default) se genera el
- * esqueleto de una tool que sólo consulta; con `--type=write`, una tool de
- * escritura con TODOs para idempotencia y audit log.
+ * Stubs a class that extends `BaseBackendTool` in
+ * `app/Chatbot/Tools/{Name}.php`. With `--type=read` (default) it generates
+ * the skeleton of a query-only tool; with `--type=write`, a write tool
+ * with TODOs for idempotency and audit log.
  */
 class MakeToolCommand extends GeneratorCommand
 {
     protected $name = 'chatbot:make:tool';
 
-    protected $description = 'Stubea una clase BackendTool en app/Chatbot/Tools/.';
+    protected $description = 'Stub a BackendTool class in app/Chatbot/Tools/.';
 
     protected $type = 'BackendTool';
 
@@ -44,13 +44,13 @@ class MakeToolCommand extends GeneratorCommand
     protected function getOptions(): array
     {
         return [
-            ['type', null, InputOption::VALUE_OPTIONAL, 'Tipo de tool: read (default) o write.', 'read'],
+            ['type', null, InputOption::VALUE_OPTIONAL, 'Tool type: read (default) or write.', 'read'],
         ];
     }
 
     /**
-     * Convierte el FQCN solicitado en `name()` snake_case razonable. Lo
-     * inyecta en el stub para que el integrador no tenga que pensarlo.
+     * Converts the requested FQCN into a reasonable snake_case `name()`. It
+     * injects it into the stub so the integrator does not have to think about it.
      */
     protected function buildClass($name): string
     {

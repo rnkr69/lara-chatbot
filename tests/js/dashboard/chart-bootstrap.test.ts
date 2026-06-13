@@ -1,19 +1,19 @@
 /**
- * v2.0 / E7 — Vitest para el cableado en `index.ts`:
+ * v2.0 / E7 — Vitest for the wiring in `index.ts`:
  *
- *   - `installChatbotShim()` instala un mini `window.Chatbot` con
- *     `registerBlockRenderer` + `__internal.getBlockRenderer` cuando no hay
- *     widget bundle previo.
- *   - `configureChartRenderer(root)` respeta `data-chart-renderer`:
- *       * `'chartjs'` (default): registra `renderChartBlockChartjs`.
- *       * `'none'`: no registra nada.
- *   - Si el host registró su propio renderer ANTES, no clobeamos.
+ *   - `installChatbotShim()` installs a minimal `window.Chatbot` with
+ *     `registerBlockRenderer` + `__internal.getBlockRenderer` when there is no
+ *     previous widget bundle.
+ *   - `configureChartRenderer(root)` respects `data-chart-renderer`:
+ *       * `'chartjs'` (default): registers `renderChartBlockChartjs`.
+ *       * `'none'`: registers nothing.
+ *   - If the host registered its own renderer BEFORE, we do not clobber it.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-// Mock chart.js/auto para que `chart-default.ts` (importado por index.ts) no
-// intente cargar la lib real durante el setup del test.
+// Mock chart.js/auto so that `chart-default.ts` (imported by index.ts) does
+// not try to load the real lib during the test setup.
 const mocks = vi.hoisted(() => ({
   ChartStub: vi.fn().mockImplementation((canvas: HTMLCanvasElement) => ({
     canvas,

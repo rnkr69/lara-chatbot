@@ -15,30 +15,30 @@ use Rnkr69\LaraChatbot\Tools\ConfirmationLevel;
 use Rnkr69\LaraChatbot\Tools\Contracts\BackendTool;
 
 /**
- * v2.2 — Pinea un block como `DashboardWidget`. Extrae toda la lógica de
- * orquestación que vivía inline en `ApiDashboardWidgetController::store`:
- * defensa pinnable, cap de widgets, truncado de snapshot, sanitización +
- * filtrado del page_context al subset declarado por la tool, posición
- * default por `block_type`, source signature, persist + touch del dashboard.
+ * v2.2 — Pins a block as a `DashboardWidget`. Extracts all the orchestration
+ * logic that lived inline in `ApiDashboardWidgetController::store`:
+ * pinnable defense, widget cap, snapshot truncation, sanitization +
+ * filtering of the page_context to the subset declared by the tool, default
+ * position by `block_type`, source signature, persist + touch of the dashboard.
  *
- * Dos callers comparten el servicio:
+ * Two callers share the service:
  *
- *   1. **Controller HTTP** (`POST /chatbot/dashboards/{slug}/widgets`).
- *      Camino histórico — el usuario hace click 📌 sobre un block en el chat;
- *      el cliente JS ya tiene el snapshot y manda `{block_id, snapshot,
- *      source, ...}` al servidor. El controller resuelve la tool + dashboard
- *      y llama a este servicio.
- *   2. **`AddToDashboardTool`** (auto-pin desde el chat, v2.2 PR-A). El LLM
- *      invoca la tool con `{source_tool, source_args, dashboard_slug?, ...}`;
- *      la tool ejecuta el source_tool, selecciona el block adecuado y llama
- *      a este servicio.
+ *   1. **HTTP controller** (`POST /chatbot/dashboards/{slug}/widgets`).
+ *      Historical path — the user clicks 📌 on a block in the chat;
+ *      the JS client already has the snapshot and sends `{block_id, snapshot,
+ *      source, ...}` to the server. The controller resolves the tool + dashboard
+ *      and calls this service.
+ *   2. **`AddToDashboardTool`** (auto-pin from the chat, v2.2 PR-A). The LLM
+ *      invokes the tool with `{source_tool, source_args, dashboard_slug?, ...}`;
+ *      the tool executes the source_tool, selects the appropriate block and calls
+ *      this service.
  *
- * Errores de dominio se propagan como `PinException` con categoría
- * (`cap_reached`, `not_pinnable`). Cada caller mapea a su forma:
+ * Domain errors propagate as `PinException` with a category
+ * (`cap_reached`, `not_pinnable`). Each caller maps it to its own shape:
  * controller → JSON 422, tool → `ToolResult::error(...)`.
  *
- * Sin cambios de contrato HTTP: el shape persistido del widget (incluido el
- * descriptor `source`) es idéntico al de v2.1.x para preservar replay
+ * No HTTP contract changes: the persisted widget shape (including the
+ * `source` descriptor) is identical to v2.1.x to preserve replay
  * compatibility.
  */
 class PinService
@@ -50,15 +50,15 @@ class PinService
     /**
      * @param array<string, mixed> $sourceArgs
      * @param array{type:string, data?: array<string, mixed>, id?: string, ordinal?: int} $block
-     *                                                                             el block seleccionado a persistir.
-     *                                                                             `data` es el cuerpo del snapshot; `id`/`ordinal`
-     *                                                                             son opcionales (audit + replay matching).
-     * @param array<string, mixed>|null $pageContext     page_context RAW del request (sin sanear, sin filtrar);
-     *                                                   este servicio aplica ambos pasos.
-     * @param array<int, string>|null   $pageContextKeys keys declaradas por el source tool — sólo este subset
-     *                                                   del page_context se persiste en `source.page_context_snapshot`.
-     * @param array<string, mixed>|null $position        position cliente-provided (clamped); `null` = posición default
-     *                                                   `(x:0, y:9999)` con `w/h` heurísticos por block_type.
+     *                                                                             the selected block to persist.
+     *                                                                             `data` is the snapshot body; `id`/`ordinal`
+     *                                                                             are optional (audit + replay matching).
+     * @param array<string, mixed>|null $pageContext     RAW page_context from the request (unsanitized, unfiltered);
+     *                                                   this service applies both steps.
+     * @param array<int, string>|null   $pageContextKeys keys declared by the source tool — only this subset
+     *                                                   of the page_context is persisted in `source.page_context_snapshot`.
+     * @param array<string, mixed>|null $position        client-provided position (clamped); `null` = default position
+     *                                                   `(x:0, y:9999)` with `w/h` heuristics by block_type.
      *
      * @throws PinException cap_reached | not_pinnable
      */
@@ -72,13 +72,13 @@ class PinService
         ?array $pageContextKeys = null,
         ?array $position = null,
     ): DashboardWidget {
-        // 1. Defense-in-depth (paridad con controller l.103–113). Aunque el
-        //    caller suela pre-chequear, el servicio no confía en él.
+        // 1. Defense-in-depth (parity with controller l.103–113). Even though the
+        //    caller usually pre-checks, the service does not trust it.
         if (! $sourceTool->pinnable() || $sourceTool->confirmation() !== ConfirmationLevel::Auto) {
             throw PinException::notPinnable($sourceTool->name());
         }
 
-        // 2. Widget cap (paridad con controller l.70–83).
+        // 2. Widget cap (parity with controller l.70–83).
         $cap = (int) config('chatbot.dashboard.max_widgets_per_dashboard', 50);
         $current = $dashboard->widgets()->count();
 
@@ -86,7 +86,7 @@ class PinService
             throw PinException::capReached($cap, $current);
         }
 
-        // 3. Atributos derivados.
+        // 3. Derived attributes.
         $blockType = (string) ($block['type'] ?? '');
         $blockData = is_array($block['data'] ?? null) ? $block['data'] : [];
         $snapshot  = $this->prepareSnapshot(['data' => $blockData]);
@@ -135,21 +135,21 @@ class PinService
             'order_index'         => $orderIndex,
         ]);
 
-        // Touch the dashboard so `updated_at` reflects "last pin time" — la
-        // sidebar usa este orden para "recently used" panels.
+        // Touch the dashboard so `updated_at` reflects "last pin time" — the
+        // sidebar uses this ordering for "recently used" dashboards.
         $dashboard->touch();
 
         return $widget;
     }
 
     /**
-     * Hard cap del snapshot persistido (`chatbot.dashboard.snapshot_max_bytes`,
-     * default 256 KB). Si el JSON de `data` excede el cap, conservamos sólo
-     * `data.head` (primeras filas si es array list — null en otro caso) +
-     * marker `truncated: true`. El replay (E3) re-ejecuta el tool al abrir
-     * y reemplaza el snapshot con datos frescos completos (≤ cap también);
-     * el truncado del pin sólo cubre el caso patológico (datasets enormes
-     * pre-computados antes del primer replay).
+     * Hard cap of the persisted snapshot (`chatbot.dashboard.snapshot_max_bytes`,
+     * default 256 KB). If the JSON of `data` exceeds the cap, we keep only
+     * `data.head` (first rows if it is a list array — null otherwise) +
+     * the `truncated: true` marker. The replay (E3) re-executes the tool on open
+     * and replaces the snapshot with complete fresh data (≤ cap as well);
+     * the pin truncation only covers the pathological case (huge datasets
+     * pre-computed before the first replay).
      *
      * @param  array<string, mixed>  $rawSnapshot
      * @return array<string, mixed>
@@ -190,17 +190,17 @@ class PinService
     }
 
     /**
-     * Filtra el `page_context` actual del request a las claves declaradas
-     * por el tool en `source.page_context_keys`. Aplica:
+     * Filters the request's current `page_context` to the keys declared
+     * by the tool in `source.page_context_keys`. Applies:
      *
      *   1. `PageContextSanitizer::sanitize()` (drop closures/objects/null/
-     *      recursos/floats no finitos — la misma defensa de `/stream`).
-     *   2. Filtrado por keys: sólo las claves listadas pasan al snapshot.
-     *   3. Cap binario de `chatbot.limits.page_context_kb` (default 16 KB):
-     *      si el JSON resultante excede, se descarta entero + log info.
+     *      resources/non-finite floats — the same defense as `/stream`).
+     *   2. Filtering by keys: only the listed keys reach the snapshot.
+     *   3. Binary cap of `chatbot.limits.page_context_kb` (default 16 KB):
+     *      if the resulting JSON exceeds it, the whole thing is discarded + log info.
      *
-     * Devuelve `[]` cuando no hay context, las keys están vacías, o la
-     * sanitización purga todo. Coherente con el comportamiento de
+     * Returns `[]` when there is no context, the keys are empty, or the
+     * sanitization purges everything. Consistent with the behavior of
      * `ChatController::sanitizePageContext`.
      *
      * @param  array<string, mixed>  $rawContext
@@ -236,7 +236,7 @@ class PinService
         $encoded = json_encode($filtered);
         if (! is_string($encoded) || strlen($encoded) > $limit) {
             Log::info(sprintf(
-                '[chatbot] dashboard widget page_context_snapshot descartado por exceder %d KB tras filtrar.',
+                '[chatbot] dashboard widget page_context_snapshot dropped for exceeding %d KB after filtering.',
                 $limitKb,
             ));
 

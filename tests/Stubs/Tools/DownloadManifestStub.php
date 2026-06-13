@@ -7,14 +7,13 @@ namespace Rnkr69\LaraChatbot\Tests\Stubs\Tools;
 use Rnkr69\LaraChatbot\Tools\Frontend\DownloadFileTool;
 
 /**
- * Stub para finding #25: una FE tool del host que extiende un primitive
- * del bundle (`DownloadFileTool`) sobrescribiendo `name()` para que el
- * LLM la vea como `download_manifest`, pero override
- * `frontendPrimitiveName()` para que el widget siga resolviendo al
- * primitive canónico `download_file`.
+ * Stub for finding #25: a host FE tool that extends a bundle primitive
+ * (`DownloadFileTool`) overriding `name()` so the LLM sees it as
+ * `download_manifest`, but overriding `frontendPrimitiveName()` so the
+ * widget still resolves to the canonical primitive `download_file`.
  *
- * Sin el override de `frontendPrimitiveName()`, el SSE viajaría con
- * `tool=download_manifest` y el widget toastearía `unknown_tool`.
+ * Without the `frontendPrimitiveName()` override, the SSE would travel with
+ * `tool=download_manifest` and the widget would toast `unknown_tool`.
  */
 class DownloadManifestStub extends DownloadFileTool
 {
@@ -30,6 +29,6 @@ class DownloadManifestStub extends DownloadFileTool
 
     public function description(): string
     {
-        return 'Descarga el manifest de la operación; delega en download_file tras validar ownership.';
+        return 'Downloads the operation manifest; delegates to download_file after validating ownership.';
     }
 }

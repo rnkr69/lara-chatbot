@@ -9,21 +9,21 @@ use Illuminate\Console\GeneratorCommand;
 /**
  * `php artisan chatbot:make:tenant-resolver MyTenantResolver`
  *
- * Stubea una clase `TenantResolver` en `app/Chatbot/{name}.php` con el
- * esqueleto del único método del contrato (`resolveAccessibleTenantIds`)
- * y comentarios con tres patrones típicos. El integrador
- * elige el modelo y rellena.
+ * Stubs a `TenantResolver` class in `app/Chatbot/{name}.php` with the
+ * skeleton of the contract's only method (`resolveAccessibleTenantIds`)
+ * and comments with three typical patterns. The integrator chooses the
+ * model and fills it in.
  *
- * Mirror del patrón `chatbot:make:scope-resolver` — el `InstallCommand`
- * (E18) lo invoca como sub-paso opcional cuando el usuario indica que su
- * host requiere tenant scope. El comando también se puede ejecutar suelto
- * si el host añade tenant scope post-install.
+ * Mirror of the `chatbot:make:scope-resolver` pattern — the `InstallCommand`
+ * (E18) invokes it as an optional sub-step when the user indicates their
+ * host requires tenant scope. The command can also be run standalone if
+ * the host adds tenant scope post-install.
  */
 class MakeTenantResolverCommand extends GeneratorCommand
 {
     protected $name = 'chatbot:make:tenant-resolver';
 
-    protected $description = 'Stubea una clase TenantResolver para el chatbot en app/Chatbot/.';
+    protected $description = 'Stub a chatbot TenantResolver class in app/Chatbot/.';
 
     protected $type = 'TenantResolver';
 

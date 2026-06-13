@@ -154,7 +154,7 @@ export class ChatbotWidgetElement extends HTMLElement {
     if (name === 'data-conversation-id') {
       this.conversationId = value && value !== '' ? value : null;
       this.persist();
-      // E17 / D16: mirror to localStorage so the widget flotante and the
+      // E17 / D16: mirror to localStorage so the floating widget and the
       // dedicated `/chatbot` page agree on the active conversation across
       // tabs. Null clears the cross-tab key.
       saveActiveConversation(this.conversationId);
@@ -490,31 +490,31 @@ export class ChatbotWidgetElement extends HTMLElement {
     }
     if (stored !== null && stored !== current) {
       clearActiveConversation();
-      // Finding #24 (1.1.4): el state per-pestaña en sessionStorage
-      // también persiste `conversationId` y sobrevive a logout/login en
-      // la misma pestaña. `clearActiveConversation()` arriba sólo borra
-      // la clave de localStorage (cross-tab); sin esta purga,
-      // `rehydrate()` haría fallback al `state.conversationId` viejo y
-      // `saveActiveConversation(effectiveConvId)` re-escribiría la conv
-      // del usuario anterior — deshaciendo el gating.
+      // Finding #24 (1.1.4): the per-tab state in sessionStorage also
+      // persists `conversationId` and survives logout/login in the same
+      // tab. `clearActiveConversation()` above only removes the
+      // localStorage key (cross-tab); without this purge, `rehydrate()`
+      // would fall back to the old `state.conversationId` and
+      // `saveActiveConversation(effectiveConvId)` would re-write the
+      // previous user's conversation — undoing the gating.
       const tabState = loadState();
       if (tabState.conversationId !== null) {
         saveState({ ...tabState, conversationId: null });
       }
-      // Finding #30 (1.1.4.1): el storage queda limpio pero el atributo
-      // `data-conversation-id` y `this.conversationId` siguen apuntando
-      // a la conv anterior si el HTML los emitía o si el atributo fue
-      // procesado por `attributeChangedCallback` antes del gate. En ese
-      // caso `rehydrate()` ya no leerá storage pero la propia llamada a
-      // `this.setAttribute('data-conversation-id', …)` (o el flush del
-      // saver pendiente) re-escribiría el valor viejo a storage. Purga
-      // todo el state in-memory + cancela cualquier escritura pendiente.
+      // Finding #30 (1.1.4.1): storage is now clean but the
+      // `data-conversation-id` attribute and `this.conversationId` still
+      // point at the previous conversation if the HTML emitted them or if
+      // the attribute was processed by `attributeChangedCallback` before
+      // the gate. In that case `rehydrate()` will no longer read storage
+      // but the `this.setAttribute('data-conversation-id', …)` call itself
+      // (or the flush of the pending saver) would re-write the old value to
+      // storage. Purge all in-memory state + cancel any pending write.
       this.conversationId = null;
       this.saver?.cancel();
       if (this.hasAttribute('data-conversation-id')) {
-        // removeAttribute dispara attributeChangedCallback que pone
-        // `this.conversationId=null`, `saveActiveConversation(null)` y
-        // schedule un persist con conv=null — redundante pero correcto.
+        // removeAttribute fires attributeChangedCallback which sets
+        // `this.conversationId=null`, `saveActiveConversation(null)` and
+        // schedules a persist with conv=null — redundant but correct.
         this.removeAttribute('data-conversation-id');
       }
       this.sidebar?.setActive(null);
@@ -527,7 +527,7 @@ export class ChatbotWidgetElement extends HTMLElement {
    *
    * Order of precedence for `conversationId` (E17 / D16):
    *   1. `chatbot:active-conversation:v1` in **localStorage** — cross-tab key
-   *      shared between widget flotante and `/chatbot`. Wins when present.
+   *      shared between the floating widget and `/chatbot`. Wins when present.
    *   2. `chatbot:state:v1` in sessionStorage (E13) — per-tab fallback.
    *
    * `draft` and `isOpen` always come from sessionStorage (per-tab). Page mode

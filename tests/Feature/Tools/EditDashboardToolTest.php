@@ -12,10 +12,10 @@ use Rnkr69\LaraChatbot\Tools\Backend\EditDashboardTool;
 use Rnkr69\LaraChatbot\Tools\ToolContext;
 
 /**
- * v2.2 / PR-B — `EditDashboardTool` y `DeleteDashboardTool`. Cubre
+ * v2.2 / PR-B — `EditDashboardTool` and `DeleteDashboardTool`. Covers
  * rename + slug regen, set_default + auto-demote (model hook),
- * auto-promote-next-default tras delete, would_create_orphan_default,
- * y política 404-no-403 cross-user.
+ * auto-promote-next-default after delete, would_create_orphan_default,
+ * and the cross-user 404-no-403 policy.
  */
 
 beforeEach(function () {
@@ -330,7 +330,7 @@ it('cascades soft-delete to widgets implicitly (widgets still exist but their da
     $tool->execute(['dashboard_slug' => 'extra'], new ToolContext(user: $u));
 
     expect(Dashboard::query()->where('slug', 'extra')->count())->toBe(0);
-    // Widget row is not soft-deleted by our flow (paridad con controller).
+    // Widget row is not soft-deleted by our flow (parity with the controller).
     // It just orphans against a soft-deleted dashboard. The prune command
     // (`chatbot:dashboards:prune --purge-soft-deleted`) eventually cleans
     // both sides.

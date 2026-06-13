@@ -8,31 +8,31 @@ use Illuminate\Support\Str;
 use Rnkr69\LaraChatbot\Models\Dashboard;
 
 /**
- * v2.2 — Capa de edición/borrado de dashboards compartida entre:
+ * v2.2 — Dashboard edit/delete layer shared between:
  *
- *   1. **Controller HTTP** (`PATCH/DELETE /chatbot/dashboards/{slug}`).
- *      Path histórico — la sidebar del dashboard manda renames /
- *      set-default / delete por click.
- *   2. **`EditDashboardTool` / `DeleteDashboardTool`** (edición conversacional
- *      v2.2). El LLM aplica los mismos cambios pedidos en lenguaje natural
- *      ("renombra el panel a Operaciones Q1", "borra el panel viejo").
+ *   1. **HTTP controller** (`PATCH/DELETE /chatbot/dashboards/{slug}`).
+ *      Historical path — the dashboard sidebar issues renames /
+ *      set-default / delete on click.
+ *   2. **`EditDashboardTool` / `DeleteDashboardTool`** (conversational
+ *      editing v2.2). The LLM applies the same changes requested in natural
+ *      language ("rename the dashboard to Operations Q1", "delete the old dashboard").
  *
- * Igual que `WidgetCrudService`, no valida ownership ni autoriza — el caller
- * resuelve el dashboard del usuario y delega aquí sólo el "apply + persist".
+ * Like `WidgetCrudService`, it does not validate ownership or authorize — the caller
+ * resolves the user's dashboard and delegates here only the "apply + persist".
  *
- * El hook `saving` del modelo `Dashboard` auto-DEMOTE al resto del usuario
- * cuando uno se marca `is_default=true`, así que el servicio no orquesta esa
- * parte — sólo asigna el flag y guarda. El auto-PROMOTE post-delete del
- * próximo dashboard del usuario sí lo implementa este servicio (paridad
- * con `ApiDashboardController::promoteNextDefault`).
+ * The `Dashboard` model's `saving` hook auto-DEMOTES the rest of the user's
+ * dashboards when one is marked `is_default=true`, so the service does not
+ * orchestrate that part — it only assigns the flag and saves. The post-delete
+ * auto-PROMOTE of the user's next dashboard IS implemented by this service (parity
+ * with `ApiDashboardController::promoteNextDefault`).
  */
 class DashboardCrudService
 {
     /**
-     * Aplica cambios selectivos al dashboard. Semántica PATCH como en
-     * `WidgetCrudService`. Si se renombra, el slug se regenera (paridad con
-     * el controller HTTP) — el caller debe leer `new_slug` del retorno
-     * cuando aplique el cambio para actualizar URLs.
+     * Applies selective changes to the dashboard. PATCH semantics as in
+     * `WidgetCrudService`. On rename, the slug is regenerated (parity with
+     * the HTTP controller) — the caller must read `new_slug` from the return
+     * value when the change applies in order to update URLs.
      *
      * @param  array{name?: string, is_default?: bool, metadata?: array<string,mixed>|null} $changes
      * @return array{applied: array<string, mixed>, new_slug?: string}
@@ -46,10 +46,10 @@ class DashboardCrudService
             $name = (string) $changes['name'];
             $dashboard->name = $name;
 
-            // Re-derive slug al renombrar. Conservar el slug viejo crea
-            // disonancia "el nombre dice X pero la URL dice Y" que confunde
-            // a quien copie/pegue links. Si colisiona con otro dashboard
-            // del mismo usuario (no este), aplicamos sufijo numérico.
+            // Re-derive slug on rename. Keeping the old slug creates a
+            // dissonance "the name says X but the URL says Y" that confuses
+            // anyone copy/pasting links. If it collides with another dashboard
+            // of the same user (not this one), we apply a numeric suffix.
             $derived = $this->deriveUniqueSlug(
                 $dashboard->user_type,
                 $dashboard->user_id,
@@ -90,11 +90,11 @@ class DashboardCrudService
     }
 
     /**
-     * Soft-delete del dashboard. Si era el `is_default`, promueve el próximo
-     * más recientemente actualizado a default (paridad con
-     * `ApiDashboardController::promoteNextDefault`). Devuelve el slug del
-     * dashboard promovido — útil para que el LLM lo mencione al usuario
-     * ("borré X; ahora tu default es Y") — o `null` si no había próximo.
+     * Soft-delete of the dashboard. If it was the `is_default`, promotes the
+     * most recently updated next one to default (parity with
+     * `ApiDashboardController::promoteNextDefault`). Returns the slug of the
+     * promoted dashboard — useful for the LLM to mention to the user
+     * ("deleted X; your default is now Y") — or `null` if there was no next one.
      */
     public function delete(Dashboard $dashboard): ?string
     {
@@ -127,15 +127,15 @@ class DashboardCrudService
     }
 
     /**
-     * Deriva un slug único dentro del scope `(user_type, user_id)`. Empieza
-     * con `Str::slug($name)`; si colisiona, prueba `-2`, `-3`… hasta dar
-     * con uno libre. `$excludeId` se pasa al PATCH para que el dashboard
-     * que se renombra no compita contra sí mismo. Si `Str::slug` produce
-     * cadena vacía (input con sólo símbolos), fallback a `'dashboard'`.
+     * Derives a unique slug within the `(user_type, user_id)` scope. Starts
+     * with `Str::slug($name)`; on collision, tries `-2`, `-3`… until it finds
+     * a free one. `$excludeId` is passed on PATCH so that the dashboard being
+     * renamed does not compete against itself. If `Str::slug` produces an
+     * empty string (input with only symbols), falls back to `'dashboard'`.
      *
-     * `Dashboard::withTrashed()` es deliberado (v2.1.1 #21): la constraint
-     * UNIQUE no excluye soft-deleted, así que enumeramos también esos
-     * slugs.
+     * `Dashboard::withTrashed()` is deliberate (v2.1.1 #21): the UNIQUE
+     * constraint does not exclude soft-deleted rows, so we enumerate those
+     * slugs too.
      */
     public function deriveUniqueSlug(string $userType, mixed $userId, string $name, ?int $excludeId = null): string
     {

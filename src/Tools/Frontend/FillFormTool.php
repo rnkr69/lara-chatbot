@@ -8,22 +8,23 @@ use Rnkr69\LaraChatbot\Tools\BaseFrontendTool;
 use Rnkr69\LaraChatbot\Tools\ConfirmationLevel;
 
 /**
- * Rellena (y opcionalmente envía) un formulario de la página.
+ * Fills (and optionally submits) a form on the page.
  *
- * `form_id` apunta al elemento `<form>` (o un wrapper con `data-chatbot-form`
- * que el host etiquete). El widget asigna cada `fields[].value` al control
- * con `name` correspondiente y, si `submit=true`, dispara el submit nativo.
+ * `form_id` points to the `<form>` element (or a wrapper with `data-chatbot-form`
+ * that the host tags). The widget assigns each `fields[].value` to the control
+ * with the corresponding `name` and, if `submit=true`, triggers the native submit.
  *
- * Confirmation: `confirm` por defecto, porque el caso típico cubre un submit
- * que dispara una acción de backend. Hosts que sólo lo usen para precargar
- * borradores (sin submit) pueden override a `auto` o registrar una subclase
- * propia. Cuando `submit=false` la confirmación es opcional desde la óptica
- * UX, pero mantenemos el default conservador para minimizar sorpresas.
+ * Confirmation: `confirm` by default, because the typical case covers a submit
+ * that triggers a backend action. Hosts that only use it to pre-fill
+ * drafts (without submit) can override to `auto` or register their own
+ * subclass. When `submit=false` confirmation is optional from a UX
+ * standpoint, but we keep the conservative default to minimize surprises.
  *
- * Nota E11/v1: el `confirmation()` es per-tool, no per-call. Por contrato
- * E16 (que aún no existe) la cascada `chatbot_pending_actions` se aplicará
- * según este flag — para v1 el widget recibe el flag en el `frontend_action`
- * y respeta la UX, pero el storage de la acción pendiente lo introduce E16.
+ * E11/v1 note: `confirmation()` is per-tool, not per-call. By the E16
+ * contract (which does not exist yet) the `chatbot_pending_actions` cascade
+ * will be applied according to this flag — for v1 the widget receives the
+ * flag in the `frontend_action` and respects the UX, but the storage of the
+ * pending action is introduced by E16.
  */
 class FillFormTool extends BaseFrontendTool
 {

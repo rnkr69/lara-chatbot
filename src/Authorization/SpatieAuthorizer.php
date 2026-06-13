@@ -9,17 +9,17 @@ use Rnkr69\LaraChatbot\Authorization\Contracts\Authorizer;
 use RuntimeException;
 
 /**
- * Implementación que delega en `spatie/laravel-permission`.
+ * Implementation that delegates to `spatie/laravel-permission`.
  *
- * El paquete **no** declara Spatie como dependencia (ROADMAP §2.1). Esta
- * clase sólo se instancia si el ServiceProvider detecta que el trait
- * `Spatie\Permission\Traits\HasRoles` está cargado. Si se intenta
- * instanciar sin Spatie, lanza un `RuntimeException` claro que guía al
- * integrador a `composer require spatie/laravel-permission` o cambiar a
- * `chatbot.authorization.resolver = gate`.
+ * The package does **not** declare Spatie as a dependency (ROADMAP §2.1).
+ * This class is only instantiated if the ServiceProvider detects that the
+ * `Spatie\Permission\Traits\HasRoles` trait is loaded. If instantiation is
+ * attempted without Spatie, it throws a clear `RuntimeException` that
+ * guides the integrator to `composer require spatie/laravel-permission` or
+ * to switch to `chatbot.authorization.resolver = gate`.
  *
- * Itera los permisos y llama `$user->can($permission)` — método que
- * Spatie inyecta vía `HasPermissions`. Todos deben pasar (AND).
+ * Iterates the permissions and calls `$user->can($permission)` — a method
+ * Spatie injects via `HasPermissions`. All must pass (AND).
  */
 class SpatieAuthorizer implements Authorizer
 {
@@ -27,9 +27,9 @@ class SpatieAuthorizer implements Authorizer
     {
         if (! class_exists(\Spatie\Permission\PermissionServiceProvider::class)) {
             throw new RuntimeException(
-                'chatbot.authorization.resolver=spatie pero el paquete '
-                . 'spatie/laravel-permission no está instalado. Ejecuta '
-                . '`composer require spatie/laravel-permission` o cambia a '
+                'chatbot.authorization.resolver=spatie but the '
+                . 'spatie/laravel-permission package is not installed. Run '
+                . '`composer require spatie/laravel-permission` or switch to '
                 . 'resolver=gate / resolver=custom.'
             );
         }

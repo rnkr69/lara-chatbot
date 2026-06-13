@@ -7,19 +7,19 @@ namespace Rnkr69\LaraChatbot\Tools\Frontend;
 use Rnkr69\LaraChatbot\Tools\BaseFrontendTool;
 
 /**
- * Abre un modal con un bloque tipado dentro y, opcionalmente, una lista de
- * acciones (botones) que disparan otras tools cuando el usuario las pulsa.
+ * Opens a modal with a typed block inside and, optionally, a list of
+ * actions (buttons) that trigger other tools when the user clicks them.
  *
- * El `block` sigue el shape de `RenderBlockTool` (E15): `{type: 'card'|'table'|...,
- * data: {...}}`. `actions[]` permite componer flujos en los que el modal
- * presenta información rica + opciones (ej. "Confirmar", "Editar",
- * "Cancelar") asociadas a tools concretas.
+ * The `block` follows the shape of `RenderBlockTool` (E15): `{type: 'card'|'table'|...,
+ * data: {...}}`. `actions[]` allows composing flows in which the modal
+ * presents rich information + options (e.g. "Confirm", "Edit",
+ * "Cancel") associated with specific tools.
  *
- * Confirmation: `auto` por defecto. ROADMAP §5/E11 nota que cuando un modal
- * dispara acciones destructivas (tipo "Borrar") el host puede subclase para
- * devolver `confirm`. Detectarlo automáticamente desde los args es frágil
- * (depende de la nomenclatura del host); preferimos default permisivo +
- * receta de override en la doc.
+ * Confirmation: `auto` by default. ROADMAP §5/E11 notes that when a modal
+ * triggers destructive actions (like "Delete") the host can subclass to
+ * return `confirm`. Detecting it automatically from the args is fragile
+ * (it depends on the host's naming); we prefer a permissive default +
+ * an override recipe in the doc.
  */
 class OpenModalTool extends BaseFrontendTool
 {

@@ -10,12 +10,12 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * Tool de LECTURA — sólo consulta datos, nunca muta.
+ * READ tool — only queries data, never mutates.
  *
- * El LLM lee `description()` y `parameters()` para decidir si invocarla.
- * Los args se validan automáticamente en `BaseBackendTool::execute()`
- * antes de llegar a `handle()` — si fallan, devuelve
- * `ToolResult::error('validation', ...)` sin invocarte.
+ * The LLM reads `description()` and `parameters()` to decide whether to
+ * invoke it. The args are validated automatically in
+ * `BaseBackendTool::execute()` before reaching `handle()` — if they fail, it
+ * returns `ToolResult::error('validation', ...)` without invoking you.
  */
 class {{ class }} extends BaseBackendTool
 {
@@ -26,14 +26,14 @@ class {{ class }} extends BaseBackendTool
 
     public function description(): string
     {
-        // TODO: una frase orientada al LLM. Ejemplo:
-        //   'Lista las facturas del usuario actual con filtros opcionales.'
-        return 'TODO: describe qué hace esta tool en una frase.';
+        // TODO: a single LLM-oriented sentence. Example:
+        //   'Lists the current user\'s invoices with optional filters.'
+        return 'TODO: describe what this tool does in one sentence.';
     }
 
     public function parameters(): array
     {
-        // JSON Schema mínimo (type/properties/required/enum). Ejemplo:
+        // Minimal JSON Schema (type/properties/required/enum). Example:
         //
         //   return [
         //       'type' => 'object',
@@ -41,11 +41,11 @@ class {{ class }} extends BaseBackendTool
         //           'status' => [
         //               'type' => 'string',
         //               'enum' => ['paid', 'pending', 'cancelled'],
-        //               'description' => 'Filtra por estado de pago.',
+        //               'description' => 'Filter by payment status.',
         //           ],
         //           'limit' => [
         //               'type' => 'integer',
-        //               'description' => 'Máximo de filas a devolver.',
+        //               'description' => 'Maximum number of rows to return.',
         //           ],
         //       ],
         //       'required' => [],
@@ -60,20 +60,20 @@ class {{ class }} extends BaseBackendTool
 
     public function permissions(): array
     {
-        // Permisos AND. Lista vacía = tool pública.
+        // AND permissions. Empty list = public tool.
         return [];
     }
 
     public function defaultScope(): AccessScope
     {
-        // Scope efectivo: Self/Team/All. El paquete usa este valor para
-        // filtrar la query con `accessibleQuery()`.
+        // Effective scope: Self/Team/All. The package uses this value to
+        // filter the query with `accessibleQuery()`.
         return AccessScope::Self;
     }
 
     public function handle(array $args, ToolContext $ctx): ToolResult
     {
-        // TODO: implementa la consulta. Ejemplo con `accessibleQuery()`:
+        // TODO: implement the query. Example with `accessibleQuery()`:
         //
         //   $invoices = $this->accessibleQuery(\App\Models\Invoice::query(), $ctx)
         //       ->when($args['status'] ?? null, fn ($q, $status) => $q->where('status', $status))

@@ -1,13 +1,13 @@
 /**
- * v2.0 / E5 — cliente REST + SSE de la Dashboard API (E4).
+ * v2.0 / E5 — REST + SSE client for the Dashboard API (E4).
  *
- * Wrappers tipados sobre `fetch`. Lee el CSRF-token del meta tag exactamente
- * igual que `sidebar.ts` del widget (no hay session reuse entre el dashboard
- * y el widget bundle: ambos viven en páginas distintas).
+ * Typed wrappers over `fetch`. Reads the CSRF token from the meta tag exactly
+ * like the widget's `sidebar.ts` (there is no session reuse between the
+ * dashboard and the widget bundle: both live on different pages).
  *
- * `streamRefreshAll` consume el SSE bulk de `POST /dashboards/{slug}/refresh`.
- * Reutiliza `nextBlock` del SSE chat (`resources/js/sse.ts`) para el buffering
- * pero parsea los frames con un filtro propio (`widget_refreshed` + `done`).
+ * `streamRefreshAll` consumes the bulk SSE of `POST /dashboards/{slug}/refresh`.
+ * It reuses `nextBlock` from the chat SSE (`resources/js/sse.ts`) for buffering
+ * but parses the frames with its own filter (`widget_refreshed` + `done`).
  */
 
 import { nextBlock } from '../sse.js';
@@ -20,11 +20,11 @@ import type {
 } from './types.js';
 
 export interface ApiOptions {
-  /** Base URL del CRUD JSON (p.ej. `/chatbot/dashboards`). */
+  /** Base URL of the JSON CRUD (e.g. `/chatbot/dashboards`). */
   endpoint: string;
-  /** Bearer opcional para hosts que usan tokens en lugar de cookies. */
+  /** Optional Bearer for hosts that use tokens instead of cookies. */
   bearer?: string | null;
-  /** Inyectable para tests. */
+  /** Injectable for tests. */
   fetcher?: typeof fetch;
 }
 
@@ -238,8 +238,8 @@ export class DashboardApi {
   }
 
   /**
-   * Refresh manual de UN widget — devuelve el snapshot fresco (status + data).
-   * Rate-limited 60/min server-side (mismo bucket que refreshAll).
+   * Manual refresh of ONE widget — returns the fresh snapshot (status + data).
+   * Rate-limited 60/min server-side (same bucket as refreshAll).
    */
   async refreshWidget(slug: string, widgetId: number): Promise<WidgetRefreshedFrame> {
     const url = `${this.opts.endpoint}/${encodeURIComponent(slug)}/widgets/${widgetId}/refresh`;
@@ -257,19 +257,19 @@ export class DashboardApi {
 }
 
 export interface BulkRefreshHandlers {
-  /** Llamado por cada frame `widget_refreshed` con el resultado de un widget. */
+  /** Called for each `widget_refreshed` frame with the result of one widget. */
   onWidget(frame: WidgetRefreshedFrame): void;
-  /** Llamado con el frame final `done` (total de widgets procesados). */
+  /** Called with the final `done` frame (total widgets processed). */
   onDone(frame: RefreshDoneFrame): void;
-  /** Llamado si la conexión falla, 429, o el stream se corta. */
+  /** Called if the connection fails, 429, or the stream is cut off. */
   onError(message: string, code?: 'rate_limited' | 'http' | 'network'): void;
 }
 
 /**
- * Consume el SSE bulk de `POST /dashboards/{slug}/refresh`. Reusa `nextBlock`
- * para el buffer + parser dedicado (los event names del bulk no están en la
- * KNOWN_EVENTS del SSE de chat). Devuelve un `abort()` por si la página se
- * cierra a mitad.
+ * Consumes the bulk SSE of `POST /dashboards/{slug}/refresh`. Reuses `nextBlock`
+ * for the buffer + a dedicated parser (the bulk event names are not in the
+ * chat SSE's KNOWN_EVENTS). Returns an `abort()` in case the page is closed
+ * midway.
  */
 export function streamRefreshAll(
   opts: ApiOptions & { slug: string },

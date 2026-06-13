@@ -15,15 +15,15 @@ use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Throwable;
 
 /**
- * Envoltura del SDK Prism. Ningún otro componente del paquete debería
- * llamar a `Prism::text()` directamente: pasar siempre por aquí garantiza
- * que el provider/model se resuelven desde config (con override por
- * conversación), que el system prompt se construye uniformemente y que
- * los errores se traducen a `LlmException`.
+ * Wrapper around the Prism SDK. No other component of the package should
+ * call `Prism::text()` directly: always going through here guarantees
+ * that the provider/model are resolved from config (with per-conversation
+ * override), that the system prompt is built uniformly, and that errors
+ * are translated to `LlmException`.
  *
- * E08 (`ChatService`) usará `streamChat()` para producir el stream SSE;
- * `chat()` es el fallback no-streaming usado por `chatbot:test-connection`
- * y por hosts que no quieren SSE.
+ * E08 (`ChatService`) will use `streamChat()` to produce the SSE stream;
+ * `chat()` is the non-streaming fallback used by `chatbot:test-connection`
+ * and by hosts that don't want SSE.
  */
 class LlmGateway
 {
@@ -32,9 +32,9 @@ class LlmGateway
     ) {}
 
     /**
-     * Llamada en streaming. Devuelve los `StreamEvent` de Prism
-     * (TextDelta, ToolCall, ToolResult, Error, etc.). E08 los traduce a
-     * eventos SSE específicos del paquete.
+     * Streaming call. Returns Prism's `StreamEvent`s
+     * (TextDelta, ToolCall, ToolResult, Error, etc.). E08 translates them to
+     * package-specific SSE events.
      *
      * @param  array<int, Message>  $messages
      * @param  array<int, Tool>  $tools
@@ -55,7 +55,7 @@ class LlmGateway
     }
 
     /**
-     * Llamada no-streaming. Devuelve un `TextResponse` ya consolidado.
+     * Non-streaming call. Returns an already-consolidated `TextResponse`.
      *
      * @param  array<int, Message>  $messages
      * @param  array<int, Tool>  $tools
@@ -75,8 +75,8 @@ class LlmGateway
     }
 
     /**
-     * Atajo para el comando `chatbot:test-connection`: emite un único
-     * mensaje "ping" sin tools y devuelve el texto recibido (o lanza).
+     * Shortcut for the `chatbot:test-connection` command: sends a single
+     * "ping" message without tools and returns the received text (or throws).
      *
      * @throws LlmException
      */
@@ -142,23 +142,23 @@ class LlmGateway
     }
 
     /**
-     * Aplica el system prompt al request, opcionalmente con prompt caching
+     * Applies the system prompt to the request, optionally with prompt caching
      * (v1.1.1, finding #14.g).
      *
-     * Si `chatbot.llm.cache_system_prompt=true` Y el provider es Anthropic
-     * Y `$options->systemPrompt` no está overrideado por el caller, se
-     * divide el prompt en `cacheable` (header + tools + decision strategy
-     * + locale) y `dynamic` (page context + pending actions). El bloque
-     * cacheable viaja con `cache_control: ephemeral` via
-     * `usingProviderMeta()` si Prism lo soporta — caemos al prompt
-     * concatenado tradicional si no.
+     * If `chatbot.llm.cache_system_prompt=true` AND the provider is Anthropic
+     * AND `$options->systemPrompt` is not overridden by the caller, the prompt
+     * is split into `cacheable` (header + tools + decision strategy
+     * + locale) and `dynamic` (page context + pending actions). The cacheable
+     * block travels with `cache_control: ephemeral` via
+     * `usingProviderMeta()` if Prism supports it — we fall back to the
+     * traditional concatenated prompt if not.
      *
-     * Resultado: ~75% ahorro de input cost en conversaciones de 10+ turns
-     * con un system prompt grande (cache TTL Anthropic = 5 min).
+     * Result: ~75% input cost savings on conversations of 10+ turns
+     * with a large system prompt (Anthropic cache TTL = 5 min).
      */
     protected function applySystemPrompt(TextPendingRequest $request, PromptOptions $options, string $provider): TextPendingRequest
     {
-        // Override explícito del caller (chatbot:test-connection ping) → sin split.
+        // Explicit override from the caller (chatbot:test-connection ping) → no split.
         if ($options->systemPrompt !== null) {
             return $request->withSystemPrompt($options->systemPrompt);
         }

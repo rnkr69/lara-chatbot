@@ -7,26 +7,26 @@ namespace Rnkr69\LaraChatbot\Dashboard;
 use RuntimeException;
 
 /**
- * Excepción de dominio que `PinService::pin()` lanza cuando la operación de
- * pin no puede completarse por una razón anticipada (no por un bug en
- * runtime). Cada caso lleva una `category` estable que los callers
- * (controller HTTP, `AddToDashboardTool`) traducen a su shape propio de
- * error: el controller a JSON 422, la tool a `ToolResult::error(...)`.
+ * Domain exception that `PinService::pin()` throws when the pin operation
+ * cannot complete for an anticipated reason (not because of a runtime bug).
+ * Each case carries a stable `category` that the callers
+ * (HTTP controller, `AddToDashboardTool`) translate to their own error
+ * shape: the controller to JSON 422, the tool to `ToolResult::error(...)`.
  *
- * Categorías:
+ * Categories:
  *
- *   - `cap_reached`  el dashboard ya tiene tantos widgets como permite el
- *                    cap `chatbot.dashboard.max_widgets_per_dashboard`.
+ *   - `cap_reached`  the dashboard already has as many widgets as the
+ *                    `chatbot.dashboard.max_widgets_per_dashboard` cap allows.
  *                    `context = ['cap' => int, 'current' => int]`.
- *   - `not_pinnable` el tool source declara `pinnable()=false` o
- *                    `confirmation()` distinto de `Auto`. Defense-in-depth:
- *                    el controller HTTP también lo pre-chequea para preservar
- *                    el shape histórico de la respuesta, pero el service
- *                    siempre falla aunque el caller olvide la guardia.
+ *   - `not_pinnable` the source tool declares `pinnable()=false` or a
+ *                    `confirmation()` other than `Auto`. Defense-in-depth:
+ *                    the HTTP controller also pre-checks it to preserve
+ *                    the historical response shape, but the service
+ *                    always fails even if the caller forgets the guard.
  *                    `context = ['tool' => string]`.
  *
- * El `getMessage()` ya viene en castellano legible y se puede propagar
- * verbatim a usuario final cuando el caller lo necesita.
+ * The `getMessage()` already comes as readable Spanish and can be propagated
+ * verbatim to the end user when the caller needs it.
  */
 final class PinException extends RuntimeException
 {
@@ -44,7 +44,7 @@ final class PinException extends RuntimeException
     public static function capReached(int $cap, int $current): self
     {
         return new self(
-            sprintf('Dashboard ya alcanzó el máximo de %d widgets (actuales: %d).', $cap, $current),
+            sprintf('Dashboard already reached the maximum of %d widgets (current: %d).', $cap, $current),
             'cap_reached',
             ['cap' => $cap, 'current' => $current],
         );
@@ -54,7 +54,7 @@ final class PinException extends RuntimeException
     {
         return new self(
             sprintf(
-                'Tool `%s` no es pinnable (requiere pinnable() === true y confirmation === Auto).',
+                'Tool `%s` is not pinnable (requires pinnable() === true and confirmation === Auto).',
                 $toolName,
             ),
             'not_pinnable',

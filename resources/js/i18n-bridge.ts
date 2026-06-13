@@ -1,30 +1,29 @@
 /**
- * v2.0 / E9 — bridge PHP → JS para las claves del package que el bundle
- * renderiza.
+ * v2.0 / E9 — PHP → JS bridge for the package keys the bundle renders.
  *
- * Patrón: el blade del paquete (o el host) emite `data-i18n='{json}'` sobre el
- * elemento root de cada bundle:
+ * Pattern: the package's blade (or the host) emits `data-i18n='{json}'` on the
+ * root element of each bundle:
  *
  *   - widget: `<chatbot-widget data-i18n="…">`
  *   - dashboard: `<div id="chatbot-dashboard-root" data-i18n="…">`
  *
- * El JSON es la traducción literal de `__('chatbot::chatbot')` — un objeto
- * plano con keys snake_case + un subtree `dashboard.*` con sub-secciones
- * (`sidebar`, `card`, `header`, `pin`, `chart`, `kpi`). El bridge se limita
- * a un parse + sanitización superficial; cada bundle aplica el mapping
- * snake_case → forma interna en su propio sitio (algunas interfaces TS
- * existentes usan camelCase, otras snake_case — ver E5/E6/E7/E8). Mantenemos
- * los defaults inline en TS como fallback cuando una key falta o el
- * atributo no existe.
+ * The JSON is the literal translation of `__('chatbot::chatbot')` — a flat
+ * object with snake_case keys + a `dashboard.*` subtree with sub-sections
+ * (`sidebar`, `card`, `header`, `pin`, `chart`, `kpi`). The bridge limits
+ * itself to a parse + shallow sanitization; each bundle applies the
+ * snake_case → internal shape mapping in its own place (some existing TS
+ * interfaces use camelCase, others snake_case — see E5/E6/E7/E8). We keep the
+ * inline defaults in TS as a fallback when a key is missing or the attribute
+ * doesn't exist.
  *
- * Si el atributo está ausente o el JSON no parsea, devolvemos `{}` y el
- * bundle sigue funcionando con los defaults inline (cero regresión para
- * hosts que no añadan `data-i18n`).
+ * If the attribute is absent or the JSON doesn't parse, we return `{}` and the
+ * bundle keeps working with the inline defaults (zero regression for hosts
+ * that don't add `data-i18n`).
  */
 
-/** Forma esperada del JSON inyectado por PHP. Todas las keys son opcionales. */
+/** Expected shape of the JSON injected by PHP. All keys are optional. */
 export interface ChatbotI18n {
-  // v1 keys consumidas por widget/sidebar
+  // v1 keys consumed by widget/sidebar
   title?: string;
   open_full_page?: string;
   new_conversation?: string;

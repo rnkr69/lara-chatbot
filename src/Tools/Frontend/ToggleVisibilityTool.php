@@ -7,11 +7,11 @@ namespace Rnkr69\LaraChatbot\Tools\Frontend;
 use Rnkr69\LaraChatbot\Tools\BaseFrontendTool;
 
 /**
- * Muestra, oculta o alterna la visibilidad de uno o varios elementos de la
- * página. El widget aplica `display: none` (hide), `display: ''` (show) o
- * inversa (toggle).
+ * Shows, hides or toggles the visibility of one or more page elements.
+ * The widget applies `display: none` (hide), `display: ''` (show) or the
+ * inverse (toggle).
  *
- * Confirmation: `auto`. Acción reversible y no destructiva.
+ * Confirmation: `auto`. Reversible, non-destructive action.
  */
 class ToggleVisibilityTool extends BaseFrontendTool
 {

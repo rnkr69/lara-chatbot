@@ -11,11 +11,11 @@ use Rnkr69\LaraChatbot\Tools\ToolContext;
 use Rnkr69\LaraChatbot\Tools\ToolResult;
 
 /**
- * Frontend tool de prueba — usa el marker `FrontendTool` para que el
- * orquestador la detecte y emita `frontend_action` en lugar de
- * `tool_call`. E11 introducirá una `BaseFrontendTool` real con shim
- * automatizado; aquí basta con `BaseBackendTool` + `FrontendTool`
- * marker.
+ * Test frontend tool — uses the `FrontendTool` marker so the
+ * orchestrator detects it and emits `frontend_action` instead of
+ * `tool_call`. E11 will introduce a real `BaseFrontendTool` with an
+ * automated shim; here `BaseBackendTool` + the `FrontendTool` marker
+ * suffices.
  */
 class NavigateLikeFrontendTool extends BaseBackendTool implements FrontendTool
 {
@@ -57,10 +57,10 @@ class NavigateLikeFrontendTool extends BaseBackendTool implements FrontendTool
             return ToolResult::error('unauthorized', 'fake denial');
         }
 
-        // Las frontend tools no tocan estado del host; el orquestador
-        // sobrescribirá el resultado con un payload `queued + action_id`
-        // antes de devolverlo al LLM. Aquí devolvemos `success` neutro
-        // para que el orquestador interprete que la cascada pasó.
+        // Frontend tools do not touch host state; the orchestrator
+        // will overwrite the result with a `queued + action_id` payload
+        // before returning it to the LLM. Here we return a neutral `success`
+        // so the orchestrator interprets that the cascade passed.
         return ToolResult::success(['validated' => true]);
     }
 }

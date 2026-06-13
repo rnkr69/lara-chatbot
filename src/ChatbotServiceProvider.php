@@ -50,19 +50,19 @@ class ChatbotServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // v2.1.2 (#28) — `replaceConfigRecursivelyFrom`, NO `mergeConfigFrom`.
-        // `mergeConfigFrom` hace un `array_merge` PLANO: si el host publicó
-        // `config/chatbot.php` en una versión anterior, su array `dashboard`
-        // (o `page`, `tools`…) reemplaza por completo al del paquete, y las
-        // claves anidadas nuevas de cada release (`dashboard.back_url`,
-        // `dashboard.mount_widget`, …) simplemente no existen → el código que
-        // las lee SIN default explícito recibe `null` en silencio. El recursivo
-        // (`array_replace_recursive`) rellena toda clave anidada que falte
-        // dejando ganar los valores del host. Caveat conocido: para claves de
-        // tipo LISTA con default no vacío en el paquete (`tools.paths`,
-        // `tools.frontend_primitives`, `route.middleware`) un host que las
-        // RECORTÓ recupera los índices sobrantes del paquete — esos hosts deben
-        // re-publicar el config al actualizar (documentado en CHANGELOG).
+        // v2.1.2 (#28) — `replaceConfigRecursivelyFrom`, NOT `mergeConfigFrom`.
+        // `mergeConfigFrom` does a FLAT `array_merge`: if the host published
+        // `config/chatbot.php` on an earlier version, its `dashboard` array
+        // (or `page`, `tools`…) completely replaces the package's, and the
+        // new nested keys added in each release (`dashboard.back_url`,
+        // `dashboard.mount_widget`, …) simply do not exist → code that reads
+        // them WITHOUT an explicit default silently gets `null`. The recursive
+        // variant (`array_replace_recursive`) fills in every missing nested
+        // key while letting the host's values win. Known caveat: for LIST-type
+        // keys with a non-empty package default (`tools.paths`,
+        // `tools.frontend_primitives`, `route.middleware`) a host that
+        // TRIMMED them gets the package's leftover indices back — those hosts
+        // must re-publish the config when upgrading (documented in CHANGELOG).
         $this->replaceConfigRecursivelyFrom(__DIR__ . '/../config/chatbot.php', 'chatbot');
 
         $this->registerAuthorizer();
@@ -77,9 +77,9 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bind del orquestador de pin (v2.2). El controller HTTP y la nueva
-     * `AddToDashboardTool` lo comparten para no duplicar la lógica de
-     * cap + snapshot + page_context filtering + persist.
+     * Binds the pin orchestrator (v2.2). The HTTP controller and the new
+     * `AddToDashboardTool` share it to avoid duplicating the
+     * cap + snapshot + page_context filtering + persist logic.
      */
     protected function registerPinService(): void
     {
@@ -89,15 +89,15 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bind del orquestador (E08) y de su factory de tools Prism. Singleton
-     * para que el host pueda inyectarlo en su `ChatController` (E09).
+     * Binds the orchestrator (E08) and its Prism tool factory. Singleton so
+     * the host can inject it into its `ChatController` (E09).
      *
-     * Bind del detector de cierre del cliente usado por `ChatController`
-     * (E09): un Closure que devuelve `true` cuando el cliente HTTP cerró la
-     * conexión. Default = wrap de `connection_aborted()`. Los tests pueden
-     * overridearlo via `app()->instance('chatbot.connection_aborted', $fakeClosure)`
-     * para verificar que el loop de SSE rompe correctamente sin necesidad
-     * de una conexión TCP real.
+     * Binds the client-disconnect detector used by `ChatController` (E09):
+     * a Closure that returns `true` when the HTTP client closed the
+     * connection. Default = a wrapper around `connection_aborted()`. Tests
+     * can override it via `app()->instance('chatbot.connection_aborted', $fakeClosure)`
+     * to verify that the SSE loop breaks correctly without needing a real
+     * TCP connection.
      */
     protected function registerChatService(): void
     {
@@ -113,9 +113,9 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bind del bridge MCP (E07) como singleton. El bridge sólo "hace algo"
-     * en `boot()` — y sólo si `prism-php/relay` está instalado. El binding
-     * existe siempre para que `chatbot:tools:list` pueda inspeccionarlo.
+     * Binds the MCP bridge (E07) as a singleton. The bridge only "does
+     * something" in `boot()` — and only if `prism-php/relay` is installed.
+     * The binding always exists so `chatbot:tools:list` can inspect it.
      */
     protected function registerMcpBridge(): void
     {
@@ -123,9 +123,9 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bind del registro central de backend tools como singleton para que
-     * los hosts puedan inyectarlo en su AppServiceProvider y registrar
-     * tools manualmente (`->register(MyTool::class)`).
+     * Binds the central backend tool registry as a singleton so hosts can
+     * inject it into their AppServiceProvider and register tools manually
+     * (`->register(MyTool::class)`).
      */
     protected function registerToolRegistry(): void
     {
@@ -133,11 +133,11 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bind del replay engine del Personal Dashboard (v2.0 / E3) como
-     * singleton. El controller del E4 lo inyectará en su constructor para
-     * servir `POST /chatbot/dashboards/{slug}/widgets/{id}/refresh` y el
-     * SSE de bulk refresh. Re-resuelve `ToolRegistry`/`Dispatcher` cada
-     * invocación para que tests y hosts puedan rebindear.
+     * Binds the Personal Dashboard replay engine (v2.0 / E3) as a
+     * singleton. The E4 controller injects it into its constructor to serve
+     * `POST /chatbot/dashboards/{slug}/widgets/{id}/refresh` and the bulk
+     * refresh SSE. Re-resolves `ToolRegistry`/`Dispatcher` on every
+     * invocation so tests and hosts can rebind.
      */
     protected function registerReplayService(): void
     {
@@ -145,10 +145,10 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bind del system prompt builder y del gateway de LLM.
+     * Binds the system prompt builder and the LLM gateway.
      *
-     * Los hosts pueden sobreescribir cualquiera de los dos vía `extend()`
-     * o `singleton()` desde su propio AppServiceProvider antes de boot().
+     * Hosts can override either one via `extend()` or `singleton()` from
+     * their own AppServiceProvider before boot().
      */
     protected function registerLlm(): void
     {
@@ -180,16 +180,16 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Carga las tools de los servers MCP (E07) en el `ToolRegistry`.
+     * Loads the MCP servers' tools (E07) into the `ToolRegistry`.
      *
-     * Comportamiento:
-     *   - Si no hay servers configurados en `chatbot.mcp.servers`: no-op.
-     *   - Si hay servers pero `prism-php/relay` no está instalado: log
-     *     warning UNA vez con instrucción accionable y sigue. El comando
-     *     `chatbot:tools:list` también lo señala.
-     *   - Cualquier excepción del bridge (server caído, config inválida)
-     *     se atrapa: el bridge interno ya loguea por server. Aquí cubrimos
-     *     el caso "fallo total" para no abortar el boot.
+     * Behavior:
+     *   - If no servers are configured in `chatbot.mcp.servers`: no-op.
+     *   - If there are servers but `prism-php/relay` is not installed: log
+     *     a warning ONCE with an actionable instruction and continue. The
+     *     `chatbot:tools:list` command flags it too.
+     *   - Any exception from the bridge (server down, invalid config) is
+     *     caught: the inner bridge already logs per server. Here we cover
+     *     the "total failure" case so we don't abort boot.
      */
     protected function registerMcpTools(): void
     {
@@ -202,10 +202,10 @@ class ChatbotServiceProvider extends ServiceProvider
 
         if (! $bridge->isAvailable()) {
             Log::warning(
-                '[chatbot] chatbot.mcp.servers tiene entradas pero '
-                . 'prism-php/relay no está instalado. Las tools MCP no se '
-                . 'cargarán. Ejecuta `composer require prism-php/relay` '
-                . 'para activarlas o vacía la sección para silenciar este '
+                '[chatbot] chatbot.mcp.servers has entries but '
+                . 'prism-php/relay is not installed. MCP tools will not be '
+                . 'loaded. Run `composer require prism-php/relay` to '
+                . 'enable them, or empty the section to silence this '
                 . 'warning.'
             );
 
@@ -216,22 +216,22 @@ class ChatbotServiceProvider extends ServiceProvider
             $bridge->registerInto($this->app->make(ToolRegistry::class));
         } catch (Throwable $e) {
             Log::warning(sprintf(
-                '[chatbot] Bridge MCP falló al boot: %s. El paquete sigue '
-                . 'operativo sin tools MCP.',
+                '[chatbot] MCP bridge failed at boot: %s. The package remains '
+                . 'operational without MCP tools.',
                 $e->getMessage(),
             ));
         }
     }
 
     /**
-     * Registra las primitivas frontend del paquete (E11). El host puede
-     * editar `chatbot.tools.frontend_primitives` para deshabilitar
-     * primitivas individuales o añadir las suyas (ej. una subclase de
-     * `DownloadFileTool` con ownership de dominio).
+     * Registers the package's frontend primitives (E11). The host can edit
+     * `chatbot.tools.frontend_primitives` to disable individual primitives
+     * or add its own (e.g. a `DownloadFileTool` subclass with domain
+     * ownership).
      *
-     * Las primitivas viven en `src/Tools/Frontend/` del paquete y NO están
-     * cubiertas por `chatbot.tools.paths` (que apunta a `app/Chatbot/Tools`
-     * del host) — por eso se registran explícitamente aquí.
+     * The primitives live in the package's `src/Tools/Frontend/` and are
+     * NOT covered by `chatbot.tools.paths` (which points to the host's
+     * `app/Chatbot/Tools`) — that's why they are registered explicitly here.
      */
     protected function registerFrontendPrimitives(): void
     {
@@ -253,16 +253,16 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Registra las primitivas backend del paquete (v2.2 — `add_to_dashboard`
-     * y los 4 tools de edición conversacional). Mismo patrón que
-     * `registerFrontendPrimitives()`: el host edita
-     * `chatbot.tools.backend_primitives` para quitar líneas, o pone
-     * `chatbot.tools.{name}.enabled = false` para desactivar una sola sin
-     * tocar la lista.
+     * Registers the package's backend primitives (v2.2 — `add_to_dashboard`
+     * and the 4 conversational editing tools). Same pattern as
+     * `registerFrontendPrimitives()`: the host edits
+     * `chatbot.tools.backend_primitives` to remove lines, or sets
+     * `chatbot.tools.{name}.enabled = false` to disable a single one
+     * without touching the list.
      *
-     * Las primitives viven en `src/Tools/Backend/` del paquete y NO están
-     * cubiertas por `chatbot.tools.paths` (que apunta a `app/Chatbot/Tools`
-     * del host) — por eso se registran aquí explícitamente.
+     * The primitives live in the package's `src/Tools/Backend/` and are NOT
+     * covered by `chatbot.tools.paths` (which points to the host's
+     * `app/Chatbot/Tools`) — that's why they are registered explicitly here.
      */
     protected function registerBackendPrimitives(): void
     {
@@ -279,10 +279,10 @@ class ChatbotServiceProvider extends ServiceProvider
                 continue;
             }
 
-            // Resolvemos antes de consultar el flag para usar la clave real
-            // que la tool declara en `name()` (no asumir que la última parte
-            // del FQCN coincide). Coste despreciable: una instancia por tool
-            // al boot. Si está desactivada, descartamos sin registrar.
+            // Resolve before checking the flag so we use the real key the
+            // tool declares in `name()` (don't assume the last part of the
+            // FQCN matches). Negligible cost: one instance per tool at boot.
+            // If it's disabled, we discard it without registering.
             $tool = $this->app->make($class);
 
             if (config("chatbot.tools.{$tool->name()}.enabled", true) === false) {
@@ -294,13 +294,14 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Auto-discovery de backend tools (E06). Si `chatbot.tools.auto_discover`
-     * es false, el host es responsable de llamar
-     * `app(ToolRegistry::class)->register(...)` desde su AppServiceProvider.
+     * Auto-discovery of backend tools (E06). If `chatbot.tools.auto_discover`
+     * is false, the host is responsible for calling
+     * `app(ToolRegistry::class)->register(...)` from its AppServiceProvider.
      *
-     * El registro de cada tool puede lanzar `MissingTenantResolverException`
-     * si declara `tenantScope=true` y el host no ha bind un `TenantResolver`
-     * — esto fail-fast en boot, no en la primera invocación.
+     * Registering each tool can throw `MissingTenantResolverException` if it
+     * declares `tenantScope=true` and the host has not bound a
+     * `TenantResolver` — this fails fast at boot, not on the first
+     * invocation.
      */
     protected function discoverTools(): void
     {
@@ -318,17 +319,17 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Integración opt-in con Backpack CRUD (gap cross-host E14 parte 1, D15).
+     * Opt-in integration with Backpack CRUD (cross-host gap E14 part 1, D15).
      *
-     * Detección por presencia en runtime: si la clase `CrudPanel` de
-     * Backpack existe, registramos el `BackpackPageContextProvider` como
-     * singleton y la directive Blade `@chatbotBackpackContext`. Cuando
-     * Backpack NO está instalado, este método es no-op silencioso — el
-     * host no necesita declarar nada para que el resto del paquete
-     * funcione (mismo patrón que el bridge MCP en E07).
+     * Detection by runtime presence: if Backpack's `CrudPanel` class exists,
+     * we register the `BackpackPageContextProvider` as a singleton and the
+     * `@chatbotBackpackContext` Blade directive. When Backpack is NOT
+     * installed, this method is a silent no-op — the host doesn't need to
+     * declare anything for the rest of the package to work (same pattern as
+     * the MCP bridge in E07).
      *
-     * Cualquier excepción durante el registro se atrapa con un warning
-     * accionable: el paquete sigue boot OK aún si Backpack está roto.
+     * Any exception during registration is caught with an actionable
+     * warning: the package still boots OK even if Backpack is broken.
      */
     protected function registerBackpackIntegration(): void
     {
@@ -343,23 +344,23 @@ class ChatbotServiceProvider extends ServiceProvider
             BackpackBladeHelpers::register($blade);
         } catch (Throwable $e) {
             Log::warning(sprintf(
-                '[chatbot] Integración Backpack falló al boot: %s. El paquete '
-                . 'sigue operativo sin la directive @chatbotBackpackContext.',
+                '[chatbot] Backpack integration failed at boot: %s. The package '
+                . 'remains operational without the @chatbotBackpackContext directive.',
                 $e->getMessage(),
             ));
         }
     }
 
     /**
-     * Registra las directivas Blade generales del paquete (v1.1.1).
+     * Registers the package's general Blade directives (v1.1.1).
      *
-     * `@chatbotForm($id, $schemaSource?)` — finding #13.a, marca un form
-     * custom (no-Backpack) con `data-chatbot-form` y opcionalmente publica
-     * su schema al page context.
+     * `@chatbotForm($id, $schemaSource?)` — finding #13.a, marks a custom
+     * (non-Backpack) form with `data-chatbot-form` and optionally publishes
+     * its schema to the page context.
      *
-     * La integración Backpack (`@chatbotBackpackContext`) vive en su
-     * propio path en `registerBackpackIntegration()` porque depende de la
-     * presencia del package.
+     * The Backpack integration (`@chatbotBackpackContext`) lives on its own
+     * path in `registerBackpackIntegration()` because it depends on the
+     * package's presence.
      */
     protected function registerBladeDirectives(): void
     {
@@ -367,8 +368,8 @@ class ChatbotServiceProvider extends ServiceProvider
             ChatbotFormDirective::register();
         } catch (Throwable $e) {
             Log::warning(sprintf(
-                '[chatbot] Registro de directivas Blade falló: %s. El paquete '
-                . 'sigue operativo sin la directive @chatbotForm.',
+                '[chatbot] Blade directive registration failed: %s. The package '
+                . 'remains operational without the @chatbotForm directive.',
                 $e->getMessage(),
             ));
         }
@@ -387,14 +388,14 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bind del `Authorizer` según `chatbot.authorization.resolver`.
+     * Binds the `Authorizer` based on `chatbot.authorization.resolver`.
      *
-     *  - 'gate'   → GateAuthorizer (default safe).
-     *  - 'spatie' → SpatieAuthorizer; el constructor verificará Spatie y
-     *               lanzará si no está instalado (mensaje claro).
-     *               `verifyAuthorizationConfig()` adelanta esa comprobación
-     *               al boot para fallar pronto y no en el primer call.
-     *  - 'custom' → la clase declarada en `chatbot.authorization.authorizer`.
+     *  - 'gate'   → GateAuthorizer (safe default).
+     *  - 'spatie' → SpatieAuthorizer; the constructor verifies Spatie and
+     *               throws if it's not installed (clear message).
+     *               `verifyAuthorizationConfig()` brings that check forward
+     *               to boot to fail early rather than on the first call.
+     *  - 'custom' → the class declared in `chatbot.authorization.authorizer`.
      */
     protected function registerAuthorizer(): void
     {
@@ -415,9 +416,9 @@ class ChatbotServiceProvider extends ServiceProvider
 
         if (! is_string($class) || $class === '' || ! class_exists($class)) {
             throw new RuntimeException(
-                'chatbot.authorization.resolver=custom requiere que '
-                . 'chatbot.authorization.authorizer apunte a una clase '
-                . 'existente que implemente Rnkr69\\LaraChatbot\\Authorization\\Contracts\\Authorizer.'
+                'chatbot.authorization.resolver=custom requires '
+                . 'chatbot.authorization.authorizer to point to an '
+                . 'existing class that implements Rnkr69\\LaraChatbot\\Authorization\\Contracts\\Authorizer.'
             );
         }
 
@@ -425,8 +426,8 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bind del `ScopeResolver`. Si el host no declara una clase, usa
-     * `NullScopeResolver` (sólo sabe responder `Self`).
+     * Binds the `ScopeResolver`. If the host doesn't declare a class, uses
+     * `NullScopeResolver` (which only knows how to answer `Self`).
      */
     protected function registerScopeResolver(): void
     {
@@ -442,12 +443,12 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bind del `TenantResolver` (gap cross-host) **sólo** si el host declara
-     * una clase. Sin clase declarada, el contenedor no tiene el binding —
-     * el trait `AuthorizesToolAccess::accessibleTenantIds()` interpreta esto
-     * como "sin restricción tenant". Tools que requieran tenant scope
-     * (`tenantScope=true` en E06) deben hacer fallar el boot del registro
-     * de tools si el binding falta.
+     * Binds the `TenantResolver` (cross-host gap) **only** if the host
+     * declares a class. With no class declared, the container has no
+     * binding — the `AuthorizesToolAccess::accessibleTenantIds()` trait
+     * interprets this as "no tenant restriction". Tools that require tenant
+     * scope (`tenantScope=true` in E06) must fail the tool registry boot if
+     * the binding is missing.
      */
     protected function registerTenantResolver(): void
     {
@@ -459,14 +460,14 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * v1.1 (findings #1): aplica `chatbot.http.verify=false` al cliente HTTP
-     * global de Laravel cuando el host lo pide explícitamente. Esto cubre el
-     * caso "proxy LiteLLM corporativo con CA self-signed" sin que el host
-     * tenga que añadir la línea en su AppServiceProvider.
+     * v1.1 (findings #1): applies `chatbot.http.verify=false` to Laravel's
+     * global HTTP client when the host explicitly asks for it. This covers
+     * the "corporate LiteLLM proxy with a self-signed CA" case without the
+     * host having to add the line in its AppServiceProvider.
      *
-     * Sólo actúa cuando verify=false; el default `true` no toca nada y deja
-     * que Guzzle/cURL usen el trust store del sistema. Loguea un warning para
-     * que la decisión quede rastreada.
+     * Only acts when verify=false; the `true` default touches nothing and
+     * lets Guzzle/cURL use the system trust store. Logs a warning so the
+     * decision is traceable.
      */
     protected function applyHttpOptions(): void
     {
@@ -484,8 +485,8 @@ class ChatbotServiceProvider extends ServiceProvider
     }
 
     /**
-     * Si el host pidió `resolver=spatie` y Spatie no está instalado, falla
-     * al boot con un mensaje accionable (ROADMAP §5/E04 DoD).
+     * If the host requested `resolver=spatie` and Spatie is not installed,
+     * fails at boot with an actionable message (ROADMAP §5/E04 DoD).
      */
     protected function verifyAuthorizationConfig(): void
     {
@@ -493,44 +494,44 @@ class ChatbotServiceProvider extends ServiceProvider
 
         if ($resolver === 'spatie' && ! class_exists(\Spatie\Permission\PermissionServiceProvider::class)) {
             throw new RuntimeException(
-                'chatbot.authorization.resolver=spatie pero el paquete '
-                . 'spatie/laravel-permission no está instalado. Ejecuta '
-                . '`composer require spatie/laravel-permission` o cambia '
-                . 'a `resolver=gate` en config/chatbot.php.'
+                'chatbot.authorization.resolver=spatie but the '
+                . 'spatie/laravel-permission package is not installed. Run '
+                . '`composer require spatie/laravel-permission` or switch '
+                . 'to `resolver=gate` in config/chatbot.php.'
             );
         }
     }
 
     protected function registerPublishing(): void
     {
-        // Config raíz.
+        // Root config.
         $this->publishes([
             __DIR__ . '/../config/chatbot.php' => config_path('chatbot.php'),
         ], 'chatbot-config');
 
-        // Migraciones del paquete (E03 añade los archivos reales).
+        // Package migrations (E03 adds the real files).
         $this->publishes([
             __DIR__ . '/../database/migrations' => database_path('migrations'),
         ], 'chatbot-migrations');
 
-        // Todas las vistas Blade publishables.
+        // All publishable Blade views.
         $this->publishes([
             __DIR__ . '/../resources/views' => resource_path('views/vendor/chatbot'),
         ], 'chatbot-views');
 
-        // Sólo la vista del system prompt (subset de chatbot-views, útil para
-        // el host que sólo quiere personalizar el prompt).
+        // Just the system prompt view (a subset of chatbot-views, handy for
+        // the host that only wants to customize the prompt).
         $this->publishes([
             __DIR__ . '/../resources/views/system_prompt.blade.php'
                 => resource_path('views/vendor/chatbot/system_prompt.blade.php'),
         ], 'chatbot-prompts');
 
-        // Asset compilado del Web Component (E12 lo construye en public-build/).
+        // Compiled Web Component asset (E12 builds it into public-build/).
         $this->publishes([
             __DIR__ . '/../public-build' => public_path('vendor/chatbot'),
         ], 'chatbot-assets');
 
-        // Traducciones base (resources/lang/{en,es}/chatbot.php).
+        // Base translations (resources/lang/{en,es}/chatbot.php).
         $this->publishes([
             __DIR__ . '/../resources/lang' => $this->app->langPath('vendor/chatbot'),
         ], 'chatbot-lang');

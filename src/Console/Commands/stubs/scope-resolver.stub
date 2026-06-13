@@ -12,9 +12,9 @@ use Rnkr69\LaraChatbot\Authorization\Exceptions\ScopeResolverNotConfiguredExcept
 class {{ class }} implements ScopeResolver
 {
     /**
-     * Mapea (usuario, scope) a la lista de IDs de usuario cuyas filas son
-     * visibles para el invocador. Implementa la jerarquía propia de tu host
-     * (manager → equipo, tenant → users, etc.).
+     * Maps (user, scope) to the list of user IDs whose rows are visible to the
+     * caller. Implement your host's own hierarchy (manager → team,
+     * tenant → users, etc.).
      *
      * @return array<int, int|string>
      */
@@ -32,7 +32,7 @@ class {{ class }} implements ScopeResolver
      */
     protected function teamUserIds(Authenticatable $user): array
     {
-        // TODO: implementa según tu modelo. Ejemplo (manager → equipo):
+        // TODO: implement for your model. Example (manager → team):
         //
         //   return \App\Models\User::where('manager_id', $user->getAuthIdentifier())
         //       ->orWhere('id', $user->getAuthIdentifier())
@@ -47,7 +47,7 @@ class {{ class }} implements ScopeResolver
      */
     protected function allUserIds(): array
     {
-        // TODO: implementa para roles admin. Ejemplo:
+        // TODO: implement for admin roles. Example:
         //
         //   return \App\Models\User::pluck('id')->all();
 

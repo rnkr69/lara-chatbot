@@ -10,20 +10,20 @@ use Rnkr69\LaraChatbot\Models\PendingAction;
 use Rnkr69\LaraChatbot\Models\PendingActionStatus;
 
 /**
- * Backpack CRUD read-only para `chatbot_pending_actions`. Publicado por
+ * Read-only Backpack CRUD for `chatbot_pending_actions`. Published by
  * `chatbot:install --backpack-admin` (rnkr69/lara-chatbot v1.1.1, finding #14.f).
  *
- * Para activar la ruta en tu admin Backpack añade en `routes/backpack/custom.php`:
+ * To enable the route in your Backpack admin, add to `routes/backpack/custom.php`:
  *
  *     Route::crud('chatbot-pending-action', '\\App\\Http\\Controllers\\Admin\\ChatbotPendingActionCrudController');
  *
- * Sólo expone List + Show. Útil para diagnosticar:
+ * Only exposes List + Show. Useful for diagnosing:
  *
- *   - Confirmaciones del usuario que llevan rato `pending` (¿el widget se
- *     cerró sin resolverlas?).
- *   - Patrones de `rejected` (¿el LLM propone cosas que el usuario rechaza
- *     sistemáticamente?).
- *   - Cleanup pendiente (`expired` que no se han marcado todavía — usa
+ *   - User confirmations that have been `pending` for a while (did the widget
+ *     close without resolving them?).
+ *   - `rejected` patterns (is the LLM proposing things the user systematically
+ *     rejects?).
+ *   - Pending cleanup (`expired` actions that have not been marked yet — use
  *     `chatbot:cleanup-actions`).
  */
 class {{ class }} extends CrudController

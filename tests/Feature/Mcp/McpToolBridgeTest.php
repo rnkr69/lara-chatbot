@@ -25,8 +25,8 @@ function makeFakeBridge(): FakeMcpToolBridge
 }
 
 it('isAvailable() returns false when prism-php/relay is not installed', function () {
-    // El paquete real prism-php/relay NO está en vendor/ del paquete: la
-    // dependencia es opt-in del host. El bridge real debe reflejarlo.
+    // The real prism-php/relay package is NOT in the package's vendor/: the
+    // dependency is opt-in for the host. The real bridge must reflect that.
     $bridge = app(McpToolBridge::class);
 
     expect($bridge->isAvailable())->toBeFalse();
@@ -107,10 +107,10 @@ it('registerInto() isolates a failing server and continues with the rest', funct
 });
 
 it('MCP tools register without requiring a TenantResolver', function () {
-    // Si el adapter declarara tenantScope=true, el ToolRegistry exigiría
-    // un TenantResolver bind y lanzaría MissingTenantResolverException al
-    // registrar — lo cual rompería el boot del paquete por el sólo hecho
-    // de declarar un server MCP. El adapter debe declarar tenantScope=false.
+    // If the adapter declared tenantScope=true, the ToolRegistry would
+    // require a TenantResolver bind and throw MissingTenantResolverException
+    // on registration — which would break the package boot just by declaring
+    // an MCP server. The adapter must declare tenantScope=false.
     config()->set('chatbot.mcp.servers', ['tickets' => ['enabled' => true]]);
 
     $bridge = makeFakeBridge();
@@ -133,7 +133,7 @@ it('caches the tool list per server when cache_ttl > 0', function () {
     $registry = app(ToolRegistry::class);
     $bridge->registerInto($registry);
 
-    // Re-clear y registrar de nuevo: la cache debe servir el segundo hit.
+    // Re-clear and register again: the cache must serve the second hit.
     $registry->clear();
     $bridge->registerInto($registry);
 
@@ -160,9 +160,9 @@ it('does not cache when cache_ttl is 0 or absent', function () {
 it('serverConfigs() ignores non-array entries and empty keys', function () {
     config()->set('chatbot.mcp.servers', [
         'tickets' => ['enabled' => true],
-        ''        => ['enabled' => true], // ignorado por nombre vacío
-        42        => ['enabled' => true], // ignorado por nombre no-string
-        'broken'  => 'not an array',      // normalizado a []
+        ''        => ['enabled' => true], // ignored: empty name
+        42        => ['enabled' => true], // ignored: non-string name
+        'broken'  => 'not an array',      // normalized to []
     ]);
 
     $bridge = app(McpToolBridge::class);

@@ -8,12 +8,12 @@ use Rnkr69\LaraChatbot\Mcp\McpToolBridge;
 use Prism\Prism\Tool as PrismTool;
 
 /**
- * Bridge fake usado por los tests para simular `prism-php/relay` sin
- * instalar el paquete. Override `isAvailable()` y `callRelayTools()` —
- * los tests configuran el conjunto de tools que cada server "expone".
+ * Fake bridge used by the tests to fake `prism-php/relay` without
+ * installing the package. Overrides `isAvailable()` and `callRelayTools()` —
+ * tests configure the set of tools each server "exposes".
  *
- * También expone `$callsByServer` para verificar que la cache evita
- * llamadas repetidas a Relay dentro del TTL.
+ * Also exposes `$callsByServer` to verify the cache prevents repeated
+ * calls to Relay within the TTL.
  */
 class FakeMcpToolBridge extends McpToolBridge
 {

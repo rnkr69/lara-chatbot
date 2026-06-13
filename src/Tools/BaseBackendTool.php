@@ -14,39 +14,39 @@ use Rnkr69\LaraChatbot\Tools\Contracts\BackendTool;
 use Rnkr69\LaraChatbot\Tools\Support\JsonSchemaToRules;
 
 /**
- * Clase base para implementar `BackendTool` con la cascada de autorización
- * ya cableada (ROADMAP §5/E06):
+ * Base class for implementing `BackendTool` with the authorization cascade
+ * already wired (ROADMAP §5/E06):
  *
- *   1. Validar args contra `parameters()` (JSON Schema → Laravel Validator).
- *      Si fallan: `ToolResult::error('validation', ...)` SIN invocar `handle()`.
- *   2. `Authorizer::check()` con `permissions()`. Si falla:
+ *   1. Validate args against `parameters()` (JSON Schema → Laravel Validator).
+ *      If they fail: `ToolResult::error('validation', ...)` WITHOUT invoking `handle()`.
+ *   2. `Authorizer::check()` with `permissions()`. If it fails:
  *      `ToolResult::error('unauthorized', ...)`.
- *   3. (Opcional) si `tenantScope()=true`, resolver tenant ids; si `[]`
- *      explícito → `error('out_of_scope', ...)`. Si `null` (bypass) o
- *      lista no vacía, continúa.
- *   4. Llamar `handle()` con args ya validados.
+ *   3. (Optional) if `tenantScope()=true`, resolve tenant ids; if `[]`
+ *      explicitly → `error('out_of_scope', ...)`. If `null` (bypass) or a
+ *      non-empty list, continue.
+ *   4. Call `handle()` with the already-validated args.
  *
- * El tool concreto sólo implementa `name()`, `description()`, `parameters()`,
- * `permissions()` (opcional) y `handle()` — la base se ocupa del resto.
+ * The concrete tool only implements `name()`, `description()`, `parameters()`,
+ * `permissions()` (optional) and `handle()` — the base handles the rest.
  *
- * Ownership puntual (ROADMAP §2.3) NO se aplica aquí: depende de qué
- * registro toca cada tool, así que cada `handle()` lo verifica en su
- * propia query (helper `accessibleQuery()` lo facilita).
+ * Per-record ownership (ROADMAP §2.3) is NOT applied here: it depends on which
+ * record each tool touches, so each `handle()` checks it in its own query
+ * (the `accessibleQuery()` helper makes it easier).
  *
- * Helpers expuestos (vía `AuthorizesToolAccess`):
- *   - `accessibleUserIds()`   — lista de user_ids resueltos por
- *                               `ScopeResolver` para el scope efectivo.
- *   - `accessibleTenantIds()` — lista (o null) por `TenantResolver`.
- *   - `accessibleQuery()`     — aplica `whereIn` sobre el campo de usuario
- *                               y opcionalmente sobre el campo de tenant.
+ * Exposed helpers (via `AuthorizesToolAccess`):
+ *   - `accessibleUserIds()`   — list of user_ids resolved by
+ *                               `ScopeResolver` for the effective scope.
+ *   - `accessibleTenantIds()` — list (or null) by `TenantResolver`.
+ *   - `accessibleQuery()`     — applies `whereIn` over the user field
+ *                               and optionally over the tenant field.
  */
 abstract class BaseBackendTool implements BackendTool
 {
     use AuthorizesToolAccess;
 
     /**
-     * Nombre del campo en BD que asocia un registro con un usuario. Las
-     * tools que filtran por `accessibleQuery()` pueden override esto.
+     * Name of the DB field that associates a record with a user. Tools that
+     * filter via `accessibleQuery()` may override this.
      */
     protected string $ownerColumn = 'user_id';
 
@@ -64,16 +64,16 @@ abstract class BaseBackendTool implements BackendTool
     }
 
     /**
-     * Hook opcional (v1.1, findings #7) para que una tool ajuste su scope al
-     * usuario que la invoca — útil cuando una misma tool debe correr como
-     * `Self` para un rol y `Team`/`All` para otro sin duplicar la
-     * implementación. Devolver `null` cae al `defaultScope()` estático.
+     * Optional hook (v1.1, findings #7) for a tool to adjust its scope to the
+     * user who invokes it — useful when the same tool must run as `Self` for
+     * one role and `Team`/`All` for another without duplicating the
+     * implementation. Returning `null` falls back to the static `defaultScope()`.
      *
-     * Diseño: añadido en `BaseBackendTool` (no en `BackendTool`) para no
-     * romper implementaciones existentes que no extiendan la base
-     * (e.g. `McpBackendTool`). El consumo vive en `resolveDefaultScope()`,
-     * que `accessibleQuery()` y `accessibleUserIdsForCtx()` invocan en lugar
-     * de `defaultScope()` directamente.
+     * Design: added in `BaseBackendTool` (not in `BackendTool`) so as not to
+     * break existing implementations that don't extend the base
+     * (e.g. `McpBackendTool`). It is consumed in `resolveDefaultScope()`,
+     * which `accessibleQuery()` and `accessibleUserIdsForCtx()` invoke instead
+     * of `defaultScope()` directly.
      */
     public function defaultScopeFor(Authenticatable $user): ?AccessScope
     {
@@ -81,9 +81,9 @@ abstract class BaseBackendTool implements BackendTool
     }
 
     /**
-     * Devuelve el scope efectivo para `$user`: intenta `defaultScopeFor()`
-     * primero (hook user-aware); si retorna null, cae al `defaultScope()`
-     * clásico (compatible con tools v1.0).
+     * Returns the effective scope for `$user`: tries `defaultScopeFor()`
+     * first (user-aware hook); if it returns null, falls back to the classic
+     * `defaultScope()` (compatible with v1.0 tools).
      */
     public function resolveDefaultScope(Authenticatable $user): AccessScope
     {
@@ -101,12 +101,12 @@ abstract class BaseBackendTool implements BackendTool
     }
 
     /**
-     * v2.0 (E1) — default `false`. Una tool concreta declara opt-in
-     * override con `return true;` cuando sus blocks pueden vivir en el
-     * dashboard personal y ser replayados. El enforcement final lo aplica
-     * el orquestador SSE: aunque devolvamos `true` aquí, si
-     * `confirmation() !== Auto` el flag se ignora silenciosamente al
-     * emitir el block (no se propaga `pinnable: true` al cliente).
+     * v2.0 (E1) — default `false`. A concrete tool declares opt-in by
+     * overriding with `return true;` when its blocks can live on the personal
+     * dashboard and be replayed. The final enforcement is applied by the SSE
+     * orchestrator: even if we return `true` here, if
+     * `confirmation() !== Auto` the flag is silently ignored when emitting
+     * the block (`pinnable: true` is not propagated to the client).
      */
     public function pinnable(): bool
     {
@@ -114,8 +114,8 @@ abstract class BaseBackendTool implements BackendTool
     }
 
     /**
-     * Punto de entrada que invoca el orquestador (E08). Aplica la cascada
-     * y delega en `handle()` cuando todos los pasos pasan.
+     * Entry point invoked by the orchestrator (E08). Applies the cascade
+     * and delegates to `handle()` when all steps pass.
      *
      * @param  array<string, mixed>  $args
      */
@@ -128,14 +128,14 @@ abstract class BaseBackendTool implements BackendTool
         }
 
         if (! $this->checkPermissions($ctx->user, $this->permissions())) {
-            return ToolResult::error('unauthorized', 'Acceso denegado.');
+            return ToolResult::error('unauthorized', 'Access denied.');
         }
 
         if ($this->tenantScope()) {
             $tenantIds = $this->accessibleTenantIds($ctx->user, $this, $ctx->pageContext);
 
             if ($tenantIds === []) {
-                return ToolResult::error('out_of_scope', 'Sin acceso a ningún tenant.');
+                return ToolResult::error('out_of_scope', 'No access to any tenant.');
             }
         }
 
@@ -143,9 +143,9 @@ abstract class BaseBackendTool implements BackendTool
     }
 
     /**
-     * Hook de validación. Override para lógica más rica que el subset JSON
-     * Schema soportado por `JsonSchemaToRules`. Devolver `null` cuando los
-     * args son válidos.
+     * Validation hook. Override for richer logic than the JSON Schema subset
+     * supported by `JsonSchemaToRules`. Return `null` when the args are
+     * valid.
      *
      * @param  array<string, mixed>  $args
      */
@@ -162,17 +162,17 @@ abstract class BaseBackendTool implements BackendTool
         if ($validator->fails()) {
             $first = $validator->errors()->first();
 
-            return ToolResult::error('validation', $first ?: 'Parámetros inválidos.');
+            return ToolResult::error('validation', $first ?: 'Invalid parameters.');
         }
 
         return null;
     }
 
     /**
-     * Aplica la cascada de scope/tenant a una query Eloquent o Query
-     * Builder. Devuelve el mismo builder para chaining.
+     * Applies the scope/tenant cascade to an Eloquent or Query Builder.
+     * Returns the same builder for chaining.
      *
-     * Uso típico:
+     * Typical usage:
      *
      *   public function handle(array $args, ToolContext $ctx): ToolResult
      *   {
@@ -209,7 +209,7 @@ abstract class BaseBackendTool implements BackendTool
     }
 
     /**
-     * Atajo para tools que sólo necesitan los IDs (sin acceso al builder).
+     * Shortcut for tools that only need the IDs (without access to the builder).
      *
      * @return array<int, int|string>
      */
@@ -219,8 +219,8 @@ abstract class BaseBackendTool implements BackendTool
     }
 
     /**
-     * Para que las clases hijas puedan refrescar el user del ctx sin
-     * obligar a importarlo. (Ergonomía.)
+     * So that child classes can fetch the ctx user without being forced to
+     * import it. (Ergonomics.)
      */
     protected function user(ToolContext $ctx): Authenticatable
     {

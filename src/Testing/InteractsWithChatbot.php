@@ -14,13 +14,13 @@ use Rnkr69\LaraChatbot\Tools\ToolResult;
 /**
  * Trait `InteractsWithChatbot` (v1.1.1, finding #14.c).
  *
- * Use desde test classes Pest/PHPUnit del host para invocar tools del
- * chatbot con una API fluida, en aislamiento (sin LLM, sin browser, sin
- * SSE). El trait se apoya en el `ToolRegistry` ya bind por el package
- * service provider — los tests deben extender la `TestCase` Orchestra
- * con el `ChatbotServiceProvider` cargado.
+ * Use from the host's Pest/PHPUnit test classes to invoke chatbot tools
+ * with a fluent API, in isolation (no LLM, no browser, no
+ * SSE). The trait relies on the `ToolRegistry` already bound by the package
+ * service provider — the tests must extend the Orchestra `TestCase`
+ * with the `ChatbotServiceProvider` loaded.
  *
- * Ejemplo:
+ * Example:
  *
  *   use Rnkr69\LaraChatbot\Testing\InteractsWithChatbot;
  *
@@ -71,9 +71,9 @@ trait InteractsWithChatbot
 }
 
 /**
- * Fluent builder devuelto por `InteractsWithChatbot::chatbotTool()`.
- * Construye un ToolContext y ejecuta la tool aplicando la cascada
- * estándar de validación + autorización del `BaseBackendTool`.
+ * Fluent builder returned by `InteractsWithChatbot::chatbotTool()`.
+ * Builds a ToolContext and executes the tool applying the standard
+ * validation + authorization cascade of `BaseBackendTool`.
  */
 final class ChatbotToolInvocation
 {

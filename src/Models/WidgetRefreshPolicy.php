@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Models;
 
 /**
- * Política de refresco de un `chatbot_dashboard_widgets` row (v2.0 / E2).
+ * Refresh policy of a `chatbot_dashboard_widgets` row (v2.0 / E2).
  *
- *  - `OnOpen` (default): el `DashboardApp` (E5) ejecuta replay al abrir el
- *    dashboard. Reduce carga vs. polling y entrega "datos del día" sin
- *    intervención del usuario.
- *  - `Manual`: nunca replay automático; sólo cuando el usuario pulsa "↻" en
- *    el header del widget. Útil para queries caras o ruidosas.
- *  - `Never`: el snapshot queda congelado. Útil para fotografías históricas
- *    ("cierre del Q1") que pierden sentido si los números se actualizan.
+ *  - `OnOpen` (default): the `DashboardApp` (E5) runs replay when opening the
+ *    dashboard. Reduces load vs. polling and delivers "today's data" without
+ *    user intervention.
+ *  - `Manual`: never auto-replays; only when the user clicks "↻" in the
+ *    widget header. Useful for expensive or noisy queries.
+ *  - `Never`: the snapshot stays frozen. Useful for historical snapshots
+ *    ("Q1 close") that lose meaning if the numbers are updated.
  */
 enum WidgetRefreshPolicy: string
 {

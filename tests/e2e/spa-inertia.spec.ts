@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * DoD ROADMAP §5/E13: "caso SPA con Inertia mock manteniendo el widget".
+ * DoD ROADMAP §5/E13: "SPA case with an Inertia mock keeping the widget".
  * The fixture exposes a minimal `window.Inertia` with a `visit()` that
  * dispatches `inertia:navigate`. We click navigation buttons twice and
  * assert that:

@@ -19,14 +19,14 @@ use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult as PrismToolResult;
 
 /**
- * E16 — DoD del ROADMAP §5/E16:
- *   "Test E2E del flujo confirm: LLM pide ejecutar, usuario rechaza, en el
- *    siguiente turno el LLM lo «sabe»."
+ * E16 — ROADMAP §5/E16 DoD:
+ *   "E2E test of the confirm flow: the LLM asks to execute, the user rejects,
+ *    and in the next turn the LLM "knows" about it."
  *
- * Este test compone el flujo completo: turno 1 (ChatService produce el
- * pending action) → POST /chatbot/actions/{id}/confirm con accept=false →
- * turno 2 (verificamos que el system prompt del segundo turno menciona la
- * acción rechazada en `## Pending actions`).
+ * This test composes the full flow: turn 1 (ChatService produces the pending
+ * action) → POST /chatbot/actions/{id}/confirm with accept=false → turn 2
+ * (we verify the second turn's system prompt mentions the rejected action
+ * under `## Pending actions`).
  */
 
 beforeEach(function () {
@@ -54,9 +54,9 @@ function makeUserAndConversation(int $userId = 1): array
 it('completes the confirm-then-reject loop and the LLM "sabe" in the next turn (E16 DoD)', function () {
     [$user, $conversation] = makeUserAndConversation();
 
-    // ── Turno 1 ──────────────────────────────────────────────────────────
-    // El LLM invoca una frontend tool con confirmation=confirm. ChatService
-    // debe persistir el pending action y devolver awaiting_user al LLM.
+    // ── Turn 1 ───────────────────────────────────────────────────────────
+    // The LLM invokes a frontend tool with confirmation=confirm. ChatService
+    // must persist the pending action and return awaiting_user to the LLM.
 
     $tool = new \Rnkr69\LaraChatbot\Tests\Stubs\Tools\ConfirmFrontendTool;
     $tool->confirmationOverride = ConfirmationLevel::Confirm;
@@ -97,7 +97,7 @@ it('completes the confirm-then-reject loop and the LLM "sabe" in the next turn (
 
     $kinds1 = array_map(fn (SseEvent $e) => $e->event, $events1);
     $feIdx  = array_search('frontend_action', $kinds1, true);
-    expect($feIdx)->not->toBeFalse('turn 1 no emitió frontend_action');
+    expect($feIdx)->not->toBeFalse('turn 1 did not emit frontend_action');
 
     /** @var SseEvent $fe */
     $fe = $events1[$feIdx];
@@ -108,7 +108,7 @@ it('completes the confirm-then-reject loop and the LLM "sabe" in the next turn (
         ->and($pending->action_id)->toBe($fe->data['action_id'])
         ->and($pending->status)->toBe(PendingActionStatus::Pending);
 
-    // ── Usuario rechaza vía endpoint REST ────────────────────────────────
+    // ── User rejects via the REST endpoint ───────────────────────────────
 
     $this->actingAs($user, 'web')->postJson(
         "/chatbot/actions/{$pending->action_id}/confirm",
@@ -117,25 +117,25 @@ it('completes the confirm-then-reject loop and the LLM "sabe" in the next turn (
 
     expect($pending->refresh()->status)->toBe(PendingActionStatus::Rejected);
 
-    // ── Turno 2 ──────────────────────────────────────────────────────────
-    // Verificamos vía PrismFake::assertRequest que el system prompt del
-    // segundo turno contiene la sección `## Pending actions` con el row
-    // REJECTED. `assertRequest` es método de instancia del PrismFake — el
-    // facade `Prism::fake()` devuelve la instancia para poder llamarlo.
+    // ── Turn 2 ───────────────────────────────────────────────────────────
+    // We verify via PrismFake::assertRequest that the second turn's system
+    // prompt contains the `## Pending actions` section with the REJECTED row.
+    // `assertRequest` is an instance method of PrismFake — the `Prism::fake()`
+    // facade returns the instance so it can be called.
 
     $fake2 = Prism::fake([
         TextResponseFake::make()
-            ->withText('Entendido, no envío el email.')
+            ->withText('Understood, I will not send the email.')
             ->withFinishReason(FinishReason::Stop),
     ]);
 
     $events2 = [];
-    foreach (app(ChatService::class)->handle($conversation, '¿qué pasó con esa acción?') as $event) {
+    foreach (app(ChatService::class)->handle($conversation, 'what happened with that action?') as $event) {
         $events2[] = $event;
     }
 
     $fake2->assertRequest(function (array $requests) use ($pending) {
-        // El último request es el del turno 2.
+        // The last request is the one from turn 2.
         $req     = $requests[count($requests) - 1];
         $prompt  = (string) ($req->systemPrompts()[0]->content ?? '');
 
@@ -188,16 +188,16 @@ it('verifies expiration via the cleanup command and reflects it in the next turn
     $pending = PendingAction::query()->first();
     expect($pending)->not->toBeNull();
 
-    // Hacemos que expire y corremos el comando.
+    // Make it expire and run the command.
     $pending->update(['expires_at' => now()->subMinute()]);
 
     $this->artisan('chatbot:cleanup-actions')->assertExitCode(0);
 
     expect($pending->refresh()->status)->toBe(PendingActionStatus::Expired);
 
-    // Verificamos que la sección del system prompt en el siguiente turno
-    // refleja el [EXPIRED]. `assertRequest` se invoca sobre la instancia
-    // del fake (no sobre el facade).
+    // We verify the system prompt section in the next turn reflects the
+    // [EXPIRED] status. `assertRequest` is invoked on the fake instance
+    // (not on the facade).
     $fake2 = Prism::fake([
         TextResponseFake::make()
             ->withText('OK')

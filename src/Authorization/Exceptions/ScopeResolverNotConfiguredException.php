@@ -8,22 +8,22 @@ use Rnkr69\LaraChatbot\Authorization\AccessScope;
 use LogicException;
 
 /**
- * Lanzada cuando una tool solicita un scope `team`/`all` y el host no ha
- * registrado un `ScopeResolver` (i.e. el paquete está usando
- * `NullScopeResolver`, que sólo sabe responder `self`).
+ * Thrown when a tool requests a `team`/`all` scope and the host has not
+ * registered a `ScopeResolver` (i.e. the package is using
+ * `NullScopeResolver`, which only knows how to answer `self`).
  *
- * El mensaje guía al integrador hacia el comando
- * `php artisan chatbot:make:scope-resolver`.
+ * The message guides the integrator toward the
+ * `php artisan chatbot:make:scope-resolver` command.
  */
 class ScopeResolverNotConfiguredException extends LogicException
 {
     public function __construct(AccessScope $scope)
     {
         parent::__construct(
-            "El scope `{$scope->value}` requiere un ScopeResolver registrado. "
-            . "Implementa `Rnkr69\\LaraChatbot\\Authorization\\Contracts\\ScopeResolver` "
-            . "y declara la clase en `chatbot.authorization.scope_resolver`. "
-            . "Atajo: `php artisan chatbot:make:scope-resolver MyScopeResolver`."
+            "The `{$scope->value}` scope requires a registered ScopeResolver. "
+            . "Implement `Rnkr69\\LaraChatbot\\Authorization\\Contracts\\ScopeResolver` "
+            . "and declare the class in `chatbot.authorization.scope_resolver`. "
+            . "Shortcut: `php artisan chatbot:make:scope-resolver MyScopeResolver`."
         );
     }
 }

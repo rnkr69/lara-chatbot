@@ -8,24 +8,24 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Rnkr69\LaraChatbot\Models\Conversation;
 
 /**
- * Contexto de invocación que recibe `BackendTool::handle()`. Inmutable.
+ * Invocation context that `BackendTool::handle()` receives. Immutable.
  *
- * - `user`         — usuario autenticado del host. Las tools lo usan para
- *                    resolver scopes y filtrar queries.
- * - `pageContext`  — payload sanitizado de `Page Context API` (E14). Incluye
- *                    `route`, `entity`, filtros y selección actuales.
- *                    Diccionario libre, ya truncado por el sanitizador.
- * - `conversation` — conversación activa si existe (E08 lo provee). Puede
- *                    ser `null` en sandboxes (`chatbot:test-connection`,
- *                    tests aislados). Las tools no deberían depender de su
- *                    presencia salvo para escribir audit log o leer
+ * - `user`         — the host's authenticated user. Tools use it to
+ *                    resolve scopes and filter queries.
+ * - `pageContext`  — sanitized payload from the `Page Context API` (E14). Includes
+ *                    the current `route`, `entity`, filters and selection.
+ *                    Free-form dictionary, already truncated by the sanitizer.
+ * - `conversation` — active conversation if one exists (E08 provides it). May
+ *                    be `null` in sandboxes (`chatbot:test-connection`,
+ *                    isolated tests). Tools should not depend on its
+ *                    presence except to write an audit log or read
  *                    `metadata`.
- * - `locale`       — locale efectivo del invocador (`User->locale` →
- *                    `app()->getLocale()` → 'en' como fallback). Útil para
- *                    formatear fechas/números en la respuesta.
+ * - `locale`       — the caller's effective locale (`User->locale` →
+ *                    `app()->getLocale()` → 'en' as fallback). Useful for
+ *                    formatting dates/numbers in the response.
  *
- * Pensado para construirse en E08 (`ChatService`) por cada tool call y
- * pasarse al `BaseBackendTool::execute()` que decora.
+ * Intended to be built in E08 (`ChatService`) for each tool call and
+ * passed to the `BaseBackendTool::execute()` it decorates.
  */
 final class ToolContext
 {

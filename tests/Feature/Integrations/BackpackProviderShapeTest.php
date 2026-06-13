@@ -7,15 +7,15 @@ use Rnkr69\LaraChatbot\Integrations\Backpack\BackpackPageContextProvider;
 use Rnkr69\LaraChatbot\Tests\Stubs\Backpack\FakeCrudPanel;
 
 /*
- * Estos tests simulan la presencia de Backpack en el runtime mediante un
- * `class_alias` que apunta el FQCN del CrudPanel real al `FakeCrudPanel`
- * del paquete de tests. El provider no distingue (lee la API por nombre)
- * y se puede ejercitar en su camino "happy path" sin un Backpack real.
+ * These tests simulate Backpack's presence at runtime via a `class_alias`
+ * that points the real CrudPanel FQCN at the test package's `FakeCrudPanel`.
+ * The provider does not distinguish (it reads the API by name) and can be
+ * exercised on its "happy path" without a real Backpack.
  *
- * El alias se declara una sola vez; PHP mantiene el binding global durante
- * toda la suite. Esto NO afecta a otros tests porque el provider sólo
- * consulta `class_exists()` puntual y no toca clases concretas en runtime
- * — además, fuera de estos archivos nadie referencia ese FQCN.
+ * The alias is declared only once; PHP keeps the global binding for the
+ * entire suite. This does NOT affect other tests because the provider only
+ * does a one-off `class_exists()` check and never touches concrete classes
+ * at runtime — and besides, nothing outside these files references that FQCN.
  */
 if (! class_exists('Backpack\\CRUD\\app\\Library\\CrudPanel\\CrudPanel', false)) {
     class_alias(FakeCrudPanel::class, 'Backpack\\CRUD\\app\\Library\\CrudPanel\\CrudPanel');

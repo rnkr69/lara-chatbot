@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Tests\Stubs\Backpack;
 
 /**
- * Mínimo CrudPanel-like usado por los tests del
- * `BackpackPageContextProvider`. Simula la superficie pública que el
- * provider lee (`getModel`, `getOperation`, `getActionMethod`,
- * `getRequest`).
+ * Minimal CrudPanel-like used by the `BackpackPageContextProvider` tests.
+ * Fakes the public surface the provider reads (`getModel`, `getOperation`,
+ * `getActionMethod`, `getRequest`).
  *
- * Tests pueden setear sus campos públicos para variar el escenario.
+ * Tests can set its public fields to vary the scenario.
  */
 class FakeCrudPanel
 {

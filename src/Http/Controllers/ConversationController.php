@@ -16,22 +16,22 @@ use Rnkr69\LaraChatbot\Http\Resources\MessageResource;
 use Rnkr69\LaraChatbot\Models\Conversation;
 
 /**
- * CRUD básico de conversaciones (E10 ROADMAP §5/E10).
+ * Basic CRUD for conversations (E10 ROADMAP §5/E10).
  *
- *   - `index`:   listado paginado (offset) con búsqueda por `title` LIKE `%q%`,
- *                ordenado por `updated_at desc` (recientes primero).
- *   - `store`:   crea una conversación asociada al usuario autenticado vía los
- *                campos morph (`user_type`+`user_id`), devuelve 201.
- *   - `show`:    devuelve la conversación + mensajes cursor-paginados por id
- *                descendente (último primero, como pide el ROADMAP).
- *   - `destroy`: soft delete (la migración crea `deleted_at`, el modelo usa
- *                `SoftDeletes`); responde 204 No Content.
+ *   - `index`:   paginated listing (offset) with search by `title` LIKE `%q%`,
+ *                ordered by `updated_at desc` (most recent first).
+ *   - `store`:   creates a conversation associated with the authenticated user via the
+ *                morph fields (`user_type`+`user_id`), returns 201.
+ *   - `show`:    returns the conversation + messages cursor-paginated by id
+ *                descending (last first, as the ROADMAP requires).
+ *   - `destroy`: soft delete (the migration creates `deleted_at`, the model uses
+ *                `SoftDeletes`); responds 204 No Content.
  *
- * Política de policy / privacidad: cualquier acceso a una conversación ajena
- * devuelve 404 (no 403) — `Conversation::query()->forUser($user)->findOrFail($id)`.
- * Justificación: 403 filtra existencia ("la conversación existe pero no es
- * tuya"), mientras que 404 mantiene la conversación ajena indistinguible de
- * una inexistente. Coherente con la doctrina de Laravel para policies.
+ * Policy / privacy: any access to a foreign conversation
+ * returns 404 (not 403) — `Conversation::query()->forUser($user)->findOrFail($id)`.
+ * Rationale: 403 leaks existence ("the conversation exists but is not
+ * yours"), whereas 404 keeps the foreign conversation indistinguishable from
+ * a nonexistent one. Consistent with Laravel's doctrine for policies.
  */
 class ConversationController extends Controller
 {
@@ -94,10 +94,10 @@ class ConversationController extends Controller
             ->orderBy('id', 'desc')
             ->cursorPaginate($perPage);
 
-        // `MessageResource::collection($paginator)` sólo emite `data`/cursor
-        // metadata cuando es el recurso top-level (`->response()`). Anidado en
-        // `additional()` se serializaría sin envelope; materializamos el shape
-        // completo (`data` + `links` + `meta`) llamando a `response()` aquí.
+        // `MessageResource::collection($paginator)` only emits `data`/cursor
+        // metadata when it is the top-level resource (`->response()`). Nested in
+        // `additional()` it would serialize without an envelope; we materialize the
+        // full shape (`data` + `links` + `meta`) by calling `response()` here.
         $messagesPayload = MessageResource::collection($messages)
             ->response($request)
             ->getData(true);
@@ -121,10 +121,10 @@ class ConversationController extends Controller
     }
 
     /**
-     * Clampa `per_page` entre [1, $max] aplicando el `$default` si el cliente
-     * no envía nada o envía un valor no-positivo. La validación de "entero
-     * dentro de rango" para `index` la hace el FormRequest; aquí defendemos
-     * los casos donde el FormRequest no aplica (show, edge cases).
+     * Clamps `per_page` to [1, $max], applying the `$default` if the client
+     * sends nothing or sends a non-positive value. The "integer
+     * within range" validation for `index` is done by the FormRequest; here we defend
+     * the cases where the FormRequest does not apply (show, edge cases).
      */
     protected function resolvePerPage(mixed $raw, int $default, int $max): int
     {

@@ -9,9 +9,9 @@ use Rnkr69\LaraChatbot\Authorization\AccessScope;
 use Rnkr69\LaraChatbot\Authorization\Contracts\ScopeResolver;
 
 /**
- * `ScopeResolver` controlable desde el test: devuelve la lista preestablecida
- * para cada scope. Sirve para validar la integración de `accessibleQuery()`
- * y `accessibleUserIds()` sin acoplar al modelo `User` real.
+ * `ScopeResolver` controllable from the test: returns the preset list
+ * for each scope. Used to validate the integration of `accessibleQuery()`
+ * and `accessibleUserIds()` without coupling to the real `User` model.
  */
 class FixedScopeResolver implements ScopeResolver
 {

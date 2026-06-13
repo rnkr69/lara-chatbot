@@ -7,41 +7,41 @@ namespace Rnkr69\LaraChatbot\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Valida el payload de `POST /chatbot/dashboards/{slug}/widgets` (v2.0 / E4).
+ * Validates the payload of `POST /chatbot/dashboards/{slug}/widgets` (v2.0 / E4).
  *
- * El cliente envía exactamente lo que vino en el SSE `block` frame del E1
- * (orquestador):
+ * The client sends exactly what came in the SSE `block` frame from E1
+ * (orchestrator):
  *
  *   {
  *     block_id:      uuid,                                 -- audit ref
  *     block_type:    'table'|'kpi'|'chart'|'card'|'list',
  *     block_ordinal: int >= 0,                             -- v2.1.2 (#27):
- *                                                             posición 0-based del
- *                                                             bloque entre los de su
- *                                                             tipo en el ToolResult.
- *                                                             El replay lo usa para
- *                                                             re-localizar ESTE bloque
- *                                                             en tools multi-bloque.
+ *                                                             0-based position of the
+ *                                                             block among those of its
+ *                                                             type in the ToolResult.
+ *                                                             Replay uses it to
+ *                                                             re-locate THIS block
+ *                                                             in multi-block tools.
  *     snapshot:   { data: object, captured_at?, byte_size? },
  *     source: {
- *       tool:               string,        -- nombre de la tool
- *       args:               object,        -- args con los que se invocó
- *       page_context_keys?: string[],      -- claves del context que el tool
- *                                              declaró como context-sensitive
+ *       tool:               string,        -- name of the tool
+ *       args:               object,        -- args it was invoked with
+ *       page_context_keys?: string[],      -- context keys that the tool
+ *                                              declared as context-sensitive
  *     },
  *     suggested_title?: string,
- *     page_context?:    object,            -- contexto VIGENTE de la página;
- *                                              el server filtra por
+ *     page_context?:    object,            -- CURRENT page context;
+ *                                              the server filters by
  *                                              `source.page_context_keys`
  *     position?: { x:int, y:int, w:int, h:int },
  *   }
  *
- * Enforcement aguas arriba (no aquí): `ToolRegistry::get(source.tool)`
- * existe, `pinnable() === true`, `confirmation() === Auto`. Si alguno
- * falla, el controller devuelve 422 con un error explícito (`tool_unpinnable`).
+ * Upstream enforcement (not here): `ToolRegistry::get(source.tool)`
+ * exists, `pinnable() === true`, `confirmation() === Auto`. If any
+ * fails, the controller returns 422 with an explicit error (`tool_unpinnable`).
  *
- * Tampoco se enforce aquí: `chatbot.dashboard.max_widgets_per_dashboard`
- * (default 50) — el controller cuenta widgets del dashboard tras resolverlo.
+ * Also not enforced here: `chatbot.dashboard.max_widgets_per_dashboard`
+ * (default 50) — the controller counts the dashboard's widgets after resolving it.
  */
 class PinWidgetRequest extends FormRequest
 {
@@ -58,15 +58,15 @@ class PinWidgetRequest extends FormRequest
         return [
             'block_id'                  => ['nullable', 'string', 'max:64'],
             'block_type'                => ['required', 'string', 'max:32'],
-            // v2.1.2 (#27) — mitad estable del descriptor de replay. `nullable`:
-            // un cliente v2.1.1 no lo envía; el replay cae a ordinal 0 (primer
-            // bloque del tipo del widget) — degradado pero no peor que 2.1.1.
+            // v2.1.2 (#27) — stable half of the replay descriptor. `nullable`:
+            // a v2.1.1 client does not send it; replay falls back to ordinal 0 (first
+            // block of the widget's type) — degraded but no worse than 2.1.1.
             'block_ordinal'             => ['nullable', 'integer', 'min:0'],
             'snapshot'                  => ['required', 'array'],
-            // `present, array` (no `required`): un block legítimo puede emitir
-            // `data: []` (tabla sin filas, lista vacía). `required` rechaza
-            // arrays vacíos en Laravel — usamos `present` para forzar la
-            // clave pero aceptar `[]` como valor válido.
+            // `present, array` (not `required`): a legitimate block can emit
+            // `data: []` (table with no rows, empty list). `required` rejects
+            // empty arrays in Laravel — we use `present` to force the
+            // key but accept `[]` as a valid value.
             'snapshot.data'             => ['present', 'array'],
             'source'                    => ['required', 'array'],
             'source.tool'               => ['required', 'string', 'max:255'],

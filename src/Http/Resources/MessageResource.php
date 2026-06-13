@@ -8,9 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Shape JSON de un mensaje devuelto por `GET /chatbot/conversations/{id}` (E10).
- * `role` se serializa como string (valor del backed enum) para no acoplar al
- * cliente al FQCN del enum interno del paquete.
+ * JSON shape of a message returned by `GET /chatbot/conversations/{id}` (E10).
+ * `role` is serialized as a string (the backed enum's value) so as not to couple the
+ * client to the FQCN of the package's internal enum.
  *
  * @property-read \Rnkr69\LaraChatbot\Models\Message $resource
  */

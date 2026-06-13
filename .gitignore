@@ -9,6 +9,8 @@ composer.lock
 *.log
 /build/
 /coverage/
+/test-results/
+/playwright-report/
 .claude/
 .claude/settings.local.json
 
@@ -21,5 +23,11 @@ composer.lock
 /docs/PROGRESS.md
 /docs/skills.md
 /docs/v2.0-host-e2e-test-plan.md
+/docs/RELEASING.md
 /.github/workflows/eval-weekly.yml
 /scripts/evals/
+
+# Demo-video pilot scaffolding (P0/P1) — local only, not part of the package.
+/demo/
+# Blueprint handoff doc for the standalone demo-video tool — transient, moved out.
+/docs/DEMO_VIDEO_TOOL_BLUEPRINT.md

@@ -19,6 +19,22 @@
 .env*       text eol=lf
 Dockerfile  text eol=lf
 
+# Keep the Composer dist tarball lean: development-only paths are excluded from
+# `composer require` installs (they remain in the Git repository).
+/.github               export-ignore
+/.gitattributes        export-ignore
+/.gitignore            export-ignore
+/tests                 export-ignore
+/docs                  export-ignore
+/scripts               export-ignore
+/public-build/*.map    export-ignore
+/phpunit.xml           export-ignore
+/playwright.config.ts  export-ignore
+/vitest.config.ts      export-ignore
+/tsconfig.json         export-ignore
+/package.json          export-ignore
+/package-lock.json     export-ignore
+
 *.png  binary
 *.jpg  binary
 *.jpeg binary

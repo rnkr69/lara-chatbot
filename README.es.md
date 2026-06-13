@@ -2,6 +2,7 @@
 
 *[English](README.md) · Español*
 
+[![packagist](https://img.shields.io/packagist/v/rnkr69/lara-chatbot)](https://packagist.org/packages/rnkr69/lara-chatbot)
 ![status](https://img.shields.io/badge/status-v0.4.1--prerelease-orange)
 ![php](https://img.shields.io/badge/php-%5E8.2-blue)
 ![laravel](https://img.shields.io/badge/laravel-12%20%7C%2013-red)
@@ -54,33 +55,16 @@ mientras esté en la línea `0.x`.
 
 ## Instalación
 
-Este paquete (todavía) no está publicado en Packagist. Consúmelo directamente
-desde el repositorio Git vía un repositorio VCS de Composer.
-
 > Detalle paso a paso en [`docs/getting-started.es.md`](docs/getting-started.es.md).
 > En la práctica la primera integración real (instalar + elegir widget vs página +
 > escribir un `ScopeResolver` + `TenantResolver` opcional + cablear el page context +
 > escribir tu primera tool con sus permisos) se mide en horas, no en minutos.
 > El asistente del paquete en sí toma 5 minutos; el resto es trabajo del host.
 
-### 1. Declara el repositorio en `composer.json` y requiérelo
-
-```json
-{
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/rnkr69/lara-chatbot.git"
-        }
-    ],
-    "require": {
-        "rnkr69/lara-chatbot": "^0.4"
-    }
-}
-```
+### 1. Requiere el paquete
 
 ```bash
-composer update rnkr69/lara-chatbot
+composer require rnkr69/lara-chatbot
 php artisan chatbot:install      # asistente interactivo (9 sub-pasos idempotentes)
 php artisan migrate
 php artisan chatbot:doctor       # health check (config + auth + DB + assets + LLM + tools)

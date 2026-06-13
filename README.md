@@ -2,6 +2,7 @@
 
 *English · [Español](README.es.md)*
 
+[![packagist](https://img.shields.io/packagist/v/rnkr69/lara-chatbot)](https://packagist.org/packages/rnkr69/lara-chatbot)
 ![status](https://img.shields.io/badge/status-v0.4.1--prerelease-orange)
 ![php](https://img.shields.io/badge/php-%5E8.2-blue)
 ![laravel](https://img.shields.io/badge/laravel-12%20%7C%2013-red)
@@ -53,33 +54,16 @@ pre-`1.0`, so a MINOR bump may include breaking changes while on the `0.x` line.
 
 ## Installation
 
-This package is not published on Packagist (yet). Consume it directly from the
-Git repository via a Composer VCS repository.
-
 > Step-by-step detail in [`docs/getting-started.md`](docs/getting-started.md).
 > In practice the first real integration (install + choose widget vs page +
 > write a `ScopeResolver` + optional `TenantResolver` + wire page context +
 > write your first tool with its permissions) is measured in hours, not minutes.
 > The package wizard itself takes 5 minutes; the rest is host work.
 
-### 1. Declare the repository in `composer.json` and require it
-
-```json
-{
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/rnkr69/lara-chatbot.git"
-        }
-    ],
-    "require": {
-        "rnkr69/lara-chatbot": "^0.4"
-    }
-}
-```
+### 1. Require the package
 
 ```bash
-composer update rnkr69/lara-chatbot
+composer require rnkr69/lara-chatbot
 php artisan chatbot:install      # interactive wizard (9 idempotent sub-steps)
 php artisan migrate
 php artisan chatbot:doctor       # health check (config + auth + DB + assets + LLM + tools)

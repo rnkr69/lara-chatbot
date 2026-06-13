@@ -1,44 +1,46 @@
 # Confirmation flow — `auto`, `confirm`, `manual`
 
-> Niveles de confirmación de **frontend tools** y su ciclo de vida en el
-> paquete `rnkr69/lara-chatbot`. Backend tools en v1 sólo soportan `auto`.
+*English · [Español](confirmation-flow.es.md)*
+
+> Confirmation levels for **frontend tools** and their lifecycle in the
+> `rnkr69/lara-chatbot` package. Backend tools in v1 only support `auto`.
 
 ## TL;DR
 
-| Nivel       | ¿Quién decide?           | Persistencia               | Resultado al LLM       |
+| Level       | Who decides?             | Persistence                | LLM result             |
 |-------------|--------------------------|----------------------------|------------------------|
-| `auto`      | Nadie — corre directo    | Ninguna                    | `queued + action_id`   |
-| `confirm`   | Usuario aprueba/rechaza  | `chatbot_pending_actions`  | `awaiting_user`        |
-| `manual`    | Usuario marca como hecha | `chatbot_pending_actions`  | `awaiting_user`        |
+| `auto`      | Nobody — runs directly   | None                       | `queued + action_id`   |
+| `confirm`   | User approves/rejects    | `chatbot_pending_actions`  | `awaiting_user`        |
+| `manual`    | User marks as done       | `chatbot_pending_actions`  | `awaiting_user`        |
 
-`confirm` es para acciones que **el widget ejecuta** (navegación crítica,
-descarga firmada, llamada destructiva). `manual` es para acciones que
-**el usuario hace fuera del chatbot** (firmar un documento físico, llamar a
-alguien, etc.) y luego marca como hechas/no-hechas.
+`confirm` is for actions that **the widget executes** (critical navigation,
+signed download, destructive call). `manual` is for actions that
+**the user performs outside the chatbot** (signing a physical document, making
+a phone call, etc.) and then marks as done/not done.
 
-## Configuración
+## Configuration
 
 ```php
 // config/chatbot.php
 'limits' => [
     // ...
     'pending_action_ttl' => [
-        'confirm' => 600,     //  10 min — aprobación rápida.
-        'manual'  => 86_400,  //  24 h  — acción humana real.
+        'confirm' => 600,     //  10 min — quick approval.
+        'manual'  => 86_400,  //  24 h  — real human action.
     ],
-    'pending_actions_in_prompt' => 10, // Tope de la sección ## Pending actions.
+    'pending_actions_in_prompt' => 10, // Cap for the ## Pending actions section.
 ],
 ```
 
-El comando `chatbot:cleanup-actions` marca como `expired` los `pending`
-caducados. Schedule recomendada (host):
+The `chatbot:cleanup-actions` command marks expired `pending` rows as `expired`.
+Recommended schedule (host):
 
 ```php
 // app/Console/Kernel.php
 $schedule->command('chatbot:cleanup-actions')->everyFiveMinutes();
 ```
 
-## Ciclo de vida — `confirm`
+## Lifecycle — `confirm`
 
 ```
 ┌──────────┐                                                ┌───────────┐
@@ -46,36 +48,36 @@ $schedule->command('chatbot:cleanup-actions')->everyFiveMinutes();
 │ confirm  │                                          (chatbot_pending_actions)
 └──────────┘                                                └─────┬─────┘
                                                                   │
-   widget recibe `frontend_action`,                               │
-   renderiza banner Accept/Reject                                 │
+   widget receives `frontend_action`,                             │
+   renders Accept/Reject banner                                   │
                                                                   ▼
                           ┌──────────────────┐         ┌──────────────────┐
             POST {accept:false}              POST {accept:true}
             /actions/{id}/confirm            /actions/{id}/confirm
                           │                                   │
                           ▼                                   ▼
-                     rejected (terminal)              confirmed (intermedio)
+                     rejected (terminal)              confirmed (intermediate)
                           │                                   │
-                          │                                   │ widget ejecuta
-                          │                                   │ la primitiva localmente
+                          │                                   │ widget executes
+                          │                                   │ the primitive locally
                           │                                   │
                           │                            POST {accept:true, result:...}
                           │                                   │
                           │                                   ▼
                           │                            executed (terminal)
                           ▼                                   ▼
-                            siguiente turno → ## Pending actions
+                            next turn → ## Pending actions
 
-                                  El LLM lee:
+                                  The LLM reads:
                                   - [REJECTED] tool=confirm_dialog ...
-                                  - [PENDING]  tool=...  (si quedan abiertos)
-                                  - [EXPIRED]  tool=...  (si el cron pasó)
+                                  - [PENDING]  tool=...  (if still open)
+                                  - [EXPIRED]  tool=...  (if the cron ran)
 ```
 
-### Atajo: `accept + result` en una sola llamada
+### Shortcut: `accept + result` in a single call
 
-El widget puede combinar la aceptación y la ejecución en una única llamada
-si tiene el resultado disponible al instante:
+The widget can combine acceptance and execution in a single call
+if the result is available immediately:
 
 ```http
 POST /chatbot/actions/abc-123/confirm
@@ -84,50 +86,50 @@ Content-Type: application/json
 { "accept": true, "result": { "ok": true, "downloaded_bytes": 8421 } }
 ```
 
-→ row pasa de `pending` directamente a `executed`. El paso intermedio
-`confirmed` se omite.
+→ the row moves from `pending` directly to `executed`. The intermediate
+`confirmed` step is skipped.
 
-## Ciclo de vida — `manual`
+## Lifecycle — `manual`
 
-Mismo endpoint, mismo body. El widget renderiza un banner con botones
-"Mark as done" y "Mark as not done":
+Same endpoint, same body. The widget renders a banner with
+"Mark as done" and "Mark as not done" buttons:
 
 - "Mark as done"     → `POST {accept: true, result: {done: true}}` → `executed`.
 - "Mark as not done" → `POST {accept: false}` → `rejected`.
 
-No hay paso intermedio `confirmed`: el usuario reporta el outcome final
-directamente.
+There is no intermediate `confirmed` step: the user reports the final outcome
+directly.
 
 ## Endpoint `POST /chatbot/actions/{action}/confirm`
 
-| Campo  | Tipo   | Notas                                                       |
-|--------|--------|-------------------------------------------------------------|
-| `accept` | bool   | requerido                                                   |
-| `result` | array? | opcional; si llega con `accept=true`, fuerza `executed`     |
+| Field    | Type   | Notes                                                       |
+|----------|--------|-------------------------------------------------------------|
+| `accept` | bool   | required                                                    |
+| `result` | array? | optional; if sent with `accept=true`, forces `executed`     |
 
-Path param `{action}` es el `action_id` (UUID) que viaja en el evento SSE
-`frontend_action`.
+Path param `{action}` is the `action_id` (UUID) that travels in the SSE
+`frontend_action` event.
 
-### Códigos de respuesta
+### Response codes
 
-| Código | Cuándo                                                           |
-|--------|------------------------------------------------------------------|
-| 200    | Transición OK. `data` contiene el `PendingActionResource` actualizado. |
-| 401    | Sin sesión (middleware `auth`).                                  |
-| 404    | `action_id` desconocido **o** pertenece a otro usuario (404-no-403). |
-| 409    | Estado terminal o expirado. `pending_action` contiene el row congelado. |
-| 422    | Body mal formado (`accept` falta o no es bool).                  |
+| Code | When                                                                    |
+|------|-------------------------------------------------------------------------|
+| 200  | Transition OK. `data` contains the updated `PendingActionResource`.     |
+| 401  | No session (`auth` middleware).                                         |
+| 404  | Unknown `action_id` **or** belongs to another user (404-not-403).       |
+| 409  | Terminal or expired state. `pending_action` contains the frozen row.    |
+| 422  | Malformed body (`accept` missing or not a bool).                        |
 
-### Idempotencia
+### Idempotency
 
-Los estados terminales (`rejected`, `executed`, `expired`) **no** transicionan;
-una segunda llamada devuelve `409 Conflict`. La excepción es la transición
-`pending → confirmed → executed` para el flujo de dos pasos.
+Terminal states (`rejected`, `executed`, `expired`) **do not** transition;
+a second call returns `409 Conflict`. The exception is the
+`pending → confirmed → executed` transition for the two-step flow.
 
-## Reincorporación al system prompt — `## Pending actions`
+## Injection into the system prompt — `## Pending actions`
 
-`SystemPromptBuilder` añade programáticamente esta sección cuando hay rows
-relevantes en la conversación:
+`SystemPromptBuilder` programmatically adds this section when there are
+relevant rows in the conversation:
 
 ```text
 ## Pending actions
@@ -138,70 +140,67 @@ Use this to avoid re-proposing rejected/expired actions and to acknowledge pendi
 - [EXPIRED]  tool=download_file  action_id=ghi-789 args={"filename":"report.pdf"}
 ```
 
-Sólo se vuelcan los estados que aportan información para el siguiente turno:
+Only states that provide useful information for the next turn are dumped:
 
-- `pending`  → "espero respuesta del usuario";
-- `rejected` → "el usuario me dijo que no";
-- `expired`  → "se acabó el tiempo, decide si reintentar".
+- `pending`  → "waiting for the user's response";
+- `rejected` → "the user said no";
+- `expired`  → "time ran out, decide whether to retry".
 
-Los `confirmed` y `executed` se omiten — son outcomes positivos cuyo efecto
-ya está en el mundo (la primitiva corrió). El listado se trunca a
-`chatbot.limits.pending_actions_in_prompt` entradas, ordenadas por id desc.
+`confirmed` and `executed` are omitted — they are positive outcomes whose
+effect is already in the world (the primitive ran). The list is truncated to
+`chatbot.limits.pending_actions_in_prompt` entries, ordered by id desc.
 
-## Limitaciones de v1
+## v1 Limitations
 
-- **Backend tools NO soportan `confirm`/`manual`** (D9 PROGRESS.md). Filtrado
-  con `Log::warning` accionable. Para un host que necesite confirmación
-  dura sobre una acción de backend: implementar como frontend tool que
-  dispara el backend al confirmarse.
-- **Una pendiente acción no bloquea el siguiente turno** — el usuario
-  puede seguir conversando con el LLM mientras hay rows `pending`. El LLM
-  se entera del outcome al ver la sección `## Pending actions` en el
-  prompt del siguiente turno.
-- **Step-up auth (`reauth`)** queda en backlog v1.1.
+- **Backend tools do NOT support `confirm`/`manual`**. Filtered with an
+  actionable `Log::warning`. For a host that needs hard confirmation over a
+  backend action: implement it as a frontend tool that triggers the backend
+  upon confirmation.
+- **A pending action does not block the next turn** — the user can keep
+  conversing with the LLM while `pending` rows exist. The LLM learns the
+  outcome by reading the `## Pending actions` section in the next turn's prompt.
+- **Step-up auth (`reauth`)** remains in the v1.1 backlog.
 
-## Ejemplo end-to-end
+## End-to-end example
 
-### Turno 1
+### Turn 1
 
 ```
-Usuario: ¿puedes enviar el email de bienvenida?
+User:    Can you send the welcome email?
 LLM:     [tool_call] confirm_dialog({message: "Send welcome email?"})
-ChatService persiste pending action UUID=abc.
-Devuelve `awaiting_user` al LLM.
-LLM:     "Te confirmo cuando aceptes."
+ChatService persists pending action UUID=abc.
+Returns `awaiting_user` to the LLM.
+LLM:     "I'll confirm once you accept."
 ```
 
-Widget recibe `frontend_action {tool: confirm_dialog, confirmation: confirm,
-action_id: abc}` → renderiza banner Accept/Reject bajo el mensaje del
-asistente.
+Widget receives `frontend_action {tool: confirm_dialog, confirmation: confirm,
+action_id: abc}` → renders Accept/Reject banner below the assistant message.
 
-### Usuario rechaza
-
-```
-POST /chatbot/actions/abc/confirm  {accept: false, result: {reason: "Mañana"}}
-```
-
-Row pasa a `rejected`. Banner se elimina. Toast `Rejected: confirm_dialog`.
-
-### Turno 2
+### User rejects
 
 ```
-Usuario: ¿qué pasó con el email?
-LLM (lee el system prompt con):
+POST /chatbot/actions/abc/confirm  {accept: false, result: {reason: "Tomorrow"}}
+```
+
+Row moves to `rejected`. Banner is removed. Toast `Rejected: confirm_dialog`.
+
+### Turn 2
+
+```
+User: What happened with the email?
+LLM (reads system prompt with):
   ## Pending actions
   - [REJECTED] tool=confirm_dialog action_id=abc args={"message":"Send welcome email?"}
 
-LLM: "Lo dejaste para mañana. Avísame cuando quieras enviarlo."
+LLM: "You postponed it until tomorrow. Let me know when you want to send it."
 ```
 
-## Tests de referencia
+## Reference tests
 
 - **Backend** (Pest):
-  - `tests/Feature/Services/PendingActionStoreTest.php` — transiciones del store.
-  - `tests/Feature/Http/ConfirmActionControllerTest.php` — endpoint REST.
-  - `tests/Feature/Console/CleanupActionsCommandTest.php` — comando `chatbot:cleanup-actions`.
-  - `tests/Feature/Services/E16ConfirmationDoDTest.php` — DoD ROADMAP §5/E16.
+  - `tests/Feature/Services/PendingActionStoreTest.php` — store transitions.
+  - `tests/Feature/Http/ConfirmActionControllerTest.php` — REST endpoint.
+  - `tests/Feature/Console/CleanupActionsCommandTest.php` — `chatbot:cleanup-actions` command.
 - **Frontend** (Vitest):
   - `tests/js/confirm.test.ts` — banner UI + `postConfirm` + `deriveConfirmUrl`.
-  - `tests/js/widget.test.ts` (sección "confirm/manual banner routing E16").
+  - `tests/js/widget.test.ts` (section "confirm/manual banner routing").

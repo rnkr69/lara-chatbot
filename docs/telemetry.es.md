@@ -1,31 +1,30 @@
-# Cost Telemetry
+# Telemetría de coste
 
-*English · [Español](telemetry.es.md)*
+*[English](telemetry.md) · Español*
 
-`rnkr69/lara-chatbot` persists `tokens_in` and `tokens_out` for every assistant
-message in the `chatbot_messages` table and fires the
-`Rnkr69\LaraChatbot\Events\MessagePersisted` event after each turn. The package
-**does not send data outside the host by default** — it only writes to the
-host's database and fires the event. What happens from that point on is up to
-the host.
+`rnkr69/lara-chatbot` persiste `tokens_in` y `tokens_out` por cada assistant
+message en la tabla `chatbot_messages` y emite el evento
+`Rnkr69\LaraChatbot\Events\MessagePersisted` tras cada turn. El paquete **no
+envía datos fuera del host por defecto** — sólo escribe en la BD del
+host y dispara el evento. Lo que pase a partir de ahí lo decide el host.
 
-This guide covers two paths:
+Esta guía cubre dos caminos:
 
-1. **Ad-hoc CLI report**: `php artisan chatbot:cost-report` — useful for
-   "how much does this cost per month" without instrumenting anything.
-2. **Continuous sink via event**: the host attaches a listener to
-   `MessagePersisted` to push to Prometheus / BigQuery / OTel / whatever it
-   uses.
+1. **Report ad-hoc por CLI**: `php artisan chatbot:cost-report` — útil
+   para "cuánto cuesta esto al mes" sin instrumentar nada.
+2. **Sink continuo vía evento**: el host engancha un listener al
+   `MessagePersisted` para empujar a Prometheus / BigQuery / OTel / lo
+   que use.
 
 ---
 
-## 1. Ad-hoc Report
+## 1. Report ad-hoc
 
 ```bash
 php artisan chatbot:cost-report --since=2026-05-01
 ```
 
-Output (`table` mode, default):
+Salida (modo `table`, default):
 
 ```
 Cost report: 2026-05-01 → 2026-05-16
@@ -39,23 +38,23 @@ Cost report: 2026-05-01 → 2026-05-16
 Totals: tokens_in=23,500 tokens_out=7,500 cost_in=$0.0614 cost_out=$0.0995
 ```
 
-Options:
+Opciones:
 
-| Flag | Default | Description |
+| Flag | Default | Descripción |
 |---|---|---|
-| `--since=YYYY-MM-DD` | first day of the month | Start date (inclusive). |
-| `--until=YYYY-MM-DD` | now | End date (exclusive). |
-| `--user=ID` | all | Filter by a specific `user_id`. |
-| `--format=table\|json\|csv` | `table` | Output format. |
+| `--since=YYYY-MM-DD` | primer día del mes | Fecha inicial (inclusiva). |
+| `--until=YYYY-MM-DD` | ahora | Fecha final (exclusiva). |
+| `--user=ID` | todos | Filtra por `user_id` concreto. |
+| `--format=table\|json\|csv` | `table` | Formato de salida. |
 
-`--format=json` produces the machine-readable dataset with `since`, `until`,
-`rows[]` (containing `user_id`, `provider`, `model`, `tokens_in`, `tokens_out`,
-`cost_input`, `cost_output`) and `totals`. `--format=csv` is the same data
-without a wrapper, one row per `(user_id, provider, model)` bucket.
+`--format=json` produce el dataset machine-readable con `since`, `until`,
+`rows[]` (con `user_id`, `provider`, `model`, `tokens_in`, `tokens_out`,
+`cost_input`, `cost_output`) y `totals`. `--format=csv` es la misma cosa
+sin envoltorio, una fila por bucket `(user_id, provider, model)`.
 
-### Pricing
+### Tarifas
 
-Rates live in `config/chatbot.php → telemetry.prices`:
+Las tarifas viven en `config/chatbot.php → telemetry.prices`:
 
 ```php
 'telemetry' => [
@@ -73,33 +72,33 @@ Rates live in `config/chatbot.php → telemetry.prices`:
 ],
 ```
 
-USD per **1M tokens**. These are indicative defaults — verify against the
-provider's pricing page before presenting a report to finance; prices change
-without notice.
+USD por **1M tokens**. Defaults indicativos — verifica contra la página
+de pricing del proveedor antes de presentar un report al CFO; los precios
+cambian sin aviso.
 
-If a `(provider, model)` pair has no entry, its cost column shows `n/a` (tokens
-are still reported). For Ollama / self-hosted models this is expected; leave
-them without a rate.
+Si un par `(provider, model)` no tiene entrada, su columna de coste sale
+como `n/a` (los tokens se reportan igual). Para Ollama / modelos
+self-hosted, esto es lo esperable; déjalos sin tarifa.
 
-### Effective Provider/Model
+### Provider/model efectivo
 
-The report determines `provider` and `model` per **conversation**:
+El report determina `provider` y `model` por **conversación**:
 
-1. If the conversation has `metadata.provider` / `metadata.model` (the host
-   can set these when creating the conversation), those win.
-2. Otherwise it falls back to the global defaults (`chatbot.provider` /
+1. Si la conversación tiene `metadata.provider` / `metadata.model` (el
+   host lo puede setear al crear la conversación), eso gana.
+2. Si no, cae a los defaults globales (`chatbot.provider` /
    `chatbot.model`).
 
-This means that if a host overrides per conversation (e.g. using a cheaper
-model for chitchat and a better one for complex tool calls), the report
-distinguishes both paths as separate rows.
+Esto significa que si un host hace override por conversación (p.ej. usar
+un modelo más barato para chitchat y uno mejor para tools complejas),
+el report distingue las dos rutas en filas separadas.
 
 ---
 
-## 2. Continuous Sink via Event
+## 2. Sink continuo vía evento
 
-`MessagePersisted` is fired once per turn, after the assistant message reaches
-disk and before the `done` SSE frame. Shape:
+`MessagePersisted` se dispara una vez por turn, después de que el
+assistant message llegue al disco y antes del `done` SSE. Shape:
 
 ```php
 final class MessagePersisted
@@ -116,7 +115,7 @@ final class MessagePersisted
 }
 ```
 
-The host attaches a listener in its `EventServiceProvider`:
+El host engancha un listener en su `EventServiceProvider`:
 
 ```php
 // app/Providers/EventServiceProvider.php
@@ -127,7 +126,7 @@ protected $listen = [
 ];
 ```
 
-### Recipe 1 — Prometheus Counter
+### Recipe 1 — Counter Prometheus
 
 ```php
 // app/Listeners/Telemetry/PushTokensToPrometheus.php
@@ -155,7 +154,7 @@ class PushTokensToPrometheus
 }
 ```
 
-### Recipe 2 — Stream to BigQuery (queued)
+### Recipe 2 — Stream a BigQuery (queued)
 
 ```php
 // app/Listeners/Telemetry/StreamToBigQuery.php
@@ -179,21 +178,22 @@ class StreamToBigQuery implements ShouldQueue
 }
 ```
 
-Any slow sink (OTel, HTTP to an external service, BigQuery) **must implement
-`ShouldQueue`** — the event is fired on the critical path of
-`ChatService::handle()`, right before the `done` frame is sent to the browser.
-A slow synchronous listener adds that latency to the user's TTL.
+Cualquier sink lento (OTel, HTTP a un service externo, BigQuery) **debe
+implementar `ShouldQueue`** — el evento se dispara en el camino crítico
+del `ChatService::handle()`, justo antes de que el frame `done` salga
+hacia el navegador. Un listener síncrono lento añade esa latencia al
+TTL del usuario.
 
 ---
 
-## Why Doesn't the Package Send Data Outside by Default?
+## ¿Por qué el paquete no envía datos fuera por defecto?
 
-For the same reason as the authorization cascade: the host's data belongs to
-the host. The package persists the minimum needed for the local report to work
-(`tokens_in`/`tokens_out` per message) and emits a well-shaped event so the
-host can decide whether to export — and where.
+Por la misma razón que la cascada de autorización: los datos del host
+son del host. El paquete persiste lo mínimo para que el report local
+funcione (`tokens_in`/`tokens_out` por message) y emite un evento bien
+shaped para que el host decida si exporta — y a dónde.
 
-If in the future centralized telemetry is wanted across all hosts running the
-package, the pattern is to publish a listener in a satellite package
-(`rnkr69/lara-chatbot-telemetry-bigquery`, `rnkr69/lara-chatbot-telemetry-otel`)
-that the host installs separately.
+Si en el futuro la empresa quiere telemetría centralizada para todos los
+hosts del paquete, el patrón es publicar un listener en un paquete
+satélite (`rnkr69/lara-chatbot-telemetry-bigquery`, `rnkr69/lara-chatbot-telemetry-otel`)
+que el host instale por separado.

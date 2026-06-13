@@ -1,34 +1,36 @@
 # Deployment
 
-> Guía operativa para llevar `rnkr69/lara-chatbot` a producción. Cubre lo que cambia
-> respecto a una app Laravel "normal": configuración SSE detrás de proxies, rate
-> limiting, despliegue del bundle del widget, gestión de claves LLM, scheduler
-> para limpieza, hardening de CSP y monitorización.
+*English · [Español](deployment.es.md)*
+
+> Operational guide for taking `rnkr69/lara-chatbot` to production. Covers what
+> changes compared to a "normal" Laravel app: SSE configuration behind proxies,
+> rate limiting, widget bundle deployment, LLM key management, scheduler for
+> cleanup, CSP hardening, and monitoring.
 >
-> Pre-lectura: [`getting-started.md`](getting-started.md) (instalación local).
+> Pre-reading: [`getting-started.md`](getting-started.md) (local installation).
 
 ---
 
-## 1. Resumen ejecutivo
+## 1. Executive summary
 
-`rnkr69/lara-chatbot` es **stateless** desde el punto de vista de despliegue:
+`rnkr69/lara-chatbot` is **stateless** from a deployment standpoint:
 
-- El estado vive en la BD (`chatbot_conversations`, `chatbot_messages`,
+- State lives in the database (`chatbot_conversations`, `chatbot_messages`,
   `chatbot_pending_actions`).
-- El bundle del widget es un asset estático servido desde `public/`.
-- El streaming SSE es HTTP estándar — escala como cualquier endpoint Laravel,
-  con dos restricciones específicas que detallamos a continuación.
+- The widget bundle is a static asset served from `public/`.
+- SSE streaming is standard HTTP — it scales like any Laravel endpoint,
+  with two specific constraints detailed below.
 
-Tres cosas pueden romper en producción si las omites: **proxy buffering**,
-**timeout SSE** y **flush de output**. Las cubre la sección [§2](#2-sse-detras-de-proxies).
+Three things can break in production if you skip them: **proxy buffering**,
+**SSE timeout**, and **output flush**. These are covered in section [§2](#2-sse-behind-proxies).
 
 ---
 
-## 2. SSE detrás de proxies
+## 2. SSE behind proxies
 
-### 2.1 Headers que envía el paquete
+### 2.1 Headers sent by the package
 
-`ChatController@stream` ya emite los headers correctos:
+`ChatController@stream` already emits the correct headers:
 
 ```http
 Content-Type: text/event-stream; charset=UTF-8
@@ -37,8 +39,8 @@ X-Accel-Buffering: no
 Connection: keep-alive
 ```
 
-Pero los proxies entre el cliente y PHP-FPM pueden ignorarlos. La regla general:
-**deshabilitar buffering**, **subir timeout de lectura**, **no chunking**.
+But proxies between the client and PHP-FPM may ignore them. The general rule:
+**disable buffering**, **increase read timeout**, **no chunking**.
 
 ### 2.2 Nginx
 
@@ -48,22 +50,22 @@ location /chatbot/stream {
     proxy_http_version       1.1;
     proxy_set_header         Connection "";
 
-    # Crítico para SSE
+    # Critical for SSE
     proxy_buffering          off;
     proxy_cache              off;
-    proxy_read_timeout       600s;   # cubre conversaciones largas
+    proxy_read_timeout       600s;   # covers long conversations
     proxy_send_timeout       600s;
     chunked_transfer_encoding off;
 
-    # Pasar headers tal cual
+    # Pass headers as-is
     add_header X-Accel-Buffering no;
 }
 ```
 
-> **Nota**: `proxy_buffering off;` es lo que de verdad importa. El header
-> `X-Accel-Buffering: no` que ya emite el controller es la señal *cuando hay
-> Nginx delante con configuración default*; si has tocado `proxy_buffering on;`
-> globalmente, el header no es suficiente.
+> **Note**: `proxy_buffering off;` is what truly matters. The
+> `X-Accel-Buffering: no` header already emitted by the controller is the signal
+> *when Nginx sits in front with default configuration*; if you have set
+> `proxy_buffering on;` globally, the header is not enough.
 
 ### 2.3 Apache + mod_proxy
 
@@ -76,14 +78,14 @@ location /chatbot/stream {
     LimitRequestBody 0
 </Location>
 
-# Timeout largo (default 60s)
+# Long timeout (default 60s)
 ProxyTimeout 600
 ```
 
 ### 2.4 Cloudflare / CDNs
 
-Servicios CDN típicos (Cloudflare, Fastly, CloudFront) buffer-ean el stream y
-**rompen SSE**. Excluye `/chatbot/stream` del passthrough cacheable:
+Typical CDN services (Cloudflare, Fastly, CloudFront) buffer the stream and
+**break SSE**. Exclude `/chatbot/stream` from cacheable passthrough:
 
 - **Cloudflare**: Page Rules → URL match `*/chatbot/stream*` → "Cache Level: Bypass".
 - **CloudFront**: Behavior `path-pattern=/chatbot/stream*` → "Cache policy: CachingDisabled".
@@ -91,51 +93,51 @@ Servicios CDN típicos (Cloudflare, Fastly, CloudFront) buffer-ean el stream y
 ### 2.5 PHP-FPM
 
 ```ini
-; php.ini o pool específico
+; php.ini or specific pool
 output_buffering = Off
 implicit_flush = On
 zlib.output_compression = Off
 
-; Timeout de execución del worker
-max_execution_time = 0    ; SSE puede vivir más que el default 30s
+; Worker execution timeout
+max_execution_time = 0    ; SSE can live longer than the default 30s
 ```
 
-> El controller llama `@flush()` tras cada frame y `ob_implicit_flush(true)` al
-> abrir el stream — pero si tu pool tiene `output_buffering` numérico (default
-> `4096`), PHP igual buffer-ea hasta que se llena. Asegúrate de **`Off`**.
+> The controller calls `@flush()` after each frame and `ob_implicit_flush(true)`
+> when opening the stream — but if your pool has a numeric `output_buffering`
+> (default `4096`), PHP still buffers until it fills. Make sure it is **`Off`**.
 
 ### 2.6 Laravel Octane
 
-Si tu host corre Octane (Swoole / RoadRunner), el endpoint SSE
-**funciona pero con cuidado**:
+If your host runs Octane (Swoole / RoadRunner), the SSE endpoint
+**works but requires care**:
 
-- Octane reusa workers entre requests; un stream largo bloquea ese worker
-  durante todo el turno. Dimensiona `--workers` para absorber concurrencia.
-- En Swoole, `swoole.output_buffer_size = 0` y desactivar `enable_static_handler`
-  en la ruta `/chatbot/*`.
-- El `connection_aborted()` que el paquete usa para detectar cierre del cliente
-  se comporta correctamente bajo Swoole desde 4.x.
+- Octane reuses workers between requests; a long stream blocks that worker
+  for the entire turn. Size `--workers` to absorb concurrency.
+- Under Swoole, set `swoole.output_buffer_size = 0` and disable
+  `enable_static_handler` for the `/chatbot/*` route.
+- The `connection_aborted()` the package uses to detect client disconnection
+  behaves correctly under Swoole since 4.x.
 
 ---
 
-## 3. Timeouts y conexiones largas
+## 3. Timeouts and long-lived connections
 
-| Capa | Default típico | Recomendado para SSE |
+| Layer | Typical default | Recommended for SSE |
 |---|---|---|
 | Nginx `proxy_read_timeout` | 60s | **600s** |
 | Apache `ProxyTimeout` | 60s | **600s** |
-| PHP-FPM `request_terminate_timeout` | 30s | **0** (sin límite) o 600s |
+| PHP-FPM `request_terminate_timeout` | 30s | **0** (unlimited) or 600s |
 | `max_execution_time` (CLI/web) | 30s | **0** |
-| Browser fetch / EventSource | sin límite | n/a — el cliente cierra cuando el usuario sale |
+| Browser fetch / EventSource | no limit | n/a — the client closes when the user leaves |
 
-El widget reintenta automáticamente con backoff exponencial 1s→30s + jitter 25%
-si la conexión muere prematuramente (E12).
+The widget automatically retries with exponential backoff 1s→30s + 25% jitter
+if the connection dies prematurely.
 
 ---
 
 ## 4. Rate limiting
 
-Configurado en `chatbot.limits.rate_limit`:
+Configured in `chatbot.limits.rate_limit`:
 
 ```php
 'rate_limit' => [
@@ -144,8 +146,8 @@ Configurado en `chatbot.limits.rate_limit`:
 ],
 ```
 
-`ChatController::checkRateLimit()` cuenta hits por usuario en `cache()` con clave
-`chatbot:stream:{user_id}`. Cuando se excede:
+`ChatController::checkRateLimit()` counts hits per user in `cache()` with key
+`chatbot:stream:{user_id}`. When exceeded:
 
 ```http
 HTTP/1.1 429 Too Many Requests
@@ -155,12 +157,12 @@ Content-Type: application/json
 {"error":"rate_limited","retry_after":47}
 ```
 
-### 4.1 Recomendaciones
+### 4.1 Recommendations
 
-- **Producción**: 30/min cubre uso conversacional natural. Bájalo si tu LLM
-  cuesta caro.
-- **Tier-aware**: si tu app tiene planes (free/pro/enterprise), envuelve la
-  ruta en un middleware propio que sobrescriba el límite por usuario:
+- **Production**: 30/min covers natural conversational use. Lower it if your LLM
+  is expensive.
+- **Tier-aware**: if your app has plans (free/pro/enterprise), wrap the route in
+  a custom middleware that overrides the limit per user:
 
 ```php
 // routes/web.php
@@ -168,81 +170,81 @@ Route::middleware(['auth', \App\Http\Middleware\ChatbotTierLimit::class])
     ->group(fn () => Route::loadFrom(base_path('vendor/rnkr69/lara-chatbot/routes/chatbot.php')));
 ```
 
-- **Distribuido**: el cache backend de Laravel es la fuente de truth. En
-  multi-server, usa Redis (no `array`/`file`).
+- **Distributed**: Laravel's cache backend is the source of truth. In
+  multi-server setups, use Redis (not `array`/`file`).
 
-### 4.2 Rate limit por tool (futuro)
+### 4.2 Per-tool rate limit (future)
 
-`chatbot.limits.rate_limit_per_tool` está reservado en la config como hook
-para v1.1. Mientras tanto, las tools que llaman APIs externas deben aplicar su
-propio throttling dentro de `handle()`.
+`chatbot.limits.rate_limit_per_tool` is reserved in the config as a hook
+for v1.1. In the meantime, tools that call external APIs must apply their
+own throttling inside `handle()`.
 
 ---
 
-## 5. Distribución del bundle del widget
+## 5. Widget bundle distribution
 
-El bundle precompilado vive en `vendor/rnkr69/lara-chatbot/public-build/chatbot-widget.js`
-(13.75 KB gzip / 47.62 KB raw — bien por debajo del cap de 80 KB del ROADMAP).
+The precompiled bundle lives in `vendor/rnkr69/lara-chatbot/public-build/chatbot-widget.js`
+(13.75 KB gzip / 47.62 KB raw).
 
-### 5.1 Publicar a `public/`
+### 5.1 Publish to `public/`
 
 ```bash
 php artisan vendor:publish --tag=chatbot-assets --force
 ```
 
-Esto copia el bundle a `public/vendor/chatbot/chatbot-widget.js`. El layout
-host lo carga con `<script src="{{ asset('vendor/chatbot/chatbot-widget.js') }}" defer>`.
+This copies the bundle to `public/vendor/chatbot/chatbot-widget.js`. The host
+layout loads it with `<script src="{{ asset('vendor/chatbot/chatbot-widget.js') }}" defer>`.
 
-### 5.2 Servir desde CDN
+### 5.2 Serving from a CDN
 
-Si tu app sirve assets estáticos desde un CDN (CloudFront, Cloudflare R2…):
+If your app serves static assets from a CDN (CloudFront, Cloudflare R2…):
 
-1. Mueve `public/vendor/chatbot/chatbot-widget.js` a tu CDN durante el deploy.
-2. Cambia el `src` del `<script>` apuntando al CDN.
+1. Move `public/vendor/chatbot/chatbot-widget.js` to your CDN during deploy.
+2. Change the `<script>` `src` to point to the CDN.
 3. **Cache headers**: `Cache-Control: public, max-age=31536000, immutable`
-   (el bundle cambia con cada release, no con cada deploy).
-4. Versiona con query string para bust cache: `?v={{ config('chatbot.version') }}`.
+   (the bundle changes with each release, not each deploy).
+4. Version with a query string for cache busting: `?v={{ config('chatbot.version') }}`.
 
-### 5.3 Build custom desde el host
+### 5.3 Custom build from the host
 
-Si necesitas patchar el bundle (e.g. añadir telemetría custom, cambiar el
-markdown subset), copia `resources/js/` del paquete a tu app y compílalo desde
-ahí. Detalle en [`WIDGET.md`](WIDGET.md#6-build-custom).
+If you need to patch the bundle (e.g. add custom telemetry, change the markdown
+subset), copy `resources/js/` from the package into your app and compile from
+there. Details in [`WIDGET.md`](WIDGET.md).
 
-> **Trade-off**: pierdes los updates futuros del paquete en JS. Considera
-> primero usar `registerTool` / `registerBlockRenderer` / `registerNavigator`
-> sobre el bundle estándar.
+> **Trade-off**: you lose future package JS updates. Consider using
+> `registerTool` / `registerBlockRenderer` / `registerNavigator` over the
+> standard bundle first.
 
 ---
 
-## 6. Variables de entorno
+## 6. Environment variables
 
-| Var | Descripción | Default |
+| Var | Description | Default |
 |---|---|---|
-| `CHATBOT_PROVIDER` | Provider Prism (`anthropic`/`openai`/`groq`/`gemini`/`mistral`/`ollama`) | `anthropic` |
-| `CHATBOT_MODEL` | Modelo del provider | `claude-sonnet-4-6` |
+| `CHATBOT_PROVIDER` | Prism provider (`anthropic`/`openai`/`groq`/`gemini`/`mistral`/`ollama`) | `anthropic` |
+| `CHATBOT_MODEL` | Provider model | `claude-sonnet-4-6` |
 | `CHATBOT_AUTH_RESOLVER` | `spatie`/`gate`/`custom` | `spatie` |
-| `ANTHROPIC_API_KEY` | API key del provider correspondiente | — |
-| `OPENAI_API_KEY` | idem | — |
-| `GROQ_API_KEY` | idem | — |
-| `GEMINI_API_KEY` | idem | — |
-| `MISTRAL_API_KEY` | idem | — |
-| `OLLAMA_URL` | host del Ollama local | `http://localhost:11434` |
+| `ANTHROPIC_API_KEY` | API key for the corresponding provider | — |
+| `OPENAI_API_KEY` | same | — |
+| `GROQ_API_KEY` | same | — |
+| `GEMINI_API_KEY` | same | — |
+| `MISTRAL_API_KEY` | same | — |
+| `OLLAMA_URL` | local Ollama host | `http://localhost:11434` |
 
-### 6.1 Buenas prácticas
+### 6.1 Best practices
 
-- API keys en secret manager (Vault, AWS SM, doppler), no en `.env` plain.
-- Roles distintos por entorno: `staging` puede usar Claude Haiku para abaratar;
-  `production` usa Sonnet/Opus.
-- Cuando cambies un secret, redeploy o `php artisan config:clear`.
+- API keys in a secret manager (Vault, AWS SM, Doppler), not in plain `.env`.
+- Different roles per environment: `staging` can use Claude Haiku to reduce
+  costs; `production` uses Sonnet/Opus.
+- When changing a secret, redeploy or run `php artisan config:clear`.
 
 ---
 
-## 7. Scheduler y concurrencia
+## 7. Scheduler and concurrency
 
-El paquete expone dos comandos schedulables: uno obligatorio
-(`chatbot:cleanup-actions`) y otro opcional sólo para hosts con
-dashboard habilitado (`chatbot:dashboards:prune`, v2.0):
+The package exposes two schedulable commands: one mandatory
+(`chatbot:cleanup-actions`) and one optional only for hosts with the
+dashboard enabled (`chatbot:dashboards:prune`, v2.0):
 
 ```php
 // app/Console/Kernel.php — Laravel 11 / 12
@@ -250,85 +252,83 @@ use Illuminate\Console\Scheduling\Schedule;
 
 protected function schedule(Schedule $schedule): void
 {
-    // Obligatorio: limpia chatbot_pending_actions caducados.
+    // Required: cleans up expired chatbot_pending_actions.
     $schedule->command('chatbot:cleanup-actions')
              ->hourly()
              ->withoutOverlapping();
 
-    // Opcional (sólo si CHATBOT_DASHBOARD_ENABLED=true): housekeeping del
-    // Personal Dashboard. Sin flags el comando sale con error — siempre
-    // declarar explícitamente qué prunea. Ver docs/dashboard.md §9.3.
+    // Optional (only if CHATBOT_DASHBOARD_ENABLED=true): Personal Dashboard
+    // housekeeping. Without flags the command exits with an error — always
+    // declare explicitly what it prunes. See docs/dashboard.md §9.3.
     $schedule->command('chatbot:dashboards:prune', [
                  '--source-missing', '--stale', '--empty-dashboards', '--force',
              ])
              ->weekly()
              ->withoutOverlapping();
 
-    // (Opcional) hard-delete mensual de filas soft-deleted hace > 30 días:
+    // (Optional) monthly hard-delete of rows soft-deleted more than 30 days ago:
     // $schedule->command('chatbot:dashboards:prune', [
     //              '--purge-soft-deleted', '--force',
     //          ])->monthly()->withoutOverlapping();
 }
 ```
 
-**`chatbot:cleanup-actions`**: marca como `expired` cualquier
-`pending_action` con `expires_at < now()` — soft, **no DELETE** (preserva
-auditoría y evita ruido en la sección `## Pending actions` del prompt).
-Detalle en [`confirmation-flow.md`](confirmation-flow.md).
+**`chatbot:cleanup-actions`**: marks as `expired` any `pending_action` with
+`expires_at < now()` — soft, **no DELETE** (preserves audit trail and avoids
+noise in the `## Pending actions` section of the prompt).
+Details in [`confirmation-flow.md`](confirmation-flow.md).
 
-**`chatbot:dashboards:prune`** (v2.0 / E10): soft-delete de widgets
-inservibles (tool desapareció, refresh muy antiguo, dashboards vacíos)
-y opcionalmente hard-delete de lo ya soft-deleted. Cuatro modos opt-in;
-dry-run por defecto, `--force` ejecuta. Sin flags el comando sale con
-error. Thresholds default 30/90/180/30 días, configurables vía
-`chatbot.dashboard.prune.*` u override CLI. Documentación completa de
-flags + receta de scheduler en [`dashboard.md` §9.3](dashboard.md#93-comando-de-limpieza).
+**`chatbot:dashboards:prune`** (v2.0): soft-deletes unusable widgets (tool
+disappeared, refresh too old, empty dashboards) and optionally hard-deletes
+already soft-deleted rows. Four opt-in modes; dry-run by default, `--force`
+executes. Without flags the command exits with an error. Default thresholds
+30/90/180/30 days, configurable via `chatbot.dashboard.prune.*` or CLI
+override. Full flag documentation + scheduler recipe in [`dashboard.md`](dashboard.md).
 
-**Frecuencia recomendada**:
+**Recommended frequency**:
 
-- **`chatbot:cleanup-actions`**: `hourly` por defecto;
-  `everyTenMinutes` si tienes muchos `confirm` (TTL 10 min) y notas que
-  los expirados tardan en desaparecer del prompt.
-- **`chatbot:dashboards:prune`**: `weekly` cubre la mayoría de los
-  hosts; los thresholds default (30/90/180 días) son conservadores. Si
-  el host tiene muchísimos widgets pinneados y un `ToolRegistry` que
-  cambia con frecuencia, considere `daily` con `--source-missing` aislado.
+- **`chatbot:cleanup-actions`**: `hourly` by default;
+  `everyTenMinutes` if you have many `confirm` actions (TTL 10 min) and notice
+  that expired ones are slow to disappear from the prompt.
+- **`chatbot:dashboards:prune`**: `weekly` covers most hosts; the default
+  thresholds (30/90/180 days) are conservative. If the host has a very large
+  number of pinned widgets and a frequently changing `ToolRegistry`, consider
+  `daily` with `--source-missing` in isolation.
 
-### 7.5 Concurrency (replay del Personal Dashboard)
+### 7.5 Concurrency (Personal Dashboard replay)
 
-El bulk refresh del dashboard (`POST /chatbot/dashboards/{slug}/refresh`,
-v2.0) re-ejecuta los tools de cada widget con `Concurrency::run()`,
-chunkeado al cap `chatbot.dashboard.replay.concurrency` (default 8). El
-driver lo decide el host vía `config/concurrency.php`:
+The dashboard bulk refresh (`POST /chatbot/dashboards/{slug}/refresh`, v2.0)
+re-executes each widget's tools with `Concurrency::run()`, chunked to the
+`chatbot.dashboard.replay.concurrency` cap (default 8). The driver is chosen
+by the host via `config/concurrency.php`:
 
 ```php
-// config/concurrency.php — publícalo con:
+// config/concurrency.php — publish with:
 //   php artisan config:publish concurrency
 return [
-    // 'sync' (seguro en cualquier entorno), 'process' o 'fork'.
+    // 'sync' (safe in any environment), 'process' or 'fork'.
     'default' => env('CONCURRENCY_DRIVER', 'sync'),
 ];
 ```
 
-| Driver | Cuándo | Notas |
-|--------|--------|-------|
-| `sync` | **Default seguro.** Windows/WAMP, shared hosting, contenedores sin `pcntl`. | Ejecuta los replays secuencialmente en el mismo proceso. Sin paralelismo, pero sin sorpresas. Para dashboards con pocos widgets el coste secuencial es imperceptible. |
-| `process` | Hosts con PHP-FPM estándar y capacidad de spawnear subprocesos `artisan`. | Paraleliza de verdad. Cada task se serializa y corre en un subproceso con un boot fresco del framework — el host debe garantizar que sus tools se registran en el boot (service provider/config), no en runtime. |
-| `fork` | Hosts con la extensión `pcntl` (CLI/Octane, no FPM web). | Paraleliza sin re-bootear; el más rápido donde está disponible. |
+| Driver | When | Notes |
+|--------|------|-------|
+| `sync` | **Safe default.** Windows/WAMP, shared hosting, containers without `pcntl`. | Runs replays sequentially in the same process. No parallelism, but no surprises. For dashboards with few widgets the sequential cost is imperceptible. |
+| `process` | Hosts with standard PHP-FPM and ability to spawn `artisan` subprocesses. | True parallelism. Each task is serialized and runs in a subprocess with a fresh framework boot — the host must ensure its tools are registered during boot (service provider/config), not at runtime. |
+| `fork` | Hosts with the `pcntl` extension (CLI/Octane, not FPM web). | Parallelizes without re-booting; the fastest option where available. |
 
-**Importante** — Laravel 11+ NO publica `config/concurrency.php` por
-defecto, así que sin publicarlo `concurrency.default` cae al hardcoded
-`process`. Si el host no tiene subprocess viable (típico en Windows/WAMP),
-el bulk refresh fallará. Publica el config y fija `sync` salvo que tu
-infra soporte `process`/`fork`.
+**Important** — Laravel 11+ does NOT publish `config/concurrency.php` by
+default, so without publishing it `concurrency.default` falls back to the
+hardcoded `process`. If the host has no viable subprocess (typical on
+Windows/WAMP), the bulk refresh will fail. Publish the config and set `sync`
+unless your infrastructure supports `process`/`fork`.
 
-Los tasks que el paquete pasa a `Concurrency::run()` son
-serializable-friendly: closures `static` que NO capturan el grafo del
-`ReplayService` (sólo el widget + el usuario), así que cualquier driver es
-seguro desde v2.1.0. En v2.0.0 el task capturaba `$this` y agotaba la
-memoria bajo `process`/`fork` — si vienes de v2.0.0 con el workaround
-`config/concurrency.php` en `sync`, puedes mantenerlo o subir a
-`process`/`fork` tras actualizar.
+Tasks the package passes to `Concurrency::run()` are serializable-friendly:
+`static` closures that do NOT capture the `ReplayService` graph (only the
+widget + the user), so any driver is safe from v2.1.0 onwards. In v2.0.0 the
+task captured `$this` and exhausted memory under `process`/`fork` — if you
+come from v2.0.0 with the `config/concurrency.php` workaround set to `sync`,
+you can keep it or upgrade to `process`/`fork` after updating.
 
 ---
 
@@ -336,32 +336,32 @@ memoria bajo `process`/`fork` — si vienes de v2.0.0 con el workaround
 
 ### 8.1 CSP (Content Security Policy)
 
-El widget vive en shadow DOM y no inyecta scripts inline. CSP mínima:
+The widget lives in a shadow DOM and does not inject inline scripts. Minimum CSP:
 
 ```
 default-src 'self';
 script-src  'self';
-style-src   'self' 'unsafe-inline';   /* shadow DOM injecta <style> propios */
+style-src   'self' 'unsafe-inline';   /* shadow DOM injects its own <style> */
 connect-src 'self';                   /* /chatbot/stream */
-img-src     'self' data:;             /* avatars y blocks card con imágenes */
+img-src     'self' data:;             /* avatars and card blocks with images */
 ```
 
-Si sirves el bundle desde CDN, añade `script-src 'self' https://cdn.tu-host.com`.
+If you serve the bundle from a CDN, add `script-src 'self' https://cdn.your-host.com`.
 
 ### 8.2 CSRF
 
-`POST /chatbot/stream` y `POST /chatbot/actions/{id}/confirm` están en el grupo
-`web` y requieren CSRF token. El widget lo lee automáticamente del meta tag
-`<meta name="csrf-token" content="{{ csrf_token() }}">` que Laravel añade por
-default.
+`POST /chatbot/stream` and `POST /chatbot/actions/{id}/confirm` are in the
+`web` group and require a CSRF token. The widget reads it automatically from
+the `<meta name="csrf-token" content="{{ csrf_token() }}">` meta tag that
+Laravel adds by default.
 
-Si tu app no incluye ese meta tag, añádelo al layout principal.
+If your app does not include that meta tag, add it to your main layout.
 
-### 8.3 Sensible data redaction
+### 8.3 Sensitive data redaction
 
-El paquete **no** redacta automáticamente PII en logs ni en eventos
-`ToolInvoked`. Si tus tools manejan datos sensibles (PII, salud, financieros),
-implementa redaction en el listener:
+The package does **not** automatically redact PII in logs or `ToolInvoked`
+events. If your tools handle sensitive data (PII, health, financial), implement
+redaction in the listener:
 
 ```php
 Event::listen(ToolInvoked::class, function ($event) {
@@ -375,70 +375,67 @@ Event::listen(ToolInvoked::class, function ($event) {
 
 ### 8.4 Page context
 
-El usuario puede manipular el `<meta name="chatbot:context">`. **Nunca**
-dependas del page context para tomar decisiones de autorización en el backend
-sin re-validar:
+Users can manipulate the `<meta name="chatbot:context">`. **Never** rely on
+page context for backend authorization decisions without re-validating:
 
 ```php
-// MAL — confía en algo que el cliente puede falsificar
+// BAD — trusts something the client can forge
 $tenantId = $pageContext['tenant_id'];
 
-// BIEN — valida que el usuario realmente tiene acceso a ese tenant
+// GOOD — validates that the user actually has access to that tenant
 if (! $user->tenants()->where('id', $tenantId)->exists()) {
-    return ToolResult::error('out_of_scope', 'No accesible.');
+    return ToolResult::error('out_of_scope', 'Not accessible.');
 }
 ```
 
-El `TenantResolver` de E14/§4 ya lo hace correctamente. Si extiendes la
-cascada con datos del page context, mantén la misma disciplina.
+If you extend the cascade with page context data, maintain the same discipline.
 
 ---
 
-## 9. Observabilidad
+## 9. Observability
 
 ### 9.1 Logs
 
-| Canal | Qué loguear | Para qué |
+| Channel | What to log | Purpose |
 |---|---|---|
-| `chatbot` o `audit` | `ToolInvoked` con user/tool/result/duration | trazabilidad legal/compliance |
-| `default` | warnings del paquete (page_context overflow, scope no resuelto) | salud del paquete |
-| `slow` | tools cuyo `duration > 5s` | optimización |
+| `chatbot` or `audit` | `ToolInvoked` with user/tool/result/duration | legal/compliance traceability |
+| `default` | package warnings (page_context overflow, unresolved scope) | package health |
+| `slow` | tools with `duration > 5s` | optimization |
 
-### 9.2 Métricas (Prometheus / StatsD)
+### 9.2 Metrics (Prometheus / StatsD)
 
-Métricas útiles para alertar:
+Useful metrics to alert on:
 
 - `chatbot.stream.requests_total{provider,model}` — counter.
 - `chatbot.stream.duration_seconds{provider,model}` — histogram.
 - `chatbot.tool.invocations_total{tool,result}` — counter.
 - `chatbot.tool.duration_seconds{tool}` — histogram.
-- `chatbot.pending_actions{state}` — gauge (alimentado por un job que cuenta
-  filas por status).
+- `chatbot.pending_actions{state}` — gauge (fed by a job that counts rows by
+  status).
 
-Engánchalo desde un listener de `ToolInvoked` que llame a `\Statsd::*` o
-similar.
+Hook it up from a `ToolInvoked` listener that calls `\Statsd::*` or similar.
 
-### 9.3 Trazas distribuidas
+### 9.3 Distributed traces
 
-El stream SSE atraviesa varias capas (controller → ChatService → Prism →
-provider). Si usas OpenTelemetry, instrumenta las dos llamadas externas:
+The SSE stream passes through several layers (controller → ChatService → Prism →
+provider). If you use OpenTelemetry, instrument the two external calls:
 
-- Llamada Prism → provider (HTTP outbound).
-- Backend tools del host (cada `handle()` puede ser una span).
+- Prism → provider call (HTTP outbound).
+- Host backend tools (each `handle()` can be a span).
 
-El paquete no instrumenta automáticamente; el host inyecta los span tags vía
-listener de `ToolInvoked` y middlewares HTTP estándar.
+The package does not instrument automatically; the host injects span tags via
+a `ToolInvoked` listener and standard HTTP middlewares.
 
 ---
 
-## 10. Despliegue
+## 10. Deployment
 
-### 10.1 Pasos canónicos en CI/CD
+### 10.1 Canonical CI/CD steps
 
 ```bash
 # Build
 composer install --no-dev --optimize-autoloader
-npm ci && npm run build       # sólo si compilas widget custom
+npm ci && npm run build       # only if compiling a custom widget
 
 # Deploy
 php artisan migrate --force
@@ -448,106 +445,106 @@ php artisan view:cache
 php artisan vendor:publish --tag=chatbot-assets --force
 
 # Restart workers
-php artisan queue:restart    # si usas queues
+php artisan queue:restart    # if you use queues
 sudo systemctl reload php-fpm
 ```
 
 ### 10.2 Post-deploy smoke test
 
 ```bash
-# Provider activo
+# Active provider
 php artisan chatbot:test-connection
 
-# Tools registradas
+# Registered tools
 php artisan chatbot:tools:list
 ```
 
-Si ambos pasan, los componentes críticos están sanos.
+If both pass, the critical components are healthy.
 
 ### 10.3 Rolling deployments
 
-`/chatbot/stream` mantiene la conexión abierta minutos. Durante un rolling
-deploy, los streams en vuelo se cortan al matar el worker viejo. El widget
-reintenta con backoff (E12) — los usuarios ven un freeze de 1-2s y siguen.
+`/chatbot/stream` keeps the connection open for minutes. During a rolling
+deploy, in-flight streams are cut when the old worker is killed. The widget
+retries with backoff — users see a 1–2s freeze and continue.
 
-Si tu SLA exige zero-disconnect, considera:
+If your SLA requires zero-disconnect, consider:
 
-- Anunciar el deploy en el chat con un block de tipo `text` antes del corte
-  ("Vamos a desplegar mejoras, conexión se reanudará en 30s").
-- Drain mode: dejar de aceptar nuevas requests SSE pero servir los abiertos
-  hasta que terminen.
+- Announcing the deploy in the chat with a `text` block before the cut
+  ("We're deploying improvements, connection will resume in 30s").
+- Drain mode: stop accepting new SSE requests but serve the open ones until
+  they finish.
 
 ### 10.4 Rollback
 
-`rnkr69/lara-chatbot` sigue SemVer. Rollback de un release minor o patch:
+`rnkr69/lara-chatbot` follows SemVer. Rolling back a minor or patch release:
 
 ```bash
 composer require rnkr69/lara-chatbot:0.4.0 --no-update
 composer update rnkr69/lara-chatbot --with-dependencies
-php artisan migrate --rollback     # SOLO si la nueva versión añadió migraciones
+php artisan migrate --rollback     # ONLY if the new version added migrations
 php artisan vendor:publish --tag=chatbot-assets --force
 ```
 
-> Nota: estamos en `0.x`, así que MINOR puede romper. Hacer pin exacto a una versión `0.4.N` concreta para producción y revisar el CHANGELOG antes de subir.
+> Note: we are on `0.x`, so MINOR versions may break. Pin to an exact `0.4.N`
+> version for production and review the CHANGELOG before upgrading.
 
-Las migraciones del paquete son aditivas; un rollback puede dejar columnas
-extra que no estorban. Detalle de la política breaking change en `CHANGELOG.md`
-sección "Versioning policy".
+Package migrations are additive; a rollback may leave extra columns that cause
+no harm. Breaking-change policy details are in `CHANGELOG.md` under
+"Versioning policy".
 
 ---
 
-## 11. Costes
+## 11. Costs
 
-El coste dominante en producción es el **provider LLM**. Estimación:
+The dominant cost in production is the **LLM provider**. Estimate:
 
-| Provider · Modelo | Coste por turno típico (1k tokens prompt + 500 out) |
+| Provider · Model | Cost per typical turn (1k prompt tokens + 500 out) |
 |---|---|
 | Claude Sonnet 4.6 | ~$0.005 |
 | Claude Opus 4.7 | ~$0.025 |
 | OpenAI GPT-4.1 | ~$0.005 |
 | Gemini 2.5 Pro | ~$0.003 |
 | Groq Llama 3.3 70B | ~$0.0005 |
-| Ollama local | $0 (compute propio) |
+| Ollama local | $0 (own compute) |
 
-Para abaratar:
+To reduce costs:
 
-- **History truncation**: `chatbot.limits.history_messages = 20` recorta el
-  histórico al LLM (los antiguos siguen en BD). Bájalo si los turnos no
-  necesitan tanto contexto.
-- **Cache**: Anthropic y OpenAI soportan prompt caching. Prism no lo expone aún
-  uniformemente; si tu provider lo soporta, considera enviar el system prompt
-  en una request inicial cacheable.
-- **Modelo más pequeño para turnos triviales**: implementa una heurística
-  pre-LLM (e.g. saludo simple → no llames al LLM, devuelve un canned
-  response). Detalle en backlog v1.2.
+- **History truncation**: `chatbot.limits.history_messages = 20` trims the
+  history sent to the LLM (older messages remain in the database). Lower it
+  if turns do not need that much context.
+- **Cache**: Anthropic and OpenAI support prompt caching. Prism does not yet
+  expose this uniformly; if your provider supports it, consider sending the
+  system prompt in an initial cacheable request.
+- **Smaller model for trivial turns**: implement a pre-LLM heuristic (e.g.
+  simple greeting → skip the LLM, return a canned response).
 
 ---
 
-## 12. Checklist pre-producción
+## 12. Pre-production checklist
 
-- [ ] Nginx/Apache configurado con `proxy_buffering off` para `/chatbot/stream`.
+- [ ] Nginx/Apache configured with `proxy_buffering off` for `/chatbot/stream`.
 - [ ] PHP-FPM `output_buffering = Off`.
-- [ ] CDN excluyendo `/chatbot/stream` del passthrough cacheable.
-- [ ] `chatbot:cleanup-actions` programado en el scheduler.
-- [ ] (Sólo dashboard v2.0) `chatbot:dashboards:prune` programado con los flags y la cadencia adecuada al volumen del host (ver §7 + `dashboard.md` §9.3).
-- [ ] `chatbot:test-connection` verde en el entorno destino.
-- [ ] Rate limit ajustado al volumen esperado.
-- [ ] Bundle del widget publicado en `public/` (o subido al CDN).
-- [ ] Listener de `ToolInvoked` registrado para auditoría.
-- [ ] CSP del host actualizada (al menos `style-src 'unsafe-inline'`).
-- [ ] Migraciones aplicadas (`migrate --force`).
-- [ ] Variables de entorno con API keys configuradas.
-- [ ] Smoke test en staging: el widget aparece, responde, llama a una tool, la
-      tool autoriza y devuelve datos correctos para el usuario logueado.
-- [ ] Métricas de provider exportadas (al menos coste y latencia P95).
+- [ ] CDN excluding `/chatbot/stream` from cacheable passthrough.
+- [ ] `chatbot:cleanup-actions` scheduled in the scheduler.
+- [ ] (Dashboard v2.0 only) `chatbot:dashboards:prune` scheduled with the flags and cadence appropriate for the host's volume (see §7 + [`dashboard.md`](dashboard.md)).
+- [ ] `chatbot:test-connection` green in the target environment.
+- [ ] Rate limit tuned to expected volume.
+- [ ] Widget bundle published to `public/` (or uploaded to CDN).
+- [ ] `ToolInvoked` listener registered for auditing.
+- [ ] Host CSP updated (at minimum `style-src 'unsafe-inline'`).
+- [ ] Migrations applied (`migrate --force`).
+- [ ] Environment variables with API keys configured.
+- [ ] Smoke test in staging: the widget appears, responds, calls a tool, the
+      tool authorizes and returns correct data for the logged-in user.
+- [ ] Provider metrics exported (at minimum cost and P95 latency).
 
 ---
 
-## 13. Referencias
+## 13. References
 
-- Configuración: `config/chatbot.php` (sección `limits` y `route`).
-- Controller SSE: `src/Http/Controllers/ChatController.php`.
-- Comando cleanup: `src/Console/Commands/CleanupActionsCommand.php`.
+- Configuration: `config/chatbot.php` (`limits` and `route` sections).
+- SSE controller: `src/Http/Controllers/ChatController.php`.
+- Cleanup command: `src/Console/Commands/CleanupActionsCommand.php`.
 - Widget: [`WIDGET.md`](WIDGET.md).
-- Distribución / matriz CI: [`distribution.md`](distribution.md).
-- Troubleshooting runtime: [`troubleshooting.md`](troubleshooting.md).
+- Distribution / CI matrix: [`distribution.md`](distribution.md).
+- Runtime troubleshooting: [`troubleshooting.md`](troubleshooting.md).

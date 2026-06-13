@@ -1,46 +1,45 @@
 # Decision strategies — Page-aware prompting
 
-> Cómo enseña el package al LLM a aprovechar la página actual del usuario
-> en vez de duplicar contenido en el chat. Introducido en v1.1.1
-> (finding #12).
+*English · [Español](decision-strategies.es.md)*
 
-Pre-lectura: [`page-context.md`](page-context.md) (cómo se sanitiza el page
-context) + [`FRONTEND_TOOLS.md`](FRONTEND_TOOLS.md) (catálogo de primitivas
-que el LLM puede usar para actuar sobre la página).
+> How the package teaches the LLM to leverage the user's current page
+> instead of duplicating content inside the chat. Introduced in v1.1.1.
+
+Pre-reading: [`page-context.md`](page-context.md) (how page context is sanitised)
++ [`FRONTEND_TOOLS.md`](FRONTEND_TOOLS.md) (catalogue of primitives the LLM can
+use to act on the page).
 
 ---
 
-## 1. ¿Por qué este doc?
+## 1. Why this doc?
 
-Una conversación natural en un admin tiene dos rutas para entregar un
-resultado:
+A natural conversation in an admin panel has two routes to deliver a result:
 
-- **Chat-bound**: el LLM llama una backend tool, recibe los datos y los
-  pinta como un bloque (tabla, KPI, chart) DENTRO del chat.
-- **Page-bound**: el LLM llama una frontend tool que modifica la UI que
-  el usuario ya tiene en pantalla (filtrar el grid, abrir un drawer,
-  rellenar un form).
+- **Chat-bound**: the LLM calls a backend tool, receives the data and
+  renders it as a block (table, KPI, chart) INSIDE the chat.
+- **Page-bound**: the LLM calls a frontend tool that modifies the UI the
+  user already has on screen (filter the grid, open a drawer, fill a form).
 
-Para una tarea como *"enséñame las últimas 50 misiones a Marte"* desde
-`/admin/mission` (list view de Backpack), las dos rutas funcionan
-"técnicamente", pero la experiencia es muy distinta:
+For a task like *"show me the last 50 missions to Mars"* from
+`/admin/mission` (Backpack list view), both routes work "technically",
+but the experience is very different:
 
-| Ruta | UX | Tokens | Persistencia |
+| Route | UX | Tokens | Persistence |
 |---|---|---|---|
-| Chat-bound (`list_my_missions` → `render_block` table) | Tabla duplicada bajo la tabla nativa que el usuario ya ve. Saturación visual. | ~3000 tokens out + se guardan en `chatbot_messages` y vuelven al contexto siguiente turn. | El bloque se persiste, se re-cargará en futuras visitas a la conversación. |
-| Page-bound (`fill_form(filtersForm)` + `refreshGrid`) | Filtra la DataTable existente. UX nativa. | ~50 tokens out. La data nunca entra al contexto del LLM. | Reversible con un click del usuario. |
+| Chat-bound (`list_my_missions` → `render_block` table) | Table duplicated below the native table the user already sees. Visual clutter. | ~3000 tokens out + stored in `chatbot_messages` and returned to context on the next turn. | The block is persisted and will reload on future visits to the conversation. |
+| Page-bound (`fill_form(filtersForm)` + `refreshGrid`) | Filters the existing DataTable. Native UX. | ~50 tokens out. Data never enters the LLM context. | Reversible with a single user click. |
 
-Sin guidance, el LLM elige la primera porque es la más obvia desde la
-perspectiva de "qué tool usar para responder esto". El package añade una
-sección al system prompt que le enseña a preferir la segunda cuando la
-página lo permite.
+Without guidance, the LLM picks the first because it is the most obvious
+from the perspective of "which tool to use to answer this". The package
+appends a section to the system prompt that teaches it to prefer the
+second whenever the page allows it.
 
 ---
 
-## 2. Las reglas (qué ve el LLM)
+## 2. The rules (what the LLM sees)
 
-La sección "Page context — decision strategy" se concatena al system
-prompt tras `## Current page`. Su contenido canónico:
+The "Page context — decision strategy" section is concatenated to the
+system prompt after `## Current page`. Its canonical content:
 
 ```
 ### Listings (`crud.action = list`)
@@ -66,13 +65,13 @@ prompt tras `## Current page`. Su contenido canónico:
 ### When ambiguous, ASK
 ```
 
-Texto completo en `Rnkr69\LaraChatbot\Llm\SystemPromptBuilder::DEFAULT_DECISION_STRATEGY`.
+Full text in `Rnkr69\LaraChatbot\Llm\SystemPromptBuilder::DEFAULT_DECISION_STRATEGY`.
 
 ---
 
-## 3. Cómo activar / desactivar / customizar
+## 3. How to enable / disable / customise
 
-Vive en `config/chatbot.php → system_prompt.decision_strategy`:
+Lives in `config/chatbot.php → system_prompt.decision_strategy`:
 
 ```php
 'system_prompt' => [
@@ -82,74 +81,74 @@ Vive en `config/chatbot.php → system_prompt.decision_strategy`:
 ],
 ```
 
-Tres valores válidos:
+Three valid values:
 
-| Valor | Efecto |
+| Value | Effect |
 |---|---|
-| `true` (default) | Emite las reglas estándar del package. |
-| `false` | Desactiva la sección entera. El LLM decide sin guidance específico. |
-| `'view::name'` | Renderiza esa vista Blade en lugar del default. Útil para hosts que quieren un set de reglas custom con su misma estructura. |
+| `true` (default) | Emits the package's standard rules. |
+| `false` | Disables the entire section. The LLM decides without specific guidance. |
+| `'view::name'` | Renders that Blade view instead of the default. Useful for hosts that want a custom rule set with the same structure. |
 
-### 3.1 Desactivar (no recomendado)
+### 3.1 Disable (not recommended)
 
 ```env
 CHATBOT_SYSTEM_PROMPT_DECISION_STRATEGY=false
 ```
 
-Para hosts que no usan page context (chat puro, sin admin) la sección
-es ruido. Para cualquier admin web, déjala activa.
+For hosts that do not use page context (pure chat, no admin) the section
+is noise. For any admin web app, leave it active.
 
-### 3.2 Customizar vía vista propia
+### 3.2 Customise via your own view
 
 ```env
 CHATBOT_SYSTEM_PROMPT_DECISION_STRATEGY=chatbot.decision-strategy-custom
 ```
 
-Publica `resources/views/chatbot/decision-strategy-custom.blade.php`:
+Publish `resources/views/chatbot/decision-strategy-custom.blade.php`:
 
 ```blade
-{{-- Reglas de decisión específicas de mi dominio --}}
+{{-- Domain-specific decision rules --}}
 ## Page context — decision strategy
 
-### Cuando el usuario está en /captain/fleet
-- Las acciones masivas de aprobación (bulk_approve_missions) las DEBE
-  proponer con confirm=true. Nunca auto.
-- Si selected_ids está vacío, sugerir al usuario seleccionar primero.
+### When the user is on /captain/fleet
+- Bulk approval actions (bulk_approve_missions) MUST be proposed with
+  confirm=true. Never auto.
+- If selected_ids is empty, suggest the user selects records first.
 
-### Cuando el usuario está en /pilot/dashboard
+### When the user is on /pilot/dashboard
 - ...
 ```
 
-Cuando uses un view custom, **sustituye** las reglas default — no las
-extiende. Si quieres añadir reglas SIN perder las default, usa el
-mecanismo `system_prompt.addendum_view` en su lugar (ver
-[`getting-started.md §4`](getting-started.md)).
+When you use a custom view it **replaces** the default rules — it does not
+extend them. If you want to add rules WITHOUT losing the defaults, use the
+`system_prompt.addendum_view` mechanism instead (see
+[`getting-started.md`](getting-started.md)).
 
-### 3.3 Combinar reglas: addendum_view para extender
+### 3.3 Combining rules: addendum_view to extend
 
-`addendum_view` se concatena al final del system prompt **además** de
-las reglas default. Patrón recomendado:
+`addendum_view` is concatenated at the end of the system prompt **in addition
+to** the default rules. Recommended pattern:
 
 ```php
 'system_prompt' => [
-    'decision_strategy' => true,                                  // reglas default del package
-    'addendum_view'     => 'chatbot.host-specific-rules',        // reglas adicionales del host
+    'decision_strategy' => true,                                  // package default rules
+    'addendum_view'     => 'chatbot.host-specific-rules',        // host-specific additional rules
 ],
 ```
 
-Y la vista `host-specific-rules.blade.php` añade matices ("en este host
-las acciones financieras siempre requieren confirm doble", etc.).
+The `host-specific-rules.blade.php` view then adds nuances ("on this host
+financial actions always require double confirmation", etc.).
 
 ---
 
-## 4. Patrones E2E
+## 4. End-to-end patterns
 
-### 4.1 Listing → filtrar grid (no duplicar)
+### 4.1 Listing → filter the grid (no duplication)
 
-**Usuario** está en `/admin/mission` y escribe:
-> "Filtra por destino Marte y status approved"
+**User** is on `/admin/mission` and types:
+> "Filter by destination Mars and status approved"
 
-**Page context** (resumido):
+**Page context** (abbreviated):
 ```json
 {
   "crud": {
@@ -168,72 +167,72 @@ las acciones financieras siempre requieren confirm doble", etc.).
 }
 ```
 
-**LLM decide (con las reglas activas)**:
-1. Mismo entity (`Mission`) y action `list` → page-bound.
-2. Mapea labels a values: `Marte → 2`, `approved → "approved"`.
-3. Llama `fill_form(filters)` y luego `invoke_host_action('refreshGrid')`.
-4. Confirma al usuario en chat: "Aplicados los filtros. Ves los resultados arriba."
+**LLM decides (with rules active)**:
+1. Same entity (`Mission`) and action `list` → page-bound.
+2. Maps labels to values: `Mars → 2`, `approved → "approved"`.
+3. Calls `fill_form(filters)` then `invoke_host_action('refreshGrid')`.
+4. Confirms to the user in chat: "Filters applied. You can see the results above."
 
-**Sin las reglas**, el LLM tiende a llamar `list_missions(destination_planet_id=2, status='approved')` y emitir un `render_block` table que duplica la grid nativa.
+**Without the rules**, the LLM tends to call `list_missions(destination_planet_id=2, status='approved')` and emit a `render_block` table that duplicates the native grid.
 
-### 4.2 Listing → otra entidad (chat-bound OK)
+### 4.2 Listing → different entity (chat-bound OK)
 
-**Usuario** está en `/admin/mission` pero escribe:
-> "Cuántas naves tengo en mantenimiento?"
+**User** is on `/admin/mission` but types:
+> "How many ships do I have under maintenance?"
 
-**Page context** dice `entity: Mission`, pero la pregunta es sobre `Ship`.
+**Page context** says `entity: Mission`, but the question is about `Ship`.
 
-**LLM decide**: entity distinto → chat-bound. Llama `list_ships(status='maintenance')` → render_block stats / table. Correcto.
+**LLM decides**: different entity → chat-bound. Calls `list_ships(status='maintenance')` → render_block stats / table. Correct.
 
-### 4.3 Detail view → editar registro visible
+### 4.3 Detail view → edit the visible record
 
-**Usuario** está en `/admin/mission/25/show`, escribe:
-> "Cancela esta"
+**User** is on `/admin/mission/25/show`, types:
+> "Cancel this one"
 
 **Page context**:
 ```json
 { "crud": { "entity": "Mission", "action": "show", "filters": {"mission_id": 25} } }
 ```
 
-**LLM decide**: detail view + acción sobre el registro visible → llama directamente `cancel_mission(mission_id=25)` (o el frontend wrapper con confirm). No vuelve a llamar `mission_detail(25)` para repintar la card.
+**LLM decides**: detail view + action on the visible record → calls `cancel_mission(mission_id=25)` directly (or the frontend wrapper with confirm). Does not call `mission_detail(25)` again to repaint the card.
 
 ### 4.4 Create form → fill_form
 
-**Usuario** está en `/admin/mission/create`, escribe:
-> "Misión Tierra → Marte, departure mañana 8:00, prioridad express"
+**User** is on `/admin/mission/create`, types:
+> "Mission Earth → Mars, departure tomorrow 8:00, priority express"
 
-**Page context** incluye el `crud.form` con el schema completo (campos, options de FK, types).
+**Page context** includes `crud.form` with the full schema (fields, FK options, types).
 
-**LLM decide**:
-1. Page action es `create` y hay form schema visible.
-2. Resuelve `Tierra → 1`, `Marte → 2` de `options` de los selects.
-3. Llama `fill_form(fields=[{name:'origin_planet_id',value:1}, ...])`.
-4. El widget muestra el banner confirm; el usuario revisa y submit.
+**LLM decides**:
+1. Page action is `create` and a form schema is visible.
+2. Resolves `Earth → 1`, `Mars → 2` from the select `options`.
+3. Calls `fill_form(fields=[{name:'origin_planet_id',value:1}, ...])`.
+4. The widget shows the confirm banner; the user reviews and submits.
 
-### 4.5 Ambigüedad explícita
+### 4.5 Explicit ambiguity
 
-**Usuario** está en `/admin/mission`, escribe:
-> "Pon mis misiones del último mes en una tabla aquí mismo en el chat"
+**User** is on `/admin/mission`, types:
+> "Put my missions from last month in a table right here in the chat"
 
-**LLM** respeta la preferencia explícita ("aquí mismo en el chat") aunque el default fuera page-bound: usa backend tool + render_block. Las reglas tienen una cláusula explícita "Don't re-render in chat unless the user asks for 'in chat' / 'here'".
+**LLM** honours the explicit preference ("right here in the chat") even though the default would be page-bound: uses the backend tool + render_block. The rules include an explicit clause "Don't re-render in chat unless the user asks for 'in chat' / 'here'".
 
 ---
 
-## 5. Tests E2E (cookbook)
+## 5. End-to-end tests (cookbook)
 
-Patrón estándar para verificar que el LLM toma las decisiones correctas
-en cada combinación de (page_context, user prompt). Lo medimos con
-trazas reales de un host de pruebas:
+Standard pattern to verify that the LLM makes the correct decisions for
+each combination of (page_context, user prompt). Measured with real traces
+from a test host:
 
 | # | Page | Prompt | Expected |
 |---|---|---|---|
-| 1 | `/admin/mission` (list) | "filtra status approved + risk high" | `fill_form(filtersForm) + refreshGrid` |
-| 2 | `/dashboard` (no CRUD) | "filtra status approved + risk high" | `list_my_missions(...)` + `render_block` |
-| 3 | `/admin/mission/25/show` | "cancela esta" | `cancel_mission(25)` (directo) |
-| 4 | `/admin/mission?status=draft` con 8 seleccionados | "aprueba estas" | `approve_missions_bulk(target_ids=[...])` |
-| 5 | `/admin/mission` (list) | "pinta una tabla aquí mismo" | `list_my_missions(...)` + `render_block` (respeta override explícito) |
+| 1 | `/admin/mission` (list) | "filter status approved + risk high" | `fill_form(filtersForm) + refreshGrid` |
+| 2 | `/dashboard` (no CRUD) | "filter status approved + risk high" | `list_my_missions(...)` + `render_block` |
+| 3 | `/admin/mission/25/show` | "cancel this one" | `cancel_mission(25)` (direct) |
+| 4 | `/admin/mission?status=draft` with 8 selected | "approve these" | `approve_missions_bulk(target_ids=[...])` |
+| 5 | `/admin/mission` (list) | "put a table right here" | `list_my_missions(...)` + `render_block` (respects explicit override) |
 
-Patrón de test en `tests/Feature/`:
+Test pattern in `tests/Feature/`:
 
 ```php
 it('uses page-bound action when entity matches the listing', function () {
@@ -252,14 +251,14 @@ it('uses page-bound action when entity matches the listing', function () {
 });
 ```
 
-(El testing harness `InteractsWithChatbot` que documenta esto se añade en
-v1.1.1 como finding #14.c.)
+(The `InteractsWithChatbot` testing harness that documents this was added in
+v1.1.1.)
 
 ---
 
-## 6. Debugging — inspeccionar qué reglas ve el LLM
+## 6. Debugging — inspecting what rules the LLM sees
 
-El comando `chatbot:decision-rules:show` imprime las reglas activas:
+The `chatbot:decision-rules:show` command prints the active rules:
 
 ```
 $ php artisan chatbot:decision-rules:show
@@ -275,35 +274,35 @@ $ php artisan chatbot:decision-rules:show
   Addendum:  (none)
 ```
 
-Si el host configuró `decision_strategy='view::name'`, el comando
-imprime el render de esa vista en lugar del default. Útil para
-diagnosticar "¿por qué el LLM eligió chat-block cuando debería haber
-filtrado el grid?" — empieza por ver lo que el LLM realmente está leyendo.
+If the host configured `decision_strategy='view::name'`, the command
+prints the render of that view instead of the default. Useful for
+diagnosing "why did the LLM choose chat-block when it should have
+filtered the grid?" — start by seeing what the LLM is actually reading.
 
 ---
 
-## 7. Por qué importa (más allá de la estética)
+## 7. Why this matters (beyond aesthetics)
 
-- **Token economy**: 50 filas en chat block = ~3000 tokens de salida +
-  el bloque se persiste en `chatbot_messages` y vuelve al contexto en
-  turns futuros. El grid nativo es 0 tokens del LLM.
-- **Performance**: render_block con 50 filas estira el shadow DOM del
-  widget; modificar filtros de una DataTables existente es
-  prácticamente gratis.
-- **Discoverability**: el usuario aprende mejor la app cuando el LLM
-  "actúa sobre" la UI que ve, en lugar de duplicarla. El LLM se
-  convierte en un copiloto sobre la app, no en un sustituto.
-- **Consistency**: en turns sucesivos, si el LLM filtró el grid en el
-  turn 1, el turn 2 puede referirse a "las 50 que tenemos en pantalla"
-  sin repintar nada. La conversación queda más natural.
+- **Token economy**: 50 rows in a chat block = ~3000 output tokens +
+  the block is persisted in `chatbot_messages` and re-enters the context
+  on future turns. The native grid costs 0 LLM tokens.
+- **Performance**: a render_block with 50 rows stretches the widget's
+  shadow DOM; modifying filters on an existing DataTable is practically
+  free.
+- **Discoverability**: users learn the app better when the LLM "acts on"
+  the UI they see instead of duplicating it. The LLM becomes a copilot
+  over the app, not a substitute for it.
+- **Consistency**: in successive turns, if the LLM filtered the grid in
+  turn 1, turn 2 can refer to "the 50 we have on screen" without
+  repainting anything. The conversation feels more natural.
 
 ---
 
-## 8. Referencias
+## 8. References
 
 - System prompt builder: `src/Llm/SystemPromptBuilder.php`
-- Default rules: `SystemPromptBuilder::DEFAULT_DECISION_STRATEGY` constante
+- Default rules: `SystemPromptBuilder::DEFAULT_DECISION_STRATEGY` constant
 - Config key: `config/chatbot.php → system_prompt.decision_strategy`
 - Page context provider Backpack: [`integrations/backpack.md`](integrations/backpack.md)
 - Custom forms (no-Backpack): [`integrations/custom-forms.md`](integrations/custom-forms.md)
-- Comando debug: `php artisan chatbot:decision-rules:show`
+- Debug command: `php artisan chatbot:decision-rules:show`

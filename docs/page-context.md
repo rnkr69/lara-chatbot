@@ -1,64 +1,64 @@
 # Page Context API
 
-> El **page context** es el conjunto de metadatos que el host pasa al
-> chatbot para que el LLM sepa qué pantalla está viendo el usuario.
-> Implementado en E14 (ROADMAP §5/E14).
+*English · [Español](page-context.es.md)*
 
-El paquete soporta tres canales para declarar el contexto: el **meta tag
-declarativo**, la **API imperativa** del widget, y la **integración
-opt-in con Backpack** para hosts que usen ese admin. Cualquier cambio
-emite un evento global `chatbot:context-changed` que las integraciones
-pueden escuchar.
+> The **page context** is the set of metadata that the host passes to the
+> chatbot so the LLM knows which screen the user is currently viewing.
+
+The package supports three channels for declaring context: the **declarative
+meta tag**, the widget's **imperative API**, and the **opt-in Backpack
+integration** for hosts that use that admin panel. Any change emits a global
+`chatbot:context-changed` event that integrations can listen to.
 
 ---
 
-## 1. Meta tag declarativo
+## 1. Declarative meta tag
 
-La forma más simple. En el `<head>` de la página (típicamente desde el
-layout Blade del host):
+The simplest approach. In the page `<head>` (typically from the host's Blade
+layout):
 
 ```html
 <meta name="chatbot:context"
       content='{"route":"invoices.index","filters":{"status":"open"}}'>
 ```
 
-El widget la lee al boot (`connectedCallback`) y, en modo SPA, también
-en cada navegación detectada. El JSON debe empezar por `{` (un objeto
-top-level); cualquier otra cosa se ignora silenciosamente.
+The widget reads it on boot (`connectedCallback`) and, in SPA mode, also on
+every detected navigation. The JSON must start with `{` (a top-level object);
+anything else is silently ignored.
 
 ---
 
-## 2. API imperativa (`window.Chatbot`)
+## 2. Imperative API (`window.Chatbot`)
 
-Para SPAs o pantallas dinámicas que cambian el contexto sin recargar:
+For SPAs or dynamic screens that change context without a full reload:
 
 ```js
-// Sustituye o añade claves; merge superficial.
+// Replaces or adds keys; shallow merge.
 window.Chatbot.setPageContext({
   route: 'invoices.show',
   invoice_id: 999,
 });
 
-// Borra todo el contexto efectivo.
+// Clears the entire effective context.
 window.Chatbot.clearPageContext();
 ```
 
-`setPageContext()` realiza un **merge superficial** (top-level): claves
-nuevas se añaden, las existentes se sobrescriben, y las que no aparecen
-en el argumento se preservan. Conforme al ROADMAP §3.2.
+`setPageContext()` performs a **shallow merge** (top-level): new keys are
+added, existing ones are overwritten, and keys absent from the argument are
+preserved.
 
 ```js
 window.Chatbot.setPageContext({ route: '/orders', tenant: 7 });
 window.Chatbot.setPageContext({ tenant: 9, locale: 'es' });
-// Estado efectivo: { route: '/orders', tenant: 9, locale: 'es' }
+// Effective state: { route: '/orders', tenant: 9, locale: 'es' }
 ```
 
 ---
 
-## 3. Hook SPA y evento `chatbot:context-changed`
+## 3. SPA hook and `chatbot:context-changed` event
 
-Cualquier cambio en el contexto efectivo dispara un `CustomEvent` en
-`window` con el contexto en `event.detail`:
+Any change to the effective context fires a `CustomEvent` on `window` with
+the context in `event.detail`:
 
 ```js
 window.addEventListener('chatbot:context-changed', (e) => {
@@ -66,67 +66,64 @@ window.addEventListener('chatbot:context-changed', (e) => {
 });
 ```
 
-El evento se emite en **dos** ocasiones:
+The event is emitted in **two** situations:
 
-1. Cada llamada a `setPageContext()` o `clearPageContext()`.
-2. En modo SPA, tras cada navegación detectada (`inertia:navigate`,
-   `livewire:navigated`, `popstate`): el widget re-lee el meta tag y,
-   si su contenido cambió, llama internamente a `setPageContext()` —
-   que a su vez emite el evento.
+1. Every call to `setPageContext()` or `clearPageContext()`.
+2. In SPA mode, after each detected navigation (`inertia:navigate`,
+   `livewire:navigated`, `popstate`): the widget re-reads the meta tag and,
+   if its content changed, internally calls `setPageContext()` — which in
+   turn emits the event.
 
-El widget también aborta el stream activo en cada navegación SPA para
-evitar respuestas a medio renderizar contra una ruta vieja (heredado de
-E13).
+The widget also aborts the active stream on each SPA navigation to avoid
+half-rendered responses against a stale route.
 
-> **Nota MPA**: en modo MPA cada page load reinicia el ciclo. El meta
-> tag se lee al `connectedCallback` y el evento se emite una sola vez
-> por carga.
+> **MPA note**: in MPA mode each page load restarts the cycle. The meta tag
+> is read at `connectedCallback` and the event is emitted once per load.
 
 ---
 
-## 4. Sanitización backend
+## 4. Backend sanitization
 
-El controller `POST /chatbot/stream` aplica dos pasadas sobre el campo
-`page_context` del request:
+The `POST /chatbot/stream` controller applies two passes to the `page_context`
+field of the request:
 
-### 4.1 Tipo a tipo (D13 — `PageContextSanitizer`)
+### 4.1 Type-by-type (`PageContextSanitizer`)
 
-Sólo sobreviven:
+Only the following survive:
 
-| Tipo PHP | ¿Sobrevive? |
+| PHP type | Survives? |
 |---|:-:|
-| `string` (incluido HTML opaco) | ✅ |
+| `string` (including opaque HTML) | ✅ |
 | `int` | ✅ |
-| `float` finito | ✅ |
+| finite `float` | ✅ |
 | `bool` | ✅ |
-| `array` (asociativo o lista) cuyos elementos sobrevivan a su vez | ✅ |
-| `null` | ❌ se descarta |
-| `object` (incluido `Closure`) | ❌ se descarta |
-| `resource` | ❌ se descarta |
-| `NaN` / `±INF` | ❌ se descarta |
+| `array` (associative or list) whose elements also survive | ✅ |
+| `null` | ❌ discarded |
+| `object` (including `Closure`) | ❌ discarded |
+| `resource` | ❌ discarded |
+| `NaN` / `±INF` | ❌ discarded |
 
-Las claves de un array asociativo se coercen a `string`; las listas
-mantienen claves enteras consecutivas (los huecos se re-indexan).
+Keys in an associative array are coerced to `string`; lists retain consecutive
+integer keys (gaps are re-indexed).
 
-La profundidad máxima por defecto es 8 niveles (configurable por el
-host overrideando `PageContextSanitizer::sanitize($raw, $maxDepth)`).
-Niveles más profundos se podan.
+The default maximum depth is 8 levels (configurable by the host by overriding
+`PageContextSanitizer::sanitize($raw, $maxDepth)`). Deeper levels are pruned.
 
-### 4.2 Truncado binario (D11, fallback)
+### 4.2 Binary truncation (fallback)
 
-Si tras sanear el JSON resultante todavía excede
-`chatbot.limits.page_context_kb` (default **16 KB**), se descarta entero
-(se sustituye por `[]`) y se loguea `Log::info`. **No** se devuelve 422
-— el turno continúa sin contexto. La razón: prefiere degradar a romper
-la UX cuando el host envía un contexto demasiado generoso por accidente.
+If after sanitizing the resulting JSON still exceeds
+`chatbot.limits.page_context_kb` (default **16 KB**), it is discarded entirely
+(replaced with `[]`) and logged with `Log::info`. A 422 is **not** returned —
+the turn continues without context. The rationale: prefer degrading gracefully
+over breaking the UX when the host accidentally sends an overly large context.
 
-### 4.3 Inyección en el system prompt
+### 4.3 Injection into the system prompt
 
-El `SystemPromptBuilder` añade programáticamente la sección
-`## Current page` con el JSON saneado al final del prompt base, antes
-de la instrucción de idioma. La sección NO vive en la vista publishable
-(`resources/views/system_prompt.blade.php`) porque el host puede
-sobrescribirla — y el contrato del paquete debe sobrevivir al override.
+`SystemPromptBuilder` programmatically appends the `## Current page` section
+with the sanitized JSON at the end of the base prompt, before the language
+instruction. This section does NOT live in the publishable view
+(`resources/views/system_prompt.blade.php`) because the host may override it —
+and the package contract must survive that override.
 
 ```text
 You are a helpful assistant integrated into a Laravel application…
@@ -145,36 +142,36 @@ Always respond in Spanish unless the user explicitly requests another language.
 
 ---
 
-## 5. Integración Backpack (opt-in)
+## 5. Backpack integration (opt-in)
 
-Si el host usa [`backpack/crud`](https://backpackforlaravel.com), el
-paquete expone una directive Blade y un provider que pueblan el meta
-tag con datos del `CrudPanel` actual.
+If the host uses [`backpack/crud`](https://backpackforlaravel.com), the package
+exposes a Blade directive and a provider that populate the meta tag with data
+from the current `CrudPanel`.
 
-### 5.1 Activación
+### 5.1 Activation
 
-No hay nada que instalar. Si la clase
-`Backpack\CRUD\app\Library\CrudPanel\CrudPanel` existe en el runtime,
-el `ChatbotServiceProvider` registra automáticamente:
+Nothing to install. If the class
+`Backpack\CRUD\app\Library\CrudPanel\CrudPanel` exists at runtime,
+`ChatbotServiceProvider` automatically registers:
 
-- el singleton `Rnkr69\LaraChatbot\Integrations\Backpack\BackpackPageContextProvider`,
-- la directive Blade `@chatbotBackpackContext`.
+- the singleton `Rnkr69\LaraChatbot\Integrations\Backpack\BackpackPageContextProvider`,
+- the Blade directive `@chatbotBackpackContext`.
 
-Si Backpack no está instalado, ambos son no-op silencioso (el host
-puede colocar la directive en su layout sin que rompa páginas no-admin).
+If Backpack is not installed, both are silent no-ops (the host can place the
+directive in their layout without breaking non-admin pages).
 
-### 5.2 Uso desde Blade
+### 5.2 Usage from Blade
 
 ```blade
-{{-- En tu layout admin (ej. resources/views/admin/layout.blade.php) --}}
+{{-- In your admin layout (e.g. resources/views/admin/layout.blade.php) --}}
 <head>
     @chatbotBackpackContext
-    {{-- ...resto del head, incluido el script del widget --}}
+    {{-- ...rest of head, including the widget script --}}
 </head>
 ```
 
-La directive renderiza, server-side, un `<meta name="chatbot:context">`
-con el shape:
+The directive renders, server-side, a `<meta name="chatbot:context">` with the
+following shape:
 
 ```json
 {
@@ -187,62 +184,60 @@ con el shape:
 }
 ```
 
-Campos vacíos se omiten para mantener el meta tag compacto. Si el panel
-no está resuelto (página no-admin, error en boot, etc.) la directive
-emite cadena vacía.
+Empty fields are omitted to keep the meta tag compact. If the panel is not
+resolved (non-admin page, boot error, etc.) the directive emits an empty
+string.
 
-### 5.3 Conveciones recomendadas
+### 5.3 Recommended conventions
 
-Para que tools del host puedan reaccionar a contexto Backpack, se
-recomienda anotar los grids y filas con atributos `data-chatbot-*` en
-las vistas Blade del CRUD:
+To allow host tools to react to Backpack context, it is recommended to annotate
+grids and rows with `data-chatbot-*` attributes in the CRUD Blade views:
 
 ```blade
 <table data-chatbot-target="crud-grid">
     @foreach($entries as $entry)
         <tr data-chatbot-context='{"id":{{ $entry->id }}}'>
-            {{-- columnas --}}
+            {{-- columns --}}
         </tr>
     @endforeach
 </table>
 ```
 
-La guía completa con un ejemplo end-to-end (grid → bot ofrece acción
-bulk → bot dispara FE tool sobre los seleccionados) vivirá en
-`docs/integrations/backpack.md` (gap parte 2, **diferida a E21**).
+The full guide with an end-to-end example (grid → bot offers bulk action → bot
+fires FE tool on the selected rows) lives in
+[`docs/integrations/backpack.md`](integrations/backpack.md).
 
 ---
 
 ## 6. Tests
 
-| Suite | Cobertura |
+| Suite | Coverage |
 |---|---|
-| Pest unit `tests/Unit/Services/PageContextSanitizerTest.php` | tipos preservados/dropeados, recursión, profundidad, listas re-indexadas |
-| Pest feature `tests/Feature/Http/ChatControllerStreamTest.php` | sanitizer en el pipeline + truncado binario fallback |
-| Pest feature `tests/Feature/Services/ChatServiceTest.php` | DoD ROADMAP: cambio de page_context entre dos turnos cambia el system prompt |
-| Pest feature `tests/Feature/Integrations/BackpackProviderShapeTest.php` | provider con CrudPanel mock (entity/action/filters/selected_ids) |
-| Pest feature `tests/Feature/Integrations/BackpackIntegrationTest.php` | directive `@chatbotBackpackContext` y degradación sin Backpack |
-| Vitest `tests/js/page-context.test.ts` | lectura del meta tag y dispatch del evento |
-| Vitest `tests/js/api.test.ts` | merge superficial + emisión `chatbot:context-changed` en set/clear |
-| Vitest `tests/js/widget.test.ts` | seed inicial desde meta tag + re-lectura en `inertia:navigate` |
+| Pest unit `tests/Unit/Services/PageContextSanitizerTest.php` | preserved/dropped types, recursion, depth, re-indexed lists |
+| Pest feature `tests/Feature/Http/ChatControllerStreamTest.php` | sanitizer in the pipeline + binary truncation fallback |
+| Pest feature `tests/Feature/Services/ChatServiceTest.php` | changing page_context between two turns changes the system prompt |
+| Pest feature `tests/Feature/Integrations/BackpackProviderShapeTest.php` | provider with CrudPanel mock (entity/action/filters/selected_ids) |
+| Pest feature `tests/Feature/Integrations/BackpackIntegrationTest.php` | `@chatbotBackpackContext` directive and graceful degradation without Backpack |
+| Vitest `tests/js/page-context.test.ts` | meta tag reading and event dispatch |
+| Vitest `tests/js/api.test.ts` | shallow merge + `chatbot:context-changed` emission on set/clear |
+| Vitest `tests/js/widget.test.ts` | initial seed from meta tag + re-read on `inertia:navigate` |
 
 ---
 
-## 7. Page context en pin/replay (v2.0)
+## 7. Page context in pin/replay (v2.0)
 
-A partir de v2.0 ([Personal Dashboard](dashboard.md)), una tool puede ser
-`pinnable` y por tanto re-ejecutarse desde `/chatbot/dashboard`. El replay
-ocurre en una página que **no tiene `page_context` propio** (el dashboard
-es agnóstico al contexto de la página donde se hizo el pin). Sin
-intervención, las tools que dependen del `page_context` devolverían
-resultados genéricos o vacíos al refresh.
+Starting with v2.0 ([Personal Dashboard](dashboard.md)), a tool can be
+`pinnable` and therefore re-executed from `/chatbot/dashboard`. The replay
+happens on a page that **has no `page_context` of its own** (the dashboard is
+agnostic to the context of the page where the pin was made). Without
+intervention, tools that depend on `page_context` would return generic or empty
+results on refresh.
 
-v2.0 resuelve esto en tres pasos:
+v2.0 resolves this in three steps:
 
-### 7.1 Declarar las claves sensibles al contexto
+### 7.1 Declaring context-sensitive keys
 
-La tool declara qué claves de `page_context` necesita para producir
-resultados correctos:
+The tool declares which `page_context` keys it needs to produce correct results:
 
 ```php
 public function pageContextKeys(): array
@@ -251,12 +246,12 @@ public function pageContextKeys(): array
 }
 ```
 
-Default `[]` — tools que no dependen del contexto no necesitan override.
+Default `[]` — tools that do not depend on context need no override.
 
-### 7.2 Estampar en el block al chat
+### 7.2 Stamping onto the block at chat time
 
-El orquestador SSE filtra el `page_context` activo a esas claves cuando
-estampa el `source` del block:
+The SSE orchestrator filters the active `page_context` to those keys when
+stamping the block's `source`:
 
 ```jsonc
 {
@@ -271,40 +266,39 @@ estampa el `source` del block:
 }
 ```
 
-### 7.3 Capturar al pin, aplicar al replay
+### 7.3 Capturing on pin, applying on replay
 
-Cuando el usuario hace click en 📌, el endpoint
-`POST /chatbot/dashboards/{slug}/widgets` recibe el `page_context` íntegro
-del cliente y:
+When the user clicks 📌, the endpoint
+`POST /chatbot/dashboards/{slug}/widgets` receives the full `page_context` from
+the client and:
 
-1. Aplica el `PageContextSanitizer` (drop closures/objects/etc.).
-2. **Filtra a las claves declaradas en `source.page_context_keys`**.
-3. Aplica el cap binario `chatbot.limits.page_context_kb` — si excede tras
-   filtrar, se descarta entero con un `Log::info` (preferimos perder
-   contexto a romper el pin).
-4. Persiste el subset filtrado en `source.page_context_snapshot` en
+1. Applies `PageContextSanitizer` (drops closures/objects/etc.).
+2. **Filters to the keys declared in `source.page_context_keys`**.
+3. Applies the binary cap `chatbot.limits.page_context_kb` — if it still
+   exceeds the limit after filtering, it is discarded entirely with a
+   `Log::info` (losing context is preferable to breaking the pin).
+4. Persists the filtered subset in `source.page_context_snapshot` in
    `chatbot_dashboard_widgets`.
 
-Al replay, el `ReplayService` (ver
-[`dashboard.md` §7](dashboard.md#7-replay-engine)) construye un `ToolContext`
-con el snapshot guardado, así que la tool ve exactamente el subset que
-estaba presente cuando se pineó.
+On replay, the `ReplayService` (see [`dashboard.md`](dashboard.md)) builds a
+`ToolContext` with the saved snapshot, so the tool sees exactly the subset that
+was present when the pin was made.
 
-### 7.4 Qué pasa cuando faltan keys o el snapshot caduca
+### 7.4 What happens when keys are missing or the snapshot expires
 
-- **Claves ausentes en el snapshot al replay**: la tool recibe un
-  `page_context` parcial; si su `handle()` requiere claves específicas y
-  no hay degradación posible, debe devolver `ToolResult::error('validation', …)`
-  → el replay marca el widget con `last_refresh_status='error'` y conserva
-  el snapshot anterior.
-- **Resolver de tenant ya no encaja**: si el `TenantResolver` ya no acepta
-  el `tenant_id` snapshot (porque el usuario perdió acceso o la entidad
-  fue eliminada), la cascada de autorización devuelve unauthorized y el
-  status es `unauthorized` — snapshot anterior preservado.
+- **Keys absent from the snapshot at replay time**: the tool receives a partial
+  `page_context`; if its `handle()` requires specific keys and graceful
+  degradation is not possible, it should return
+  `ToolResult::error('validation', …)` → the replay marks the widget with
+  `last_refresh_status='error'` and retains the previous snapshot.
+- **Tenant resolver no longer matches**: if the `TenantResolver` no longer
+  accepts the snapshot `tenant_id` (because the user lost access or the entity
+  was deleted), the authorization cascade returns unauthorized and the status
+  is `unauthorized` — previous snapshot preserved.
 
-La razón estricta del filtrado por `pageContextKeys()` es evitar persistir
-claves sensibles que el author no se diseñó para que viajaran al
-dashboard. **Si una tool no declara `pageContextKeys()`, su
-`page_context_snapshot` queda vacío** — equivale a re-ejecutar sin
-contexto. Tools que dependen del contexto **deben** declarar las claves o
-no funcionarán bien tras el pin.
+The strict rationale for filtering via `pageContextKeys()` is to avoid
+persisting sensitive keys that the tool author never intended to travel to the
+dashboard. **If a tool does not declare `pageContextKeys()`, its
+`page_context_snapshot` will be empty** — equivalent to re-executing without
+context. Tools that depend on context **must** declare their keys or they will
+not work correctly after pinning.

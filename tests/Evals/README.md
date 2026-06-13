@@ -1,41 +1,43 @@
 # Eval harness
 
-Suite mínima viable para medir la calidad del tool-calling del LLM.
-Vive aparte de `tests/Feature` para que sea fácil sacarla del CI rápido si
-crece, y para señalar que es una suite **funcional** distinta del unit
-testing tradicional.
+*English · [Español](README.es.md)*
 
-## Qué mide
+Minimal viable suite for measuring the LLM's tool-calling quality.
+Lives separately from `tests/Feature` so it can be easily dropped from the
+fast CI if it grows, and to signal that it is a **functional** suite distinct
+from traditional unit testing.
 
-Para cada fixture YAML, valida tres invariantes binarias:
+## What it measures
 
-1. **Tool selection** — ¿se llamó la tool esperada (o ninguna, si la
-   fixture lo declara)?
-2. **Args correctness** — los args de la invocación contienen al menos las
-   claves/valores declarados en `args_subset`.
-3. **Multi-tool sequence** *(opcional, sólo cuando la fixture pone
-   `match_sequence: true`)* — la secuencia de tools llamadas coincide
-   exactamente con la lista esperada.
+For each YAML fixture, it validates three binary invariants:
 
-Una invocación a una `forbidden_tools` falla la fixture.
+1. **Tool selection** — was the expected tool called (or none, if the
+   fixture declares so)?
+2. **Args correctness** — the invocation args contain at least the
+   keys/values declared in `args_subset`.
+3. **Multi-tool sequence** *(optional, only when the fixture sets
+   `match_sequence: true`)* — the sequence of tool calls matches
+   the expected list exactly.
 
-## Dos modos
+An invocation of a `forbidden_tools` entry fails the fixture.
 
-### Modo fake (default — corre en CI)
+## Two modes
+
+### Fake mode (default — runs in CI)
 
 ```bash
 vendor/bin/pest --testsuite=Evals
 ```
 
-Stagea `Prism::fake()` con los `expected.tool_calls` ya cocinados y
-verifica que **el orquestador los procesa correctamente** (cascada de
-autorización, secuencia SSE, forwarding de args). Determinista, rápido
-(~10 s las 8 fixtures), sin coste de tokens.
+Stages `Prism::fake()` with the pre-cooked `expected.tool_calls` and
+verifies that **the orchestrator processes them correctly** (authorization
+cascade, SSE sequence, args forwarding). Deterministic, fast
+(~10 s for 8 fixtures), no token cost.
 
-**Qué NO valida** en este modo: la capacidad del LLM real de elegir la
-tool correcta y rellenar args bien. Eso es modo live.
+**What this mode does NOT validate**: the ability of the real LLM to choose
+the correct tool and fill in args properly. That is live mode.
 
-### Modo live (opt-in — manual, opcional en CI scheduled)
+### Live mode (opt-in — manual, optional on scheduled CI)
 
 ```bash
 CHATBOT_EVAL_LIVE=1 \
@@ -43,34 +45,32 @@ ANTHROPIC_API_KEY=sk-ant-... \
 vendor/bin/pest --testsuite=Evals
 ```
 
-Variables opcionales para override:
+Optional override variables:
 
-| Var | Default | Notas |
+| Var | Default | Notes |
 |---|---|---|
-| `CHATBOT_EVAL_LIVE` | (off) | `1` / `true` activa el modo live. |
+| `CHATBOT_EVAL_LIVE` | (off) | `1` / `true` enables live mode. |
 | `CHATBOT_EVAL_LIVE_PROVIDER` | `config('chatbot.provider')` | `anthropic`, `openai`, `groq`, etc. |
-| `CHATBOT_EVAL_LIVE_MODEL` | `config('chatbot.model')` | Modelo concreto. Para A/B entre `claude-sonnet-4-6`, `claude-haiku-4-5`, `gpt-4o`, etc. |
-| `ANTHROPIC_API_KEY` / equivalente | — | Credencial del provider. Falla ruidoso si falta. |
+| `CHATBOT_EVAL_LIVE_MODEL` | `config('chatbot.model')` | Specific model. For A/B between `claude-sonnet-4-6`, `claude-haiku-4-5`, `gpt-4o`, etc. |
+| `ANTHROPIC_API_KEY` / equivalent | — | Provider credential. Fails loudly if missing. |
 
-En live mode el harness **NO stagea** `Prism::fake`. Cada fixture:
+In live mode the harness does **NOT** stage `Prism::fake`. For each fixture:
 
-1. Registra las tools de `tools_available` en el `ToolRegistry`.
-2. Invoca `ChatService::handle()` con `user_message` + `page_context` de
-   la fixture.
-3. El LLM real decide qué tool llamar (basándose en las descripciones
-   del catálogo).
-4. El orquestador ejecuta la tool (las stubs no hacen nada de dominio,
-   sólo registran la invocación y devuelven `ok`).
-5. Comparamos los `tool_calls` reales contra `expected.tool_calls`.
+1. Registers the tools from `tools_available` in the `ToolRegistry`.
+2. Invokes `ChatService::handle()` with the fixture's `user_message` + `page_context`.
+3. The real LLM decides which tool to call (based on the catalog descriptions).
+4. The orchestrator executes the tool (stubs do nothing domain-specific,
+   they only record the invocation and return `ok`).
+5. The actual `tool_calls` are compared against `expected.tool_calls`.
 
-**Coste estimado**: ~5K-10K tokens por fixture contra Anthropic Sonnet
+**Estimated cost**: ~5K-10K tokens per fixture against Anthropic Sonnet
 (prompt + tool catalog + response). 8 fixtures ≈ 50-80K tokens ≈ $0.15-0.25
-por run completo. Sube linealmente con número de fixtures.
+per full run. Scales linearly with the number of fixtures.
 
-#### Trace por fixture
+#### Per-fixture trace
 
-Cada fixture vuelca su resultado a `tests/Evals/last-live-run.json`
-(gitignored). Estructura:
+Each fixture dumps its result to `tests/Evals/last-live-run.json`
+(gitignored). Structure:
 
 ```json
 {
@@ -103,51 +103,51 @@ Cada fixture vuelca su resultado a `tests/Evals/last-live-run.json`
 }
 ```
 
-Para inspeccionar:
+To inspect:
 
 ```bash
-# Resumen
+# Summary
 cat tests/Evals/last-live-run.json | jq .summary
 
-# Sólo fixtures que fallaron
+# Only failed fixtures
 cat tests/Evals/last-live-run.json | jq '.entries[] | select(.pass == false)'
 
-# Ver qué eligió el LLM en una fixture concreta
+# See what the LLM chose for a specific fixture
 cat tests/Evals/last-live-run.json | jq '.entries[] | select(.fixture == "08_dashboard_context.yaml") | .actual'
 ```
 
-#### CI scheduled (opcional)
+#### Scheduled CI (optional)
 
-Modo live deliberadamente **excluido del CI rápido** (`.github/workflows/ci.yml`)
-— coste por PR + no determinismo del LLM. Si quieres visibilidad regular, puedes
-wirearlo en un job programado (cron) de tu CI que corra la suite `Evals` en modo
-live y publique el `last-live-run.json` como artifact (o lo envíe a donde quieras).
+Live mode is deliberately **excluded from the fast CI** (`.github/workflows/ci.yml`)
+— cost per PR + LLM non-determinism. For regular visibility, you can wire it
+into a scheduled (cron) CI job that runs the `Evals` suite in live mode and
+publishes `last-live-run.json` as an artifact (or sends it wherever you need).
 
-**Variables de entorno relevantes**:
+**Relevant environment variables**:
 
-| Var | Default | Notas |
+| Var | Default | Notes |
 |---|---|---|
-| `ANTHROPIC_API_KEY` (o equivalente del provider) | — | La llamada LLM real. |
-| `EVAL_ALERT_THRESHOLD` | `0.80` | Umbral de accuracy bajo el cual la run sale roja. |
-| `CHATBOT_EVAL_LIVE_PROVIDER` | `config('chatbot.provider')` | Override del provider sin tocar config. |
-| `CHATBOT_EVAL_LIVE_MODEL` | `config('chatbot.model')` | Override del modelo. |
+| `ANTHROPIC_API_KEY` (or provider equivalent) | — | The real LLM call. |
+| `EVAL_ALERT_THRESHOLD` | `0.80` | Accuracy threshold below which the run turns red. |
+| `CHATBOT_EVAL_LIVE_PROVIDER` | `config('chatbot.provider')` | Provider override without touching config. |
+| `CHATBOT_EVAL_LIVE_MODEL` | `config('chatbot.model')` | Model override. |
 
-## Formato de fixture
+## Fixture format
 
 ```yaml
-name: "Nombre humano corto"
+name: "Short human-readable name"
 description: |
-  Multi-line explicación de qué intenta cubrir esta fixture y qué
-  invariante mata si se rompe.
+  Multi-line explanation of what this fixture tries to cover and which
+  invariant it kills if broken.
 
-user_message: "lo que el usuario escribe en el chat"
+user_message: "what the user types in the chat"
 page_context:
   route: "/admin/orders"
   dashboard: { slug: my-dash, name: My Dash, is_default: true, widgets: [] }
 
 tools_available:
   - name: list_my_invoices
-    description: "Lista las facturas del usuario."
+    description: "List the user invoices."
     parameters:
       type: object
       properties:
@@ -164,13 +164,12 @@ expected:
   match_sequence: true         # opcional, default false
 ```
 
-## Añadir una fixture nueva
+## Adding a new fixture
 
-Cada vez que un bug shipped revele un hueco de cobertura del LLM
-(seleccionó la tool equivocada / inventó args / no encadenó dos llamadas
-que tenía que encadenar), añadir una fixture que lo capture. El número
-crece orgánicamente; 8 es el mínimo defendible, no el techo. El backlog
-público apunta a ≥20 fixtures como criterio de salida de 0.x.
+Whenever a shipped bug reveals a gap in LLM coverage (it picked the wrong
+tool / hallucinated args / failed to chain two calls that needed chaining),
+add a fixture that captures it. The count grows organically; 8 is the
+defensible minimum, not the ceiling.
 
-Naming: `NN_short_name.yaml` (ordinal para que `sort()` mantenga orden
-estable en el dataset Pest).
+Naming: `NN_short_name.yaml` (ordinal so `sort()` keeps a stable order
+in the Pest dataset).

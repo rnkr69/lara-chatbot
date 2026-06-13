@@ -1,74 +1,76 @@
 # Integration · Backpack CRUD
 
-> Recetas para hosts que usan **Backpack** como capa admin. Cubre el page
-> context provider que el paquete trae out-of-the-box (E14), las convenciones
-> `data-chatbot-*` recomendadas para grids Backpack, y un ejemplo end-to-end
-> de bulk action (gap cross-host parte 2).
+*English · [Español](backpack.es.md)*
+
+> Recipes for hosts that use **Backpack** as their admin layer. Covers the
+> page context provider included out-of-the-box with the package, the
+> recommended `data-chatbot-*` conventions for Backpack grids, and an
+> end-to-end bulk action example.
 >
-> Pre-lectura: [`page-context.md`](../page-context.md) (cómo el bot sabe qué
-> ve el usuario) + [`FRONTEND_TOOLS.md`](../FRONTEND_TOOLS.md) (cómo el bot
-> ejecuta acciones en el navegador).
+> Pre-reading: [`page-context.md`](../page-context.md) (how the bot knows
+> what the user is viewing) + [`FRONTEND_TOOLS.md`](../FRONTEND_TOOLS.md)
+> (how the bot executes actions in the browser).
 
 ---
 
-## 1. ¿Por qué este doc?
+## 1. Why this doc?
 
-Los pilotos del paquete tienen sus admins construidos
-con Backpack. La conversación natural en un grid Backpack es:
+Package pilots have their admins built with Backpack. Natural conversations
+over a Backpack grid look like:
 
-- *"Aprueba todos los pedidos seleccionados."*
-- *"Filtra los eventos del 2026 con asistencia > 50."*
-- *"Muéstrame el detalle del cliente que está en la primera fila."*
+- *"Approve all selected orders."*
+- *"Filter 2026 events with attendance > 50."*
+- *"Show me the detail of the customer in the first row."*
 
-Para que el LLM pueda razonar sobre estos casos, necesita **saber** qué
-entidad estás editando, qué filtros tiene aplicados el grid, y qué filas (si
-hay) están seleccionadas. Backpack expone esa información a través de
-`app('crud')`; el paquete trae un provider que la lee y la pone en el page
-context, y un par de convenciones que el host adopta opcionalmente.
-
----
-
-## 2. Activación
-
-La integración es **opt-in por presencia en runtime**:
-
-- Si `class_exists('Backpack\\CRUD\\app\\Library\\CrudPanel\\CrudPanel')` al
-  boot, el `ChatbotServiceProvider` registra el `BackpackPageContextProvider`
-  + la directive Blade `@chatbotBackpackContext`.
-- Si Backpack no está instalado, no se registra nada — la directive en
-  layouts no-admin emite cadena vacía sin fallar.
-
-No tienes que tocar nada en `composer.json`; el paquete **no** depende de
-Backpack.
+For the LLM to reason about these cases, it needs to **know** which entity
+you are editing, which filters are applied to the grid, and which rows (if
+any) are selected. Backpack exposes that information through `app('crud')`;
+the package ships a provider that reads it and places it in the page
+context, plus a set of conventions the host can optionally adopt.
 
 ---
 
-## 3. La directive `@chatbotBackpackContext`
+## 2. Activation
 
-Coloca esta directive en tu **layout admin** (típicamente
+The integration is **opt-in by runtime presence**:
+
+- If `class_exists('Backpack\\CRUD\\app\\Library\\CrudPanel\\CrudPanel')` at
+  boot, `ChatbotServiceProvider` registers `BackpackPageContextProvider`
+  and the Blade directive `@chatbotBackpackContext`.
+- If Backpack is not installed, nothing is registered — the directive in
+  non-admin layouts emits an empty string without failing.
+
+You do not need to change `composer.json`; the package does **not** depend
+on Backpack.
+
+---
+
+## 3. The `@chatbotBackpackContext` directive
+
+Place this directive in your **admin layout** (typically
 `vendor/backpack/crud/src/resources/views/ui/layouts/top_left_menu.blade.php`
-o el layout custom de tu app), en el `<head>`:
+or your app's custom layout), inside `<head>`:
 
 ```blade
 <head>
-    {{-- ... el resto de tu head ... --}}
+    {{-- ... rest of your head ... --}}
 
     @chatbotBackpackContext
 
-    {{-- meta CSRF, etc. --}}
+    {{-- CSRF meta, etc. --}}
 </head>
 ```
 
-> ⚠️ **No envuelvas `@chatbotBackpackContext` en `@push('after_styles')`
-> ni en ningún otro `@push` que cargue desde el final del `<body>`.**
-> Backpack flushes `@stack('after_styles')` mientras renderiza el `<head>`;
-> si tu partial se incluye al final del body (como hace
-> `vendor/backpack/theme-tabler/.../scripts.blade.php`), el push se ejecuta
-> **después** de que el stack ya se haya vaciado y el meta tag nunca llega
-> al DOM. Resultado: `document.querySelector('meta[name="chatbot:context"]')`
-> devuelve `null` aunque el provider haya resuelto schema correctamente.
+> ⚠️ **Do not wrap `@chatbotBackpackContext` inside `@push('after_styles')`
+> or any other `@push` that loads from the end of `<body>`.**
+> Backpack flushes `@stack('after_styles')` while rendering `<head>`; if
+> your partial is included at the end of the body (as
+> `vendor/backpack/theme-tabler/.../scripts.blade.php` does), the push
+> runs **after** the stack has already been flushed and the meta tag never
+> reaches the DOM. Result: `document.querySelector('meta[name="chatbot:context"]')`
+> returns `null` even if the provider resolved the schema correctly.
 >
-> Emite la directive **inline** en el sitio donde quieres que aparezca:
+> Emit the directive **inline** at the exact location you want it:
 >
 > ```blade
 > @once
@@ -81,33 +83,33 @@ o el layout custom de tu app), en el `<head>`:
 > @endonce
 > ```
 >
-> El widget acepta el `<meta>` en cualquier parte del DOM — no tiene por qué
-> vivir en el `<head>`.
+> The widget accepts the `<meta>` anywhere in the DOM — it does not have to
+> live inside `<head>`.
 
-Cuando estás en una página Backpack con un `CrudPanel` resuelto, esto
-renderiza algo como:
+When on a Backpack page with a resolved `CrudPanel`, this renders something
+like:
 
 ```html
 <meta name="chatbot:context" content='{"crud":{"entity":"App\\Models\\Order","action":"index","filters":{"status":"pending"},"selected_ids":[12,15,18]}}'>
 ```
 
-En páginas no-Backpack, la directive no emite nada (el meta tag puede ser
-añadido por otra fuente, e.g. una vista de listado pública).
+On non-Backpack pages the directive emits nothing (the meta tag can be added
+by another source, e.g. a public listing view).
 
-### 3.1 Shape del payload `crud`
+### 3.1 Shape of the `crud` payload
 
 ```typescript
 {
     crud: {
-        entity?: string;        // Nombre amigable: 'Order' (no FQCN). v1.1.1.
-        entity_class?: string;  // FQCN del modelo: 'App\\Models\\Order'. Sólo
-                                // se emite si NO es redundante con `entity`
-                                // (i.e. cuando entity_name custom de Backpack
-                                // difiere de class_basename(modelo)).
-        action?: string;        // 'list' | 'show' | 'create' | 'update' | 'destroy' | tu operación custom
+        entity?: string;        // Friendly name: 'Order' (not FQCN). v1.1.1.
+        entity_class?: string;  // Model FQCN: 'App\\Models\\Order'. Only emitted
+                                // when NOT redundant with `entity` (i.e. when
+                                // Backpack custom entity_name differs from
+                                // class_basename(model)).
+        action?: string;        // 'list' | 'show' | 'create' | 'update' | 'destroy' | your custom operation
         filters?:
-            | Record<string, scalar>           // legacy / no-list: querystring aplicado
-            | {                                 // list view con filters() declarados
+            | Record<string, scalar>           // legacy / non-list: applied querystring
+            | {                                 // list view with declared filters()
                   applied: Record<string, scalar>;
                   available: Array<{
                       name: string;
@@ -115,60 +117,60 @@ añadido por otra fuente, e.g. una vista de listado pública).
                       options?: Array<{value: string|number, label: string} | string>;
                   }>;
               };
-        form?: {                                // sólo en create/update/edit
-            selector: string;                   // Selector CSS estable basado en el
-                                                // contrato `bp-section` de Backpack 5/6/7:
+        form?: {                                // only on create/update/edit
+            selector: string;                   // Stable CSS selector based on the
+                                                // `bp-section` contract from Backpack 5/6/7:
                                                 // '[bp-section="crud-operation-create"] form'.
-                                                // Funciona sin overrides de views ni id
-                                                // en el `<form>` real. Páselo verbatim
-                                                // como `fill_form({selector, fields, ...})`.
+                                                // Works without view overrides or an id on
+                                                // the real `<form>`. Pass it verbatim as
+                                                // `fill_form({selector, fields, ...})`.
             fields: Array<{
                 name: string;
                 label: string;
                 type: string;                   // 'text' | 'select' | 'datetime' | 'enum' | ...
                 options?: Array<{value: string|number, label: string}>;
-                options_truncated?: true;       // FK select cuyo target supera
-                                                // chatbot.backpack.fk_options_cap: el LLM
-                                                // debe recurrir a un read tool (`list_*`)
-                                                // para resolver labels → ids.
+                options_truncated?: true;       // FK select whose target exceeds
+                                                // chatbot.backpack.fk_options_cap: the LLM
+                                                // must fall back to a read tool (`list_*`)
+                                                // to resolve labels → ids.
                 required?: true;
             }>;
         };
-        selected_ids?: (int|string)[];          // bulk: viene de `entries[]` o `selected_ids[]`
+        selected_ids?: (int|string)[];          // bulk: comes from `entries[]` or `selected_ids[]`
     }
 }
 ```
 
-Campos vacíos se omiten para mantener el meta tag compacto. Si todo está
-vacío, la directive no emite nada.
+Empty fields are omitted to keep the meta tag compact. If everything is
+empty, the directive emits nothing.
 
-> **Cambio respecto a v1.1.0**: `entity` antes emitía la FQCN
-> (`App\\Models\\Order`). Desde v1.1.1 emite el nombre amigable (`Order`)
-> para ahorrar tokens al LLM; la FQCN se expone como `entity_class` sólo
-> cuando aporta información (Backpack `entity_name` custom). El nuevo campo
-> `form` aparece en `create`/`update`/`edit` y los filtros del listado
-> ahora también listan los **disponibles** para que el LLM pueda razonar
-> sobre qué columna filtrar antes de ejecutar `fill_form`.
+> **Change from v1.1.0**: `entity` previously emitted the FQCN
+> (`App\\Models\\Order`). Since v1.1.1 it emits the friendly name (`Order`)
+> to save LLM tokens; the FQCN is exposed as `entity_class` only when it
+> adds information (Backpack custom `entity_name`). The new `form` field
+> appears in `create`/`update`/`edit` and list filters now also enumerate
+> the **available** ones so the LLM can reason about which column to filter
+> before calling `fill_form`.
 >
-> **Cambio respecto a v1.1.1 (1.1.2)**: `form.id` se reemplaza por
-> `form.selector`. El `id` inventado no llegaba al DOM porque Backpack
-> default no taggea sus `<form>`. El nuevo `selector` se apoya en el
-> contrato `bp-section` que Backpack 5/6/7 emite por defecto y funciona
-> sin overrides. Los FK select fields ahora también enumeran sus
-> `options` server-side hasta `chatbot.backpack.fk_options_cap` (default
-> 200); pasada esa cuenta, el campo lleva `options_truncated: true` y el
-> LLM debe usar un read tool para resolver.
+> **Change from v1.1.1 (1.1.2)**: `form.id` is replaced by
+> `form.selector`. The fabricated `id` never reached the DOM because
+> Backpack does not tag its `<form>` by default. The new `selector` relies
+> on the `bp-section` contract emitted by Backpack 5/6/7 out of the box and
+> works without overrides. FK select fields now also enumerate their
+> `options` server-side up to `chatbot.backpack.fk_options_cap` (default
+> 200); beyond that count the field carries `options_truncated: true` and
+> the LLM must use a read tool to resolve.
 
-### 3.2 Combinar con tus propios datos
+### 3.2 Combining with your own data
 
-Si tienes datos del host que quieres añadir al page context además del CRUD,
-combínalos en JS tras el boot:
+If you have host-specific data to add to the page context in addition to the
+CRUD payload, merge it in JS after boot:
 
 ```javascript
-// En tu bundle admin
+// In your admin bundle
 window.addEventListener('chatbot:context-changed', () => {
-    // El widget ya leyó el meta tag y aplicó {crud: ...}.
-    // Ahora añadimos lo nuestro:
+    // The widget has already read the meta tag and applied {crud: ...}.
+    // Now we add our own data:
     window.Chatbot.setPageContext({
         ui: {
             theme: document.documentElement.dataset.theme ?? 'light',
@@ -178,15 +180,15 @@ window.addEventListener('chatbot:context-changed', () => {
 });
 ```
 
-Recuerda que `setPageContext` hace **merge superficial true** (D14): no
-reemplaza `crud`, lo extiende.
+Remember that `setPageContext` performs a **true shallow merge**: it does
+not replace `crud`, it extends it.
 
 ---
 
-## 4. Convenciones `data-chatbot-*` para grids Backpack
+## 4. `data-chatbot-*` conventions for Backpack grids
 
-Si quieres que el LLM pueda **operar** sobre el grid (no sólo leerlo),
-adopta estos atributos en tu blade del listado:
+If you want the LLM to be able to **operate** on the grid (not just read
+it), adopt these attributes in your list blade:
 
 ```blade
 {{-- vendor/backpack/crud/src/resources/views/crud/list.blade.php --}}
@@ -198,9 +200,9 @@ adopta estos atributos en tu blade del listado:
         <tr>
             <th><input type="checkbox" data-chatbot-select-all></th>
             <th data-chatbot-column="id">ID</th>
-            <th data-chatbot-column="customer">Cliente</th>
+            <th data-chatbot-column="customer">Customer</th>
             <th data-chatbot-column="total">Total</th>
-            <th data-chatbot-column="status">Estado</th>
+            <th data-chatbot-column="status">Status</th>
         </tr>
     </thead>
     <tbody>
@@ -217,44 +219,44 @@ adopta estos atributos en tu blade del listado:
 </table>
 ```
 
-| Atributo | En | Significado |
+| Attribute | On | Meaning |
 |---|---|---|
-| `data-chatbot-grid="orders"` | `<table>` | identifica el grid completo |
-| `data-chatbot-entity="App\\Models\\Order"` | `<table>` | FQCN del modelo (matching el `crud.entity` del context) |
-| `data-chatbot-select-all` | checkbox `<thead>` | el botón "select all" del grid |
-| `data-chatbot-column="status"` | `<th>` | nombre lógico de la columna |
-| `data-chatbot-row` | `<tr>` | fila accionable |
-| `data-chatbot-row-id="42"` | `<tr>` | id del registro |
+| `data-chatbot-grid="orders"` | `<table>` | identifies the whole grid |
+| `data-chatbot-entity="App\\Models\\Order"` | `<table>` | model FQCN (matching `crud.entity` in the context) |
+| `data-chatbot-select-all` | `<thead>` checkbox | the grid's "select all" button |
+| `data-chatbot-column="status"` | `<th>` | logical column name |
+| `data-chatbot-row` | `<tr>` | actionable row |
+| `data-chatbot-row-id="42"` | `<tr>` | record id |
 
-Frontend tools del catálogo built-in que se benefician:
+Built-in catalogue frontend tools that benefit:
 
-- `toggle_visibility` con `target="[data-chatbot-grid]"` muestra/oculta el
+- `toggle_visibility` with `target="[data-chatbot-grid]"` shows/hides the
   grid.
-- `fill_form` con `target="filtersForm"` rellena los filtros del grid.
-- `render_block` con `data.row_id` permite responder con un card/table
-  inline en chat referenciando la fila que el usuario tiene a la vista.
+- `fill_form` with `target="filtersForm"` fills the grid filters.
+- `render_block` with `data.row_id` lets you respond with an inline
+  card/table in chat referencing the row the user is looking at.
 
 ---
 
-## 5. Forms de create / update
+## 5. Create / update forms
 
-Cuando el LLM tiene que rellenar un `<form>` Backpack (Crear misión, Editar
-factura, etc.), la primitiva `fill_form` necesita:
+When the LLM needs to fill a Backpack `<form>` (Create mission, Edit
+invoice, etc.), the `fill_form` primitive needs:
 
-1. Una forma estable de **localizar** el `<form>` que vive en la página.
-2. Saber qué `name` HTML tiene cada control y, para selects con FK, qué
-   valor entero esperar para cada label que el usuario diría.
+1. A stable way to **locate** the `<form>` on the page.
+2. To know the HTML `name` of each control and, for FK selects, which
+   integer value to expect for each label the user might say.
 
-### 5.1 Form schema en page context (automático)
+### 5.1 Form schema in page context (automatic)
 
-`BackpackPageContextProvider` emite `crud.form.{selector, fields[...]}`
-cuando `action ∈ {create, update, edit}`. Cada field expone
-`{name, label, type, options?, options_truncated?, required?}`, y los
-selects con FK serializan options como `[{value, label}]` para que el LLM
-mapee "Mars" → "2" sin guessing.
+`BackpackPageContextProvider` emits `crud.form.{selector, fields[...]}`
+when `action ∈ {create, update, edit}`. Each field exposes
+`{name, label, type, options?, options_truncated?, required?}`, and FK
+selects serialise options as `[{value, label}]` so the LLM can map
+"Mars" → "2" without guessing.
 
-El `selector` (v1.1.2, finding #9.f) se basa en el contrato `bp-section`
-estable que Backpack 5/6/7 emite en `crud::create.blade.php` /
+The `selector` is based on the stable `bp-section` contract that Backpack
+5/6/7 emits in `crud::create.blade.php` /
 `crud::edit.blade.php` / `crud::inc.form_page.blade.php`:
 
 ```html
@@ -263,16 +265,16 @@ estable que Backpack 5/6/7 emite en `crud::create.blade.php` /
 </div>
 ```
 
-`'[bp-section="crud-operation-create"] form'` matchea el form correcto
-sin overrides de views, sin necesidad de tagear el `<form>` con `id` o
-`data-chatbot-form`, y funciona igual en operaciones `create` / `update` /
-HasForm custom.
+`'[bp-section="crud-operation-create"] form'` matches the correct form
+without view overrides, without needing to tag the `<form>` with an `id` or
+`data-chatbot-form`, and works equally for `create` / `update` / custom
+HasForm operations.
 
-Esto es out-of-the-box: con `chatbot:install` y
-`class_exists('Backpack\\CRUD\\...')` detectado, el provider hace su trabajo
-en cualquier ruta CRUD del host. No hace falta tagear nada.
+This is out-of-the-box: with `chatbot:install` and
+`class_exists('Backpack\\CRUD\\...')` detected, the provider does its job on
+every CRUD route in the host. No tagging required.
 
-Ejemplo de lo que ve el LLM en `## Current page` al estar en
+Example of what the LLM sees in `## Current page` when on
 `/admin/mission/create`:
 
 ```json
@@ -294,7 +296,7 @@ Ejemplo de lo que ve el LLM en `## Current page` al estar en
 }
 ```
 
-Y con eso el LLM puede llamar:
+With that the LLM can call:
 
 ```json
 {
@@ -310,21 +312,21 @@ Y con eso el LLM puede llamar:
 }
 ```
 
-— pasando el `selector` verbatim, con los `name` HTML correctos y los
-valores ya mapeados de label a id.
+— passing the `selector` verbatim, with the correct HTML `name` attributes
+and values already mapped from label to id.
 
-> **FK demasiado grandes**: si la tabla referenciada por un select supera
-> `chatbot.backpack.fk_options_cap` (default 200), el provider emite el
-> field con `options_truncated: true` y omite `options`. El LLM debe
-> recurrir a un read tool (`list_planets`, `list_ships`, …) para resolver
-> la pareja label → id antes de llamar `fill_form`.
+> **Oversized FKs**: if the table referenced by a select exceeds
+> `chatbot.backpack.fk_options_cap` (default 200), the provider emits the
+> field with `options_truncated: true` and omits `options`. The LLM must
+> fall back to a read tool (`list_planets`, `list_ships`, …) to resolve
+> the label → id pair before calling `fill_form`.
 
-### 5.2 Tagear el `<form>` (opcional, casi nunca hace falta)
+### 5.2 Tagging the `<form>` (optional, rarely needed)
 
-Como el `selector` basado en `bp-section` cubre el caso default sin
-overrides, la mayoría de hosts no necesitan tagear nada. Si por algún
-motivo quieres targeting por id (e.g. tu app tiene varios forms en la
-misma URL con el mismo `bp-section`), puedes publicar este override:
+Because the `bp-section`-based `selector` covers the default case without
+overrides, most hosts do not need to tag anything. If for some reason you
+need targeting by id (e.g. your app has multiple forms on the same URL with
+the same `bp-section`), you can publish this override:
 
 ```blade
 {{-- resources/views/vendor/backpack/crud/inc/form_page.blade.php --}}
@@ -336,76 +338,77 @@ misma URL con el mismo `bp-section`), puedes publicar este override:
 </form>
 ```
 
-> ⚠️ El override del partial `form_page.blade.php` **solo aplica a
-> operaciones custom basadas en el trait `HasForm`** — las views
-> built-in `crud::create.blade.php` y `crud::edit.blade.php` de
-> Backpack 6.x tienen el `<form>` inline y no incluyen `form_page`.
-> Para esos casos prefiere `selector` (out-of-the-box) o publica
-> overrides de `create.blade.php` / `edit.blade.php`. `--backpack-forms`
-> de `chatbot:install` queda como soporte legacy.
+> ⚠️ The `form_page.blade.php` partial override **only applies to custom
+> operations based on the `HasForm` trait** — Backpack 6.x's built-in views
+> `crud::create.blade.php` and `crud::edit.blade.php` have the `<form>`
+> inline and do not include `form_page`. For those cases prefer `selector`
+> (out-of-the-box) or publish overrides of `create.blade.php` /
+> `edit.blade.php`. The `--backpack-forms` flag of `chatbot:install` remains
+> as legacy support.
 
-### 5.3 Aliases con `data-chatbot-field`
+### 5.3 Aliases with `data-chatbot-field`
 
-Para fields con `name` HTML interno feo (`metadata[options][0][value]`) el
-host puede exponer un alias amigable:
+For fields with an ugly internal HTML `name` (`metadata[options][0][value]`)
+the host can expose a friendly alias:
 
 ```html
 <input name="metadata[options][0][value]" data-chatbot-field="first_option">
 ```
 
-El LLM ve `first_option` en el page context (cuando declares el alias en el
-schema del provider o en `@chatbotForm`) y `fillForm` busca primero por
-`[data-chatbot-field]` antes que por `[name]`. Si llama con un name que no
-existe, el warn de "field not found" lista AMBOS conjuntos (`name` y
-`data-chatbot-field`) para diagnóstico.
+The LLM sees `first_option` in the page context (when you declare the alias
+in the provider schema or in `@chatbotForm`) and `fillForm` looks up
+`[data-chatbot-field]` before `[name]`. If it calls with a name that does
+not exist, the "field not found" warning lists BOTH sets (`name` and
+`data-chatbot-field`) for diagnostics.
 
 ### 5.4 Confirmation flow
 
-`fill_form` defaulta a `confirmation=confirm` — el widget muestra un
-banner antes de rellenar / submit. Buen default para destructive flows.
-Si quieres permitir auto-fill sin banner (e.g. un draft que el usuario
-revisa antes de submit), subclasea `FillFormTool` y override
-`confirmation()` para devolver `ConfirmationLevel::Auto`.
+`fill_form` defaults to `confirmation=confirm` — the widget shows a banner
+before filling / submitting. A good default for destructive flows. If you
+want to allow auto-fill without a banner (e.g. a draft the user reviews
+before submitting), subclass `FillFormTool` and override `confirmation()` to
+return `ConfirmationLevel::Auto`.
 
-### 5.5 Comando `chatbot:install --backpack-forms` *(legacy)*
+### 5.5 `chatbot:install --backpack-forms` command *(legacy)*
 
 ```
 php artisan chatbot:install --backpack-forms
 ```
 
-Copia el stub a `resources/views/vendor/backpack/crud/inc/form_page.blade.php`.
-Idempotente — si ya existe, no sobreescribe sin `--force`. El flag es
-opt-in (no aparece en el wizard interactivo) porque sobreescribe una
-view específica del host y queremos que la decisión sea explícita.
+Copies the stub to `resources/views/vendor/backpack/crud/inc/form_page.blade.php`.
+Idempotent — if the file already exists it does not overwrite without
+`--force`. The flag is opt-in (it does not appear in the interactive wizard)
+because it overwrites a host-specific view and that decision should be
+explicit.
 
-> **v1.1.2 — uso menor.** Tras el aterrizaje de `crud.form.selector`
-> basado en `bp-section`, este override solo aporta valor para
-> operaciones HasForm custom donde quieres taggear el `<form>` con un
-> `data-chatbot-form` estable. Las views built-in `crud::create.blade.php`
-> y `crud::edit.blade.php` **no** invocan `inc.form_page`, así que el
-> override no las afecta.
+> **v1.1.2 — reduced relevance.** After the landing of `crud.form.selector`
+> based on `bp-section`, this override only adds value for custom HasForm
+> operations where you want to tag the `<form>` with a stable
+> `data-chatbot-form`. The built-in views `crud::create.blade.php` and
+> `crud::edit.blade.php` do **not** invoke `inc.form_page`, so the override
+> does not affect them.
 
-Si prefieres aplicarlo manualmente: copia el contenido de
-`src/Console/Commands/stubs/backpack-form-page.stub` a tu override y
-ajusta a tu gusto.
+To apply it manually: copy the contents of
+`src/Console/Commands/stubs/backpack-form-page.stub` to your override and
+adjust as needed.
 
 ---
 
-## 6. Ejemplo end-to-end · Bulk approve con confirmación
+## 6. End-to-end example · Bulk approve with confirmation
 
-> **Caso**: el usuario tiene 12 pedidos seleccionados en el grid de Backpack.
-> Pregunta al bot "aprueba todos los pendientes". El bot debe:
+> **Scenario**: the user has 12 orders selected in the Backpack grid and
+> asks the bot "approve all pending ones". The bot must:
 >
-> 1. Leer los `selected_ids` del page context.
-> 2. Filtrar a los que estén en estado `pending`.
-> 3. Pedir confirmación al usuario ("Voy a aprobar 9 de los 12 pedidos
->    seleccionados…").
-> 4. Al confirmar, ejecutar la backend tool real.
-> 5. Refrescar el grid.
+> 1. Read `selected_ids` from the page context.
+> 2. Filter to those with `pending` status.
+> 3. Ask the user for confirmation ("I'm about to approve 9 of the 12
+>    selected orders…").
+> 4. On confirmation, execute the real backend tool.
+> 5. Refresh the grid.
 
 ### 6.1 Backend tool — `ApproveOrdersBulkTool`
 
-Patrón bulk estándar (ver [`backend-tools.md §5`](../backend-tools.md)):
+Standard bulk pattern (see [`backend-tools.md`](../backend-tools.md)):
 
 ```php
 namespace App\Chatbot\Tools;
@@ -422,9 +425,9 @@ class ApproveOrdersBulkTool extends BaseBackendTool
 
     public function description(): string
     {
-        return 'Aprueba en bloque varios pedidos por sus IDs. Usa esta tool '
-             . 'cuando el usuario pide aprobar más de un pedido a la vez '
-             . '(seleccionados en el grid o enumerados explícitamente).';
+        return 'Bulk-approves several orders by their IDs. Use this tool '
+             . 'when the user asks to approve more than one order at a time '
+             . '(selected in the grid or explicitly enumerated).';
     }
 
     public function parameters(): array
@@ -434,11 +437,11 @@ class ApproveOrdersBulkTool extends BaseBackendTool
             'properties' => [
                 'target_ids' => [
                     'type' => 'array',
-                    'description' => 'Lista de IDs de pedidos a aprobar (máx 100).',
+                    'description' => 'List of order IDs to approve (max 100).',
                 ],
                 'reason' => [
                     'type' => 'string',
-                    'description' => 'Razón opcional para el log de auditoría.',
+                    'description' => 'Optional reason for the audit log.',
                 ],
             ],
             'required' => ['target_ids'],
@@ -455,7 +458,7 @@ class ApproveOrdersBulkTool extends BaseBackendTool
 
         $orders = $this->accessibleQuery(Order::query(), $ctx)
             ->whereIn('id', $ids)
-            ->where('status', 'pending')   // sólo pendientes
+            ->where('status', 'pending')   // pending only
             ->lockForUpdate()
             ->get()
             ->keyBy('id');
@@ -489,12 +492,12 @@ class ApproveOrdersBulkTool extends BaseBackendTool
 }
 ```
 
-### 6.2 Frontend tool con confirmación — `ConfirmApproveOrdersBulkTool`
+### 6.2 Frontend tool with confirmation — `ConfirmApproveOrdersBulkTool`
 
-> **Por qué dos tools**: en v1 las backend tools no soportan
-> `confirmation=confirm` (D9). El patrón canónico es: una FE tool con
-> `confirmation=confirm` que reciba los args, muestre el banner, y al
-> confirmarse dispare la BE tool.
+> **Why two tools**: in v1 backend tools do not support
+> `confirmation=confirm`. The canonical pattern is: a FE tool with
+> `confirmation=confirm` that receives the args, shows the banner, and upon
+> confirmation triggers the BE tool.
 
 ```php
 namespace App\Chatbot\Tools;
@@ -510,8 +513,8 @@ class ConfirmApproveOrdersBulkTool extends BaseFrontendTool
 
     public function description(): string
     {
-        return 'Pide confirmación al usuario antes de aprobar varios pedidos. '
-             . 'Llama a esta tool cuando el usuario pida aprobar ≥2 pedidos.';
+        return 'Asks the user for confirmation before approving several orders. '
+             . 'Call this tool when the user asks to approve ≥2 orders.';
     }
 
     public function parameters(): array
@@ -520,7 +523,7 @@ class ConfirmApproveOrdersBulkTool extends BaseFrontendTool
             'type' => 'object',
             'properties' => [
                 'target_ids' => ['type' => 'array'],
-                'preview'    => ['type' => 'string', 'description' => 'Texto a mostrar en el banner.'],
+                'preview'    => ['type' => 'string', 'description' => 'Text to show in the banner.'],
             ],
             'required' => ['target_ids', 'preview'],
         ];
@@ -535,17 +538,17 @@ class ConfirmApproveOrdersBulkTool extends BaseFrontendTool
 }
 ```
 
-### 6.3 Handler JS — recibe el "confirmed" y dispara la BE tool
+### 6.3 JS handler — receives the "confirmed" event and triggers the BE tool
 
-El widget ya gestiona el banner (E16). Cuando el usuario confirma, emite la
-2ª llamada al endpoint con `result.done`. Pero la primitiva en sí — invocar
-la backend tool real — la ejecutamos desde JS para que el LLM pueda recibir
-el resultado en el siguiente turno:
+The widget already manages the banner. When the user confirms, it emits the
+second call to the endpoint with `result.done`. The primitive itself —
+invoking the real backend tool — is executed from JS so the LLM can receive
+the result in the next turn:
 
 ```javascript
 window.Chatbot.registerTool('confirm_approve_orders_bulk', async ({ target_ids }) => {
-    // El usuario YA confirmó (el widget sólo invoca el handler tras
-    // {accept: true}); ejecutamos la BE tool real.
+    // The user has ALREADY confirmed (the widget only invokes the handler after
+    // {accept: true}); we execute the real BE tool.
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
 
     const res = await fetch('/admin/orders/approve-bulk', {
@@ -565,7 +568,7 @@ window.Chatbot.registerTool('confirm_approve_orders_bulk', async ({ target_ids }
 
     const data = await res.json();
 
-    // Refrescar el grid (Backpack usa DataTables)
+    // Refresh the grid (Backpack uses DataTables)
     if (window.crud?.table) {
         window.crud.table.ajax.reload();
     }
@@ -578,13 +581,13 @@ window.Chatbot.registerTool('confirm_approve_orders_bulk', async ({ target_ids }
 });
 ```
 
-### 6.4 Endpoint host que la JS llama
+### 6.4 Host endpoint called by JS
 
 ```php
-// routes/admin.php (o donde tu app coloque rutas Backpack)
+// routes/admin.php (or wherever your app places Backpack routes)
 Route::middleware(['auth', 'web'])
     ->post('/admin/orders/approve-bulk', function (Request $request) {
-        // Reusa la backend tool (cascada de autorización idéntica)
+        // Reuse the backend tool (identical authorization cascade)
         $tool = app(ApproveOrdersBulkTool::class);
 
         $ctx = new \Rnkr69\LaraChatbot\Tools\ToolContext(
@@ -602,15 +605,15 @@ Route::middleware(['auth', 'web'])
     });
 ```
 
-> Aquí estamos llamando `execute()` (no `handle()`) directamente; la cascada
-> de autorización se aplica igual que cuando viene del LLM. Si quieres
-> exponerlo *sin* la cascada — porque ya validaste con un middleware del
-> host — llama a `handle()` directamente.
+> Here we call `execute()` (not `handle()`) directly; the authorization
+> cascade applies exactly as when the call comes from the LLM. If you want
+> to expose it *without* the cascade — because you already validated with a
+> host middleware — call `handle()` directly.
 
-### 6.5 Bloque tipado custom — `crud_row`
+### 6.5 Custom typed block — `crud_row`
 
-Para que el bot pueda mostrar una fila del grid en el chat de forma rica
-(en lugar de listarlas como markdown), el host registra un block renderer:
+So the bot can display a grid row in chat in a rich format (instead of
+listing it as markdown), the host registers a block renderer:
 
 ```javascript
 window.Chatbot.registerBlockRenderer('crud_row', (block, container) => {
@@ -652,7 +655,7 @@ function escapeHtml(s) {
 }
 ```
 
-El LLM emite el bloque desde una tool de host:
+The LLM emits the block from a host tool:
 
 ```php
 // app/Chatbot/Tools/GetOrderTool.php
@@ -663,15 +666,15 @@ public function handle(array $args, ToolContext $ctx): ToolResult
         'block' => [
             'type' => 'crud_row',
             'data' => [
-                'entity_label' => "Pedido #{$order->id}",
+                'entity_label' => "Order #{$order->id}",
                 'fields' => [
-                    'Cliente' => $order->customer->name,
-                    'Total'   => "{$order->total} €",
-                    'Estado'  => $order->status,
+                    'Customer' => $order->customer->name,
+                    'Total'    => "{$order->total} €",
+                    'Status'   => $order->status,
                 ],
                 'actions' => [
-                    ['tool' => 'open_invoice_drawer', 'args' => ['invoice_id' => $order->invoice_id], 'label' => 'Ver factura'],
-                    ['tool' => 'confirm_approve_orders_bulk', 'args' => ['target_ids' => [$order->id], 'preview' => 'Aprobar este pedido'], 'label' => 'Aprobar'],
+                    ['tool' => 'open_invoice_drawer', 'args' => ['invoice_id' => $order->invoice_id], 'label' => 'View invoice'],
+                    ['tool' => 'confirm_approve_orders_bulk', 'args' => ['target_ids' => [$order->id], 'preview' => 'Approve this order'], 'label' => 'Approve'],
                 ],
             ],
         ],
@@ -679,46 +682,46 @@ public function handle(array $args, ToolContext $ctx): ToolResult
 }
 ```
 
-Detalle de bloques tipados en [`block-renderers.md`](../block-renderers.md).
+Typed block details in [`block-renderers.md`](../block-renderers.md).
 
 ---
 
-## 7. Flujo completo — diagrama
+## 7. Full flow — diagram
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as Usuario
+    participant U as User
     participant B as Backpack grid
     participant W as Widget
     participant S as ChatService
     participant L as LLM
     participant H as Host /admin/.../approve-bulk
-    U->>B: selecciona 12 pedidos, click "preguntar al bot"
+    U->>B: selects 12 orders, clicks "ask the bot"
     B->>W: open() + setPageContext(crud.selected_ids=[1..12])
-    U->>W: "aprueba los pendientes"
+    U->>W: "approve the pending ones"
     W->>S: POST /chatbot/stream
-    S->>L: chat con tools + crud context
+    S->>L: chat with tools + crud context
     L-->>S: tool_call(confirm_approve_orders_bulk, target_ids=[1..12])
     S-->>W: frontend_action(confirmation=confirm)
-    Note over W: banner "Voy a aprobar 9/12 pedidos"
-    U->>W: click "Confirmar"
+    Note over W: banner "I'm about to approve 9/12 orders"
+    U->>W: click "Confirm"
     W->>S: POST /actions/{id}/confirm {accept:true}
-    Note over W: handler JS dispara fetch
+    Note over W: JS handler fires fetch
     W->>H: POST /admin/orders/approve-bulk
     H-->>W: 200 {succeeded:9, failed:3}
     W->>S: POST /actions/{id}/confirm {accept:true,result:{approved:9}}
     Note over S: row → executed
     Note over W: crud.table.ajax.reload()
-    L-->>S: "Listo, aprobados 9 pedidos."
+    L-->>S: "Done, 9 orders approved."
     S-->>W: delta + done
 ```
 
 ---
 
-## 8. Recetas adicionales
+## 8. Additional recipes
 
-### 8.1 Filtrar el grid por la respuesta del LLM
+### 8.1 Filter the grid from the LLM response
 
 ```javascript
 window.Chatbot.registerTool('apply_grid_filter', ({ filters }) => {
@@ -733,14 +736,14 @@ window.Chatbot.registerTool('apply_grid_filter', ({ filters }) => {
 });
 ```
 
-LLM puede emitir:
+The LLM can emit:
 ```
 tool_call(apply_grid_filter, {filters: {status: 'pending', priority: 'high'}})
 ```
 
-### 8.2 Abrir un drawer de detalle
+### 8.2 Open a detail drawer
 
-Si tu app tiene drawers Backpack (sidebar lateral con detalle):
+If your app has Backpack drawers (lateral sidebar with detail):
 
 ```javascript
 window.Chatbot.registerTool('open_crud_show', ({ entity, id }) => {
@@ -754,15 +757,15 @@ window.Chatbot.registerTool('open_crud_show', ({ entity, id }) => {
 });
 ```
 
-LLM puede emitir desde un block `actions`:
+The LLM can emit from a block `actions`:
 ```
 tool_call(open_crud_show, {entity: 'App\\Models\\Order', id: 42})
 ```
 
-### 8.3 Refrescar la página tras una mutación
+### 8.3 Refresh the page after a mutation
 
-Las primitivas built-in incluyen `navigate` con `reload` (E11). Para refrescar
-*sin* navegar:
+The built-in primitives include `navigate` with `reload`. To refresh
+*without* navigating:
 
 ```javascript
 window.Chatbot.registerTool('refresh_grid', () => {
@@ -777,31 +780,30 @@ window.Chatbot.registerTool('refresh_grid', () => {
 
 ---
 
-## 9. Troubleshooting específico
+## 9. Backpack-specific troubleshooting
 
-### B1 · La directive no emite nada
+### B1 · The directive emits nothing
 
-**Causa**: no estás en una página Backpack o `app('crud')` no está bound para
-ese request.
+**Cause**: you are not on a Backpack page or `app('crud')` is not bound for
+that request.
 
-**Verificación**:
+**Check**:
 ```php
-// En tu controller/middleware
+// In your controller/middleware
 if (app()->bound('crud') && ($panel = app('crud')) !== null) {
     dump('ok', $panel->getModel());
 }
 ```
 
-Si lo anterior funciona pero `@chatbotBackpackContext` aun así emite vacío,
-abre un issue en el repo del paquete con tu versión de Backpack y un dump
-del panel.
+If the above works but `@chatbotBackpackContext` still emits nothing, open
+an issue on the package repo with your Backpack version and a panel dump.
 
-### B2 · `selected_ids` siempre vacío
+### B2 · `selected_ids` always empty
 
-**Causa**: tu grid usa otro nombre del campo. El provider lee `entries[]` y
-`selected_ids[]` por default.
+**Cause**: your grid uses a different field name. The provider reads
+`entries[]` and `selected_ids[]` by default.
 
-**Fix**: extiende el provider en tu host:
+**Fix**: extend the provider in your host:
 
 ```php
 namespace App\Chatbot\Authorization;
@@ -829,40 +831,39 @@ $this->app->singleton(
 );
 ```
 
-### B3 · El meta tag escapa caracteres extraños
+### B3 · The meta tag escapes strange characters
 
-**Causa**: tu CrudPanel devuelve modelos con propiedades que contienen
+**Cause**: your CrudPanel returns models with properties containing
 `<`, `>`, `&` etc.
 
-**Esperado**: el provider usa `JSON_HEX_QUOT|JSON_HEX_APOS` para que el JSON
-se pueda envolver con `'…'` sin escapar manualmente. Caracteres unicode pasan
-sin escape.
+**Expected**: the provider uses `JSON_HEX_QUOT|JSON_HEX_APOS` so the JSON
+can be wrapped with `'…'` without manual escaping. Unicode characters pass
+through unescaped.
 
-**Fix si ves un meta tag corrupto**: probablemente tu modelo tiene una
-propiedad con bytes inválidos UTF-8. Revisa la columna en BD.
-
----
-
-## 10. Limitaciones conocidas
-
-- El provider **no** lee filtros guardados en sesión (Backpack persistence).
-  Si dependes de eso, extiende el provider.
-- `getModel()` en operaciones `create` puede devolver una instancia "vacía" —
-  el `entity` amigable sigue resolviéndose desde `entity_name` o
-  `class_basename`; el `form` schema se emite igualmente porque
-  `$panel->fields()` está definido en la operación.
-- El `chatbot:context-changed` event se dispara tras *cada* `setPageContext`.
-  Si Backpack hace varios `Crud::setEntityNameStrings(...)` durante el boot
-  del panel, sólo importa el último: la directive corre al final del head,
-  cuando ya está estable.
+**Fix if you see a corrupted meta tag**: your model likely has a property
+with invalid UTF-8 bytes. Check the column in the database.
 
 ---
 
-## 11. Referencias
+## 10. Known limitations
+
+- The provider does **not** read filters saved in the session (Backpack
+  persistence). If you depend on that, extend the provider.
+- `getModel()` in `create` operations may return an "empty" instance — the
+  friendly `entity` name is still resolved from `entity_name` or
+  `class_basename`; the `form` schema is still emitted because
+  `$panel->fields()` is defined in the operation.
+- The `chatbot:context-changed` event fires after *every* `setPageContext`
+  call. If Backpack calls `Crud::setEntityNameStrings(...)` multiple times
+  during panel boot, only the last one matters: the directive runs at the
+  end of the head once everything is stable.
+
+---
+
+## 11. References
 
 - Provider: `src/Integrations/Backpack/BackpackPageContextProvider.php`
 - Directive: `src/Integrations/Backpack/BladeHelpers.php`
-- Decisión D15: Backpack opt-in por runtime (`class_exists`).
-- Catálogo de bloques: [`block-renderers.md`](../block-renderers.md)
-- Patrón bulk: [`backend-tools.md §5`](../backend-tools.md)
-- Confirmaciones: [`confirmation-flow.md`](../confirmation-flow.md)
+- Block catalogue: [`block-renderers.md`](../block-renderers.md)
+- Bulk pattern: [`backend-tools.md`](../backend-tools.md)
+- Confirmations: [`confirmation-flow.md`](../confirmation-flow.md)

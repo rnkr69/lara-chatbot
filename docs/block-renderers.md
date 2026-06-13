@@ -1,11 +1,11 @@
 # Block renderers
 
+*English · [Español](block-renderers.es.md)*
+
 Typed blocks let the LLM emit structured content — tables, cards, action buttons,
 arbitrary host-defined widgets — instead of plain markdown. The widget renders
 each block through a three-step cascade so hosts can customise as little or as
 much as they need.
-
-This document covers what ships in v1 (E15) and how to plug in your own.
 
 ---
 
@@ -150,11 +150,10 @@ placeholder shows the title (if any), a hint pointing at
 so the data is not lost while the host wires up a real renderer.
 
 The **dashboard bundle** (v2.0) ships Chart.js as the default renderer for
-`chart` — see [`dashboard.md` §8](dashboard.md#8-chart_renderer-override) for
-the `chart_renderer` config (`chartjs` | `none`) and how to register your own
-renderer that overrides it. On pages where only the widget is loaded, the
-placeholder still applies; the dashboard bundle is the one that comes
-batteries-included.
+`chart` — see [`dashboard.md`](dashboard.md) for the `chart_renderer` config
+(`chartjs` | `none`) and how to register your own renderer that overrides it.
+On pages where only the widget is loaded, the placeholder still applies; the
+dashboard bundle is the one that comes batteries-included.
 
 To register a renderer that wins on both bundles (must run **before** the
 dashboard bundle initialises):
@@ -209,8 +208,7 @@ pick it up through the same cascade. Zero extra registration.
 - No valid `value` and no `label` → renders minimal `"—"` placeholder.
 
 **PHP-side example** (a stats tool emitting a KPI block — see
-[`backend-tools.md`](backend-tools.md#pinnable-tools) for the surrounding
-`pinnable()` recipe):
+[`backend-tools.md`](backend-tools.md) for the surrounding `pinnable()` recipe):
 
 ```php
 return ToolResult::success(blocks: [[
@@ -228,7 +226,7 @@ return ToolResult::success(blocks: [[
 **i18n:** the placeholder string for "no value resolved" (default `'—'`)
 is bridged from PHP via `chatbot::chatbot.dashboard.kpi.no_value` when the
 host emits `data-i18n` on `<chatbot-widget>` or
-`#chatbot-dashboard-root` — see [`dashboard.md` §5.5](dashboard.md#55-bridge-i18n-php--js).
+`#chatbot-dashboard-root` — see [`dashboard.md`](dashboard.md).
 
 ---
 

@@ -1,5 +1,7 @@
 # rnkr69/lara-chatbot
 
+*English · [Español](README.es.md)*
+
 ![status](https://img.shields.io/badge/status-v0.4.0--prerelease-orange)
 ![php](https://img.shields.io/badge/php-%5E8.2-blue)
 ![laravel](https://img.shields.io/badge/laravel-12%20%7C%2013-red)
@@ -133,7 +135,7 @@ flowchart LR
     W --> N[navigate / fill_form /<br/>highlight / download_file / ...]
 ```
 
-Detail in [`docs/getting-started.md §4`](docs/getting-started.md#4-cómo-funciona).
+Detail in [`docs/getting-started.md §4`](docs/getting-started.md#4-how-it-works).
 
 ---
 
@@ -176,8 +178,6 @@ alongside the floating widget.
 | Something is wrong | [`docs/troubleshooting.md`](docs/troubleshooting.md) |
 | Distribute package versions | [`docs/distribution.md`](docs/distribution.md) |
 | Run the test suite | [`docs/testing.md`](docs/testing.md) |
-| Vision and principles of the package | [`docs/LARA_CHATBOT_PROJECT_DEFINITION.md`](docs/LARA_CHATBOT_PROJECT_DEFINITION.md) |
-| Historical build plan (epics E01–E21 pre-0.4) | [`docs/LARA_CHATBOT_ROADMAP.md`](docs/LARA_CHATBOT_ROADMAP.md) |
 
 ---
 

@@ -1,21 +1,18 @@
-# Distribución y consumo del paquete
+# Package Distribution and Consumption
 
-Esta guía explica cómo publicar `rnkr69/lara-chatbot` en un git privado y consumirlo desde proyectos host, además de la matriz CI recomendada para futuras releases.
+*English · [Español](distribution.es.md)*
 
-> **Nota sobre versiones**: este documento contiene referencias a milestones
-> internos pre-0.4 (`E\d+`, `v1.x`, `v2.x`) que no son releases públicas.
-> La release actual es `0.4.0`. Los ejemplos de comandos en esta guía han
-> sido normalizados a `^0.4`.
+This guide explains how to publish `rnkr69/lara-chatbot` to a private git repository and consume it from host projects, along with the recommended CI matrix for future releases.
 
-> Si solo quieres instalar el paquete en un proyecto Laravel existente, lee la sección [Instalación](#instalación) y vuelve al [README](../README.md). El resto del documento está pensado para mantenedores del paquete.
+> If you only want to install the package in an existing Laravel project, read the [Installation](#installation) section and return to the [README](../README.md). The rest of this document is intended for package maintainers.
 
 ---
 
-## Instalación
+## Installation
 
-### Receta mínima — repositorio VCS
+### Minimal recipe — VCS repository
 
-Un host con acceso SSH al repo privado del paquete puede consumirlo añadiendo un repositorio `vcs` en su `composer.json`:
+A host with SSH access to the package's private repository can consume it by adding a `vcs` repository entry to its `composer.json`:
 
 ```json
 {
@@ -31,22 +28,22 @@ Un host con acceso SSH al repo privado del paquete puede consumirlo añadiendo u
 }
 ```
 
-Después:
+Then:
 
 ```bash
 composer update rnkr69/lara-chatbot
 php artisan chatbot:install
 ```
 
-> Sustituye `https://github.com/rnkr69/lara-chatbot.git` por la URL real del repo. La receta funciona con cualquier git host (GitHub privado, GitLab self-hosted, Bitbucket, Gitea…). Composer resuelve tags y branches directamente sin necesidad de servidor de paquetes intermedio.
+> Replace `https://github.com/rnkr69/lara-chatbot.git` with the real repo URL. The recipe works with any git host (private GitHub, self-hosted GitLab, Bitbucket, Gitea…). Composer resolves tags and branches directly without needing an intermediate package server.
 
-### Si tu empresa tiene Satis, Packeton o Private Packagist
+### If your company runs Satis, Packeton, or Private Packagist
 
-Para empresas con varios paquetes privados, montar un servidor de paquetes evita declarar un `repositories.vcs` por cada uno y acelera `composer update` (Composer ya no clona cada repo solo para leer su `composer.json`).
+For companies with multiple private packages, running a package server avoids declaring a `repositories.vcs` entry for each one and speeds up `composer update` (Composer no longer has to clone every repo just to read its `composer.json`).
 
-#### Satis (gratis, estático)
+#### Satis (free, static)
 
-[Satis](https://github.com/composer/satis) genera un `packages.json` estático a partir de una lista de repos VCS. Se sirve por HTTPS detrás de la VPN.
+[Satis](https://github.com/composer/satis) generates a static `packages.json` from a list of VCS repos. It is served over HTTPS behind your VPN.
 
 ```json
 {
@@ -57,197 +54,190 @@ Para empresas con varios paquetes privados, montar un servidor de paquetes evita
 }
 ```
 
-#### Packeton (open-source, dinámico)
+#### Packeton (open-source, dynamic)
 
-[Packeton](https://github.com/vtsykun/packeton) es un fork mantenido de Packagist con UI, control de acceso y mirror de zip. Mejor opción si necesitas listar paquetes/versiones desde un dashboard.
+[Packeton](https://github.com/vtsykun/packeton) is a maintained fork of Packagist with a UI, access control, and zip mirroring. The better choice if you need to list packages and versions from a dashboard.
 
 #### Private Packagist (SaaS)
 
-[Private Packagist](https://packagist.com/) es la oferta SaaS de los autores de Composer. Cero infra, soporte profesional, política de seguridad gestionada.
+[Private Packagist](https://packagist.com/) is the SaaS offering from the authors of Composer. Zero infrastructure, professional support, managed security policy.
 
-> El paquete no impone ninguna preferencia. Cualquiera de los cuatro mecanismos (VCS directo, Satis, Packeton, Private Packagist) cumple el contrato del paquete: el host hace `composer update rnkr69/lara-chatbot` y recibe la versión publicada con el último tag git.
+> The package does not impose any preference. Any of the four mechanisms (direct VCS, Satis, Packeton, Private Packagist) fulfils the package contract: the host runs `composer update rnkr69/lara-chatbot` and receives the published version at the latest git tag.
 
 ---
 
-## Versionado y releases
+## Versioning and releases
 
-### Política
+### Policy
 
-`rnkr69/lara-chatbot` sigue [SemVer 2.0](https://semver.org/spec/v2.0.0.html). El [`CHANGELOG.md`](../CHANGELOG.md) lista la superficie pública cuyos cambios son `MAJOR`. Resumen:
+`rnkr69/lara-chatbot` follows [SemVer 2.0](https://semver.org/spec/v2.0.0.html). The [`CHANGELOG.md`](../CHANGELOG.md) lists the public surface whose changes trigger a `MAJOR` bump. Summary:
 
-| Cambio | Bump |
+| Change | Bump |
 |---|---|
-| Nuevo tool, nuevo block renderer, nuevo comando artisan, nueva integración opt-in | MINOR |
-| Refactor interno sin cambio en superficie pública | PATCH |
-| Cambio incompatible en HTTP, config keys, contratos `BackendTool`/`FrontendTool`, atributos del Web Component, claves de storage o eventos SSE | MAJOR |
+| New tool, new block renderer, new artisan command, new opt-in integration | MINOR |
+| Internal refactor with no public-surface change | PATCH |
+| Breaking change to HTTP, config keys, `BackendTool`/`FrontendTool` contracts, Web Component attributes, storage keys, or SSE events | MAJOR |
 
-### Proceso de release
+### Release process
 
-1. Trabajo en `main` o feature branches.
-2. Cuando una serie de cambios cierra un hito, actualizar `CHANGELOG.md`:
-   - Mover `[Unreleased]` a una nueva versión `[X.Y.Z] - YYYY-MM-DD`.
-   - Crear un nuevo `[Unreleased]` vacío en la cabecera.
+1. Work on `main` or feature branches.
+2. When a series of changes closes a milestone, update `CHANGELOG.md`:
+   - Move `[Unreleased]` to a new `[X.Y.Z] - YYYY-MM-DD` entry.
+   - Create a new empty `[Unreleased]` section at the top.
 3. Commit `chore: release vX.Y.Z`.
-4. Tag git anotado: `git tag -a vX.Y.Z -m "Release vX.Y.Z"` y `git push --follow-tags`.
-5. Hosts hacen `composer update rnkr69/lara-chatbot` y reciben el nuevo tag.
+4. Annotated git tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"` and `git push --follow-tags`.
+5. Hosts run `composer update rnkr69/lara-chatbot` and receive the new tag.
 
 ### Branching
 
-- `main` es la rama estable. Sólo recibe merge desde feature branches o hotfixes ya verificados.
-- No hay rama `develop` separada — el flujo es trunk-based con branches cortas.
-- Hotfixes sobre versiones publicadas: branch `hotfix/vX.Y.Z+1` desde el tag, fix, tag nuevo. Si la rama `main` ya divergió, hacer cherry-pick del fix a `main` también.
+- `main` is the stable branch. It only receives merges from already-verified feature branches or hotfixes.
+- There is no separate `develop` branch — the flow is trunk-based with short-lived branches.
+- Hotfixes on published versions: branch `hotfix/vX.Y.Z+1` from the tag, apply fix, new tag. If `main` has already diverged, cherry-pick the fix to `main` as well.
 
 ---
 
-## Pipeline CI
+## CI Pipeline
 
-El paquete incluye un workflow GitHub Actions de referencia en
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Empresas
-con otro git host (GitLab CI, Bitbucket Pipelines, Gitea Actions,
-Drone) traducen la matriz y los pasos a su YAML local — los comandos
-documentados abajo son la fuente de verdad portable.
+The package includes a reference GitHub Actions workflow at
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Companies
+using another git host (GitLab CI, Bitbucket Pipelines, Gitea Actions,
+Drone) translate the matrix and steps into their local YAML — the
+commands documented below are the portable source of truth.
 
-### Matriz
+### Matrix
 
-| Eje | Valores en CI | Valores soportados |
+| Axis | CI values | Supported values |
 |---|---|---|
 | PHP | `8.2`, `8.3` | `8.2`, `8.3`, `8.4` |
 | Laravel | `^11.0`, `^12.0` | `^11.0`, `^12.0` |
 
-CI corre **4 combinaciones** PHP × Laravel (subset de las 6 soportadas).
-PHP 8.4 se valida manualmente antes de release tag; en CI lo dejamos
-fuera para acortar el wall-clock y bajar coste de Actions.
+CI runs **4 combinations** PHP × Laravel (a subset of the 6 supported).
+PHP 8.4 is validated manually before the release tag; it is left out of
+CI to shorten wall-clock time and reduce Actions cost.
 
-`composer.json` declara `"illuminate/contracts": "^11.0|^12.0"` y
+`composer.json` declares `"illuminate/contracts": "^11.0|^12.0"` and
 `"illuminate/support": "^11.0|^12.0"`. `prism-php/prism: ^0.100`
-requiere PHP `^8.2`.
+requires PHP `^8.2`.
 
-> **Laravel 10 fuera del paquete** (decisión D1).
-> Si un host necesita L10, primero sube de versión.
+> **Laravel 10 is out of scope for this package.**
+> If a host needs L10, upgrade first.
 
-### Pasos del pipeline
+### Pipeline steps
 
-Cada combinación de la matriz ejecuta los 4 pasos siguientes:
+Each matrix combination runs the following 4 steps:
 
-#### 1. Lint PHP + suite Pest
+#### 1. PHP lint + Pest suite
 
 ```bash
 composer install --prefer-dist --no-interaction --no-progress
 vendor/bin/pest --colors=always
 ```
 
-Adicionalmente, lint sintáctico estilo precommit:
+Additionally, pre-commit-style syntax lint:
 
 ```bash
 find src -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
 ```
 
-PHPStan no está incluido en este paquete por elección (mantener `require-dev` ligero); si tu CI ya tiene PHPStan global, puedes añadirlo opcionalmente. La suite Pest cubre los contratos críticos.
+PHPStan is intentionally not included in this package (to keep `require-dev` light); if your CI already has PHPStan globally, you can add it optionally. The Pest suite covers the critical contracts.
 
-#### 2. Build de los bundles JS + verificación de budget + tokens
+#### 2. JS bundle build + budget verification + tokens
 
 ```bash
 npm ci
 npm run build
-npm run build:check    # cap de tamaño gzip (independiente)
-npm run build:tokens   # presencia de tokens de feature (independiente)
+npm run build:check    # gzip size cap (independent)
+npm run build:tokens   # feature token presence (independent)
 ```
 
-El paquete produce **dos bundles** separados (ambos en `public-build/`):
+The package produces **two separate bundles** (both in `public-build/`):
 
-| Bundle | Cap gzip | Propósito |
+| Bundle | gzip cap | Purpose |
 |---|---|---|
-| `chatbot-widget.js` | **80 KB** | Widget flotante (chat + suggested prompts + confirm banners + pin button). Cap desde v1.0 / E12. |
-| `chatbot-dashboard.js` | **150 KB** | Personal Dashboard (v2.0 / E5+): gridstack + Chart.js default + KPI renderer + sidebar + DashboardApp. Sólo carga en `/chatbot/dashboard`. |
+| `chatbot-widget.js` | **80 KB** | Floating widget (chat + suggested prompts + confirm banners + pin button). |
+| `chatbot-dashboard.js` | **150 KB** | Personal Dashboard: gridstack + Chart.js default + KPI renderer + sidebar + DashboardApp. Only loaded at `/chatbot/dashboard`. |
 
-`scripts/build.mjs` revienta el build (`process.exit(1)`) si **cualquiera** de los dos excede su cap; el host integrador no necesita un paso CI específico para enforcearlo — el `npm run build` ya falla. `npm run build:check` ejecuta el mismo gate post-build como verificación independiente.
+`scripts/build.mjs` aborts the build (`process.exit(1)`) if **either** bundle exceeds its cap; the integrating host does not need a separate CI step to enforce it — `npm run build` already fails. `npm run build:check` runs the same gate post-build as an independent check.
 
-**Gate de tokens.** `scripts/build.mjs` también verifica, tras compilar,
-dos clases de tokens en cada bundle:
+**Token gate.** `scripts/build.mjs` also verifies, after compilation,
+two classes of tokens in each bundle:
 
-1. **`REQUIRED`** — string-literals que cada bundle debe contener para que
-   sus features no estén tree-shaken (pre-0.4 finding #4: la pin button no
-   montaba porque su code-path SSE-metadata se cayó del bundle).
-2. **`SHARED`** — string-literals que deben aparecer en **ambos** bundles
+1. **`REQUIRED`** — string literals that each bundle must contain so
+   that its features are not tree-shaken away.
+2. **`SHARED`** — string literals that must appear in **both** bundles
    (cross-bundle protocol: `setPageContext`, `chatbot:ready`,
    `chatbot:dashboard-mutation`, `data-i18n`, `registerBlockRenderer`,
-   `kpi`). Esto caza la clase de bug PR-C (v2.2.2→v2.2.3 mismo día): un
-   fix aplicado al widget bundle pero olvidado en el dashboard bundle. Si
-   un token de `SHARED` aparece en uno y falta en otro, CI falla con
-   "cross-bundle contract drift".
+   `kpi`). This catches the class of bug where a fix is applied to the
+   widget bundle but forgotten in the dashboard bundle. If a `SHARED`
+   token appears in one bundle but is missing from the other, CI fails
+   with "cross-bundle contract drift".
 
-`npm run build` falla si falla cualquiera de los dos; `npm run build:tokens`
-corre el mismo gate de forma independiente. Cuando una feature nueva
-cruza la frontera widget↔dashboard, añadir su token al array `SHARED`
-en `scripts/check-bundle-tokens.mjs`.
+`npm run build` fails if either gate fails; `npm run build:tokens`
+runs the same token gate independently. When a new feature crosses
+the widget↔dashboard boundary, add its token to the `SHARED` array
+in `scripts/check-bundle-tokens.mjs`.
 
-Si un host registra renderers propios o tools que tiran lib pesada al bundle del dashboard, el cap protege contra TTFB inflado de `/chatbot/dashboard`. Para overrides que requieran libs adicionales, considere registrarlas como ESM dinámico (lazy load post-mount) en vez de embedded en el bundle.
+If a host registers custom renderers or tools that pull heavy libraries into the dashboard bundle, the cap protects against inflated TTFB on `/chatbot/dashboard`. For overrides requiring additional libraries, consider registering them as dynamic ESM (lazy-loaded post-mount) rather than embedding them in the bundle.
 
-> Estado al cierre de E10 (v2.0): widget **~26 KB gzip / 80 KB cap** (~68% bajo budget) · dashboard **~108 KB gzip / 150 KB cap** (~28% bajo budget).
+> Current state: widget **~26 KB gzip / 80 KB cap** (~68% under budget) · dashboard **~108 KB gzip / 150 KB cap** (~28% under budget).
 
-#### 3. Suite Vitest + typecheck TypeScript
+#### 3. Vitest suite + TypeScript typecheck
 
 ```bash
 npm test          # Vitest
-npm run typecheck # tsc --noEmit en modo strict
+npm run typecheck # tsc --noEmit in strict mode
 ```
 
-Cubre la lógica del Web Component, página dedicada, persistencia cross-tab, sanitizers, primitivas frontend y módulos de bloques tipados.
+Covers Web Component logic, the dedicated page, cross-tab persistence, sanitizers, frontend primitives, and typed block modules.
 
-#### 4. Suite Playwright e2e (chromium-only) — manual antes de release tag
+#### 4. Playwright e2e suite (chromium-only) — run manually before release tag
 
 ```bash
 npm run test:e2e
 ```
 
-**No incluida en CI** por decisión deliberada: Playwright es lento sobre
-WSL/runners y la suite Vitest (487 tests) + Pest ya cubren la mayor parte
-del protocolo en isolation. Correrla a mano antes de cada `git tag`.
+**Not included in CI** by deliberate choice: Playwright is slow on
+WSL/runners and the Vitest suite (487 tests) + Pest already cover the
+bulk of the protocol in isolation. Run it manually before each `git tag`.
 
-Cubre los flujos críticos del widget (handoff widget→página, navegación
-SPA, cross-tab localStorage) y del dashboard. El script `pretest:e2e`
-rebuilda el bundle automáticamente para evitar correr los tests sobre un
-bundle obsoleto.
+Covers the critical widget flows (widget→page handoff, SPA navigation,
+cross-tab localStorage) and the dashboard. The `pretest:e2e` script
+automatically rebuilds the bundle to avoid running tests against a
+stale bundle.
 
-> `tests/e2e/dashboard.spec.ts` incluye un test de regresión **visual**:
-> comprueba que el root del dashboard computa a `display: grid`, que el
-> `<main>` tiene un ancho legible (> 400 px) y que las tablas pineadas
-> llevan el CSS de bloques aplicado (`border-collapse: collapse`, padding
-> de celda ≠ 1 px). Estos bugs no los caza la suite funcional — sólo se
-> ven renderizados.
+> `tests/e2e/dashboard.spec.ts` includes a **visual** regression test:
+> it checks that the dashboard root computes to `display: grid`, that
+> `<main>` has a readable width (> 400 px), and that pinned tables carry
+> the block CSS (`border-collapse: collapse`, cell padding ≠ 1 px).
+> These bugs are not caught by the functional suite — they only appear
+> when rendered.
 
-> Si en el futuro Playwright entra a CI, cachear `~/.cache/ms-playwright`
-> (chromium) entre runs — sin cache añade ~1 min al primer run.
+> If Playwright is added to CI in the future, cache `~/.cache/ms-playwright`
+> (chromium) between runs — without the cache it adds ~1 min to the first run.
 
-### Atado de release a tag git
+### Tying releases to git tags
 
-El workflow debe correr los 4 pasos en cada push a `main` y en cada PR. Para releases (push de tag `vX.Y.Z`), añadir un job extra que:
+The workflow should run all 4 steps on every push to `main` and on every PR. For releases (push of a `vX.Y.Z` tag), add an extra job that:
 
-1. Verifica que el tag apunta a un commit con CI verde.
-2. Crea release notes a partir de la sección correspondiente del `CHANGELOG.md`.
-3. (Opcional) Notifica a Satis/Packeton/Private Packagist si la empresa los usa con webhook.
+1. Verifies the tag points to a commit with a green CI run.
+2. Creates release notes from the corresponding section of `CHANGELOG.md`.
+3. (Optional) Notifies Satis/Packeton/Private Packagist if the company uses them via webhook.
 
-Composer ya entiende los tags git directamente — un host puede hacer `composer require rnkr69/lara-chatbot:^0.4` en cuanto el tag esté pushed, sin esperar al servidor de paquetes.
+Composer understands git tags directly — a host can run `composer require rnkr69/lara-chatbot:^0.4` as soon as the tag is pushed, without waiting for a package server.
 
 ---
 
 ## FAQ
 
-**¿Por qué incluís un `.github/workflows/ci.yml` si el git host real puede no ser GitHub?**
-Como referencia ejecutable. Las primeras dos integraciones piloto se harán
-contra GitHub, así que el workflow funciona out-of-the-box ahí. Empresas
-con otro git host (GitLab CI, Bitbucket, Gitea, Drone) traducen los pasos
-del YAML — son los mismos cuatro: composer install + pest, npm install +
-typecheck + vitest + build. La matriz y los comandos en esta guía son la
-fuente de verdad portable; el YAML es la implementación de referencia
-para GitHub.
+**Why do you include a `.github/workflows/ci.yml` if the real git host may not be GitHub?**
+As an executable reference. The first two pilot integrations will run against GitHub, so the workflow works out of the box there. Companies on another git host (GitLab CI, Bitbucket, Gitea, Drone) translate the YAML steps — they are the same four: composer install + pest, npm install + typecheck + vitest + build. The matrix and commands in this guide are the portable source of truth; the YAML is the reference implementation for GitHub.
 
-**¿Cómo testeo localmente la receta `composer require` antes de publicar un tag?**
-Usa `dev-main` mientras el branch está en desarrollo:
+**How do I test the `composer require` recipe locally before publishing a tag?**
+Use `dev-main` while the branch is in development:
 ```json
 "require": { "rnkr69/lara-chatbot": "dev-main" }
 ```
-Composer aceptará el branch `main` con `minimum-stability: dev`. Para testear un tag candidato sin pushearlo a un repo público, una opción es `--repository '{"type":"path","url":"../chatbot"}'` apuntando a tu working copy local.
+Composer will accept the `main` branch with `minimum-stability: dev`. To test a candidate tag without pushing it to a public repo, one option is `--repository '{"type":"path","url":"../chatbot"}'` pointing at your local working copy.
 
-**¿Qué hago si el host está en Laravel 10?**
-Por ahora, no soportado en v1 (decisión D1). Los hosts en L10 deben quedarse en una versión previa del chatbot (no existe — v1 es la primera) o subir a L11. Cuando todos los hosts piloto suban a L11+, esto deja de ser problema.
+**What if the host is on Laravel 10?**
+Not supported. Hosts on L10 must upgrade to L11 or higher to use this package.

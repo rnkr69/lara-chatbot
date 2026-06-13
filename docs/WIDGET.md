@@ -1,30 +1,32 @@
-# `<chatbot-widget>` — Web Component (E12)
+# `<chatbot-widget>` — Web Component
 
-Bundle distribuido por el paquete que monta el chatbot en cualquier página Laravel
-(o página HTML estática) sin dependencias en runtime.
+*English · [Español](WIDGET.es.md)*
+
+Bundle distributed by the package that mounts the chatbot on any Laravel page
+(or static HTML page) with no runtime dependencies.
 
 - **Entry**: `public-build/chatbot-widget.js` (ES module).
-- **Tamaño**: ~7 KB gzip (cap del ROADMAP §5/E12: 80 KB).
-- **Compatibilidad**: navegadores con soporte ES2020 + Custom Elements v1
+- **Size**: ~7 KB gzip (cap: 80 KB).
+- **Compatibility**: browsers with ES2020 + Custom Elements v1 support
   (Chrome ≥80, Firefox ≥75, Safari ≥13.1, Edge ≥80).
 
-## Instalación rápida
+## Quick setup
 
-1. Construye el bundle (sólo cuando trabajas con código fuente; el host no
-   necesita Node si consume el paquete vía Composer y publica los assets):
+1. Build the bundle (only needed when working with source; the host does not
+   need Node if it consumes the package via Composer and publishes the assets):
 
    ```bash
    npm install
    npm run build
    ```
 
-2. Publica el asset en el host:
+2. Publish the asset on the host:
 
    ```bash
    php artisan vendor:publish --tag=chatbot-assets
    ```
 
-3. Incluye el script en tu layout Blade:
+3. Include the script in your Blade layout:
 
    ```blade
    <chatbot-widget
@@ -38,228 +40,223 @@ Bundle distribuido por el paquete que monta el chatbot en cualquier página Lara
    <script type="module" src="{{ asset('vendor/chatbot/chatbot-widget.js') }}"></script>
    ```
 
-## Atributos del custom element
+## Custom element attributes
 
-| Atributo | Valores | Default | Descripción |
+| Attribute | Values | Default | Description |
 |---|---|---|---|
-| `data-endpoint` | string (URL) | _requerido_ | Endpoint POST de E09 (`/chatbot/stream`). |
-| `data-conversation-id` | string\|number | `null` | Id de conversación a reanudar. Si está vacío, el backend crea una nueva. |
-| `data-conversations-endpoint` | string (URL) | derivado de `data-endpoint` | URL base del listado/CRUD de conversaciones (`chatbot.conversations.index`). Necesario para rehidratar el historial al re-montar el widget tras una navegación MPA. Si está vacío y `data-endpoint` termina en `/stream`, se deriva sustituyendo `/stream` por `/conversations` (patrón canónico del paquete). Declárelo explícitamente si tus rutas no siguen ese patrón. |
-| `data-position` | `left` \| `right` | `right` | Lado del launcher fab. |
-| `data-default-open` | `true` \| `false` | `false` | Si abre el panel al cargar. |
-| `data-theme` | `auto` \| `light` \| `dark` | `auto` | Modo de color del widget. `light`/`dark` lo fuerzan ignorando contexto. `auto` resuelve en este orden: (1) `<html data-bs-theme>` del host si está presente — integración canónica con Bootstrap 5 / Tabler / Backpack-Tabler / AdminLTE / Filament; (2) `prefers-color-scheme` del SO. En `auto`, el widget observa cambios en runtime de `<html data-bs-theme>` (y de la media query del SO) y se actualiza sin reload. |
+| `data-endpoint` | string (URL) | _required_ | POST endpoint (`/chatbot/stream`). |
+| `data-conversation-id` | string\|number | `null` | Conversation id to resume. If empty, the backend creates a new one. |
+| `data-conversations-endpoint` | string (URL) | derived from `data-endpoint` | Base URL for the conversation list/CRUD (`chatbot.conversations.index`). Required to rehydrate history when the widget is remounted after an MPA navigation. If empty and `data-endpoint` ends in `/stream`, it is derived by replacing `/stream` with `/conversations` (package canonical pattern). Declare it explicitly if your routes do not follow that pattern. |
+| `data-position` | `left` \| `right` | `right` | Launcher fab side. |
+| `data-default-open` | `true` \| `false` | `false` | Whether the panel opens on load. |
+| `data-theme` | `auto` \| `light` \| `dark` | `auto` | Widget color mode. `light`/`dark` force the mode ignoring context. `auto` resolves in this order: (1) `<html data-bs-theme>` on the host if present — canonical integration with Bootstrap 5 / Tabler / Backpack-Tabler / AdminLTE / Filament; (2) OS `prefers-color-scheme`. In `auto`, the widget observes runtime changes to `<html data-bs-theme>` (and the OS media query) and updates without a reload. |
 
-El atributo interno `data-state` (gestionado por el componente) refleja la
-máquina de 4 estados: `closed` · `minimized` · `open` · `fullscreen`. El CSS de
-shadow DOM expone los selectores `:host([data-state="..."])` para que los hosts
-con CSS publicado puedan ajustar layout fino.
+The internal attribute `data-state` (managed by the component) reflects the
+4-state machine: `closed` · `minimized` · `open` · `fullscreen`. The shadow DOM
+CSS exposes the selectors `:host([data-state="..."])` so hosts with published CSS
+can fine-tune their layout.
 
-`data-theme-effective` (también gestionado por el componente, valores `light`
-| `dark`) refleja el modo de color resuelto tras aplicar la cascada de
-`data-theme`. El CSS de shadow DOM expone selectores
-`:host([data-theme-effective="dark"])` / `…="light"` que sobreescriben los
-defaults y el bloque `@media (prefers-color-scheme: dark)`. No declares este
-atributo a mano — el widget lo proyecta y lo sincroniza con el toggle del
-host.
+`data-theme-effective` (also managed by the component, values `light`
+| `dark`) reflects the resolved color mode after applying the `data-theme`
+cascade. The shadow DOM CSS exposes selectors
+`:host([data-theme-effective="dark"])` / `…="light"` that override the defaults
+and the `@media (prefers-color-scheme: dark)` block. Do not set this attribute
+manually — the widget projects it and keeps it in sync with the host toggle.
 
-## API global `window.Chatbot`
+## Global API `window.Chatbot`
 
-El bundle instala una API global idempotente. Si el script se incluye dos veces
-(error común con bundles del host), la segunda carga preserva la primera y los
-registros no se pierden.
+The bundle installs an idempotent global API. If the script is included twice
+(a common mistake with host bundles), the second load preserves the first and no
+registrations are lost.
 
 ```js
-window.Chatbot.open();                 // abre el panel
-window.Chatbot.close();                // lo cierra
-window.Chatbot.toggle();               // alterna abierto/cerrado
+window.Chatbot.open();                 // opens the panel
+window.Chatbot.close();                // closes it
+window.Chatbot.toggle();               // toggles open/closed
 
-window.Chatbot.setPageContext({        // contexto que se manda al backend
-    route: 'admin/users/show',         // en cada POST a /chatbot/stream
+window.Chatbot.setPageContext({        // context sent to the backend
+    route: 'admin/users/show',         // on every POST to /chatbot/stream
     user_id: 42,
 });
 window.Chatbot.clearPageContext();
 
-window.Chatbot.setUser('eyJhbGciOi…'); // bearer token (Sanctum/JWT). null limpia.
+window.Chatbot.setUser('eyJhbGciOi…'); // bearer token (Sanctum/JWT). null clears.
 
-// Sustituye o extiende una primitiva FE (E11). Si el host registra `navigate`,
-// el bundle delega en el handler del host en vez de usar la primitiva por defecto.
+// Replace or extend a FE primitive. If the host registers `navigate`,
+// the bundle delegates to the host handler instead of using the default primitive.
 window.Chatbot.registerTool('navigate', (args, ctx) => {
     Inertia.visit(args.url);
 });
 
-// Renderer custom de bloques (E15 amplía el catálogo; E12 sólo cubre text + actions).
+// Custom block renderer.
 window.Chatbot.registerBlockRenderer('table', (data, host) => {
     const el = document.createElement('table');
-    // … construir DOM con data
+    // … build DOM from data
     return el;
 });
 
-// Adaptador de navegación pluggable (E13). La primitiva `navigate` consulta
-// primero el navigator registrado antes de caer a window.location.assign.
-// Pierde frente a registerTool('navigate') — el override por tool gana siempre.
+// Pluggable navigation adapter. The `navigate` primitive checks
+// the registered navigator before falling back to window.location.assign.
+// registerTool('navigate') always wins over registerNavigator.
 window.Chatbot.registerNavigator((url, opts) => {
     Inertia.visit(url, opts);
 });
 ```
 
-## Lectura SSE robusta
+## Robust SSE reading
 
-- POST con `fetch` + `ReadableStream` (no `EventSource`, que no soporta POST).
-- Parser de frames `event: <name>\ndata: <json>\n\n` con normalización CRLF/CR.
-- Catálogo cerrado de eventos (mismo que `Rnkr69\LaraChatbot\Sse\SseEvent`):
+- POST with `fetch` + `ReadableStream` (not `EventSource`, which does not support POST).
+- Frame parser `event: <name>\ndata: <json>\n\n` with CRLF/CR normalization.
+- Closed event catalogue (same as `Rnkr69\LaraChatbot\Sse\SseEvent`):
   `text` · `block` · `tool_call` · `tool_result` · `frontend_action` · `error` · `done`.
-- Reconexión exponencial (1s → 2s → 4s → 8s → 16s, cap 30s, jitter 25%) hasta
-  4 reintentos. `429 Too Many Requests` no reintenta y se reporta como error.
-- `X-CSRF-TOKEN` se lee del meta tag `<meta name="csrf-token">` automáticamente.
-- `setUser(token)` añade `Authorization: Bearer <token>` a cada request.
-- Cancelación: el componente cancela el stream activo cuando se desconecta del
-  DOM (`disconnectedCallback`).
+- Exponential reconnect (1s → 2s → 4s → 8s → 16s, cap 30s, 25% jitter) up to
+  4 retries. `429 Too Many Requests` does not retry and is reported as an error.
+- `X-CSRF-TOKEN` is read from the `<meta name="csrf-token">` tag automatically.
+- `setUser(token)` adds `Authorization: Bearer <token>` to every request.
+- Cancellation: the component cancels the active stream when disconnected from
+  the DOM (`disconnectedCallback`).
 
 ## Markdown subset
 
-El renderer integrado cubre lo mínimo para texto conversacional:
+The built-in renderer covers the minimum for conversational text:
 
 - `**bold**`, `*italic*`
 - inline code `` `x` ``
-- enlaces `[texto](url)` — sólo `http(s)`, `mailto:`, `tel:` y rutas relativas;
-  `javascript:` y `data:` se imprimen como texto literal
-- saltos de párrafo en línea en blanco; saltos simples se traducen a `<br>`
+- links `[text](url)` — only `http(s)`, `mailto:`, `tel:`, and relative paths;
+  `javascript:` and `data:` are printed as literal text
+- paragraph breaks on blank lines; single line breaks translate to `<br>`
 
-Todo input se escapa primero contra XSS (`<`, `>`, `&`, `"`, `'`). Hosts que
-necesiten más (listas, headings, code blocks, tablas) deben publicar un
-`registerBlockRenderer('text', …)` propio o esperar a E15.
+All input is XSS-escaped first (`<`, `>`, `&`, `"`, `'`). Hosts that need more
+(lists, headings, code blocks, tables) should register a
+`registerBlockRenderer('text', …)` of their own.
 
-## Bloques tipados
+## Typed blocks
 
-Catálogo built-in del paquete (E15):
+Package built-in catalogue:
 
 - `text` — markdown subset (bold/italic/code/links).
-- `actions` — botones con `label` + (`prompt` ó `tool` + `args`).
-- `card` — título + subtítulo + descripción markdown + lista de campos + acciones inline.
-- `table` — `rows[]` con `columns[]` opcionales (autoinfiere headers de la primera fila).
-- `list` — `items[]` ordenados o no; cada ítem puede ser texto, prompt o tool.
-- `chart` — placeholder; el host registra su renderer (Chart.js / ApexCharts / SVG propio).
+- `actions` — buttons with `label` + (`prompt` or `tool` + `args`).
+- `card` — title + subtitle + markdown description + field list + inline actions.
+- `table` — `rows[]` with optional `columns[]` (auto-infers headers from first row).
+- `list` — ordered or unordered `items[]`; each item can be text, prompt, or tool.
+- `chart` — placeholder; the host registers its renderer (Chart.js / ApexCharts / own SVG).
 
-El widget renderiza un block aplicando la **cascada E15** en este orden:
+The widget renders a block by applying the **renderer cascade** in this order:
 
-1. **`window.Chatbot.registerBlockRenderer(type, fn)`** — el JS renderer del host gana.
-2. **`<template data-chatbot-block-template="<type>">`** — clona el template
-   y rellena cada `[data-bind="path"]` con un lookup tipo lodash.get sobre `data`.
-3. **Built-in** del paquete (los seis tipos de arriba).
-4. **Placeholder** `[unsupported block: <type>]` si nada matchea.
+1. **`window.Chatbot.registerBlockRenderer(type, fn)`** — the host JS renderer wins.
+2. **`<template data-chatbot-block-template="<type>">`** — clones the template
+   and fills each `[data-bind="path"]` with a lodash.get-style lookup on `data`.
+3. **Built-in** from the package (the six types above).
+4. **Placeholder** `[unsupported block: <type>]` if nothing matches.
 
-Si un renderer del host lanza, el widget loguea `console.error` y cae al
-siguiente paso de la cascada — un block roto no rompe el thread.
+If a host renderer throws, the widget logs `console.error` and falls through to
+the next cascade step — a broken block does not break the thread.
 
-El backend tiene dos formas de emitir un block:
+The backend has two ways to emit a block:
 
-- **`RenderBlockTool`** (canónica): el LLM la invoca como frontend tool con
-  `{type, data}`. `ChatService` la traduce a `frontend_action` con
-  `tool=render_block`; el widget intercepta esa señal y la convierte en un
-  block del assistant message. Sin cambios en el contrato SSE.
-- **`SseEvent::block($type, $data)`** (servicios propios): cualquier consumidor
-  del orquestador puede emitir el frame `event: block` directamente; el
-  widget lo trata igual.
+- **`RenderBlockTool`** (canonical): the LLM invokes it as a frontend tool with
+  `{type, data}`. `ChatService` translates it to a `frontend_action` with
+  `tool=render_block`; the widget intercepts that signal and converts it into a
+  block in the assistant message. No changes to the SSE contract.
+- **`SseEvent::block($type, $data)`** (custom services): any consumer of the
+  orchestrator can emit the `event: block` frame directly; the widget treats it
+  the same way.
 
-Doc completa con ejemplos: [`docs/block-renderers.md`](./block-renderers.md).
+Full docs with examples: [`docs/block-renderers.md`](./block-renderers.md).
 
-## Frontend actions (E11)
+## Frontend actions
 
-El widget procesa eventos `frontend_action` aplicando esta cascada:
+The widget processes `frontend_action` events by applying this cascade:
 
-1. Si `confirmation !== 'auto'`, encola la acción en una lista en memoria
-   (`getPendingActions()` la expone) y muestra un toast informativo. El soporte
-   real `confirm`/`manual` con `chatbot_pending_actions` aterriza en E16.
-2. Si hay un handler registrado vía `window.Chatbot.registerTool(name, fn)`, se
-   delega ahí. Permite al host **sobrescribir** primitivas core (típico:
-   `navigate` → adaptador SPA en E13).
-3. Si no, ejecuta la primitiva interna correspondiente:
-   - `navigate` → `window.location.assign(url)` (sólo same-origin; cross-origin
-     se rehúsa silenciosamente; el host puede registrar su propio handler para
-     navegación remota).
-   - `toggle_visibility` → flip de `display:none` (acepta `visible: bool` para
-     forzar).
-   - `show_toast` → toast en el shadow DOM.
-   - `download_file` → `<a href download>` con `download_url` y `expires_at`
-     mergeados por `DownloadFileTool` (E11). Sólo URLs `http(s)`; otras se
-     rehúsan.
-4. Si nada matchea, log warn `[chatbot] no handler registered for frontend tool "x"`.
+1. If `confirmation !== 'auto'`, queues the action in an in-memory list
+   (`getPendingActions()` exposes it) and shows an informational toast.
+2. If a handler is registered via `window.Chatbot.registerTool(name, fn)`, it
+   delegates there. Allows the host to **override** core primitives (typical:
+   `navigate` → SPA adapter).
+3. Otherwise, executes the corresponding internal primitive:
+   - `navigate` → `window.location.assign(url)` (same-origin only; cross-origin
+     is silently refused; the host can register its own handler for remote
+     navigation).
+   - `toggle_visibility` → flips `display:none` (accepts `visible: bool` to force).
+   - `show_toast` → toast in the shadow DOM.
+   - `download_file` → `<a href download>` with `download_url` and `expires_at`
+     merged by `DownloadFileTool`. Only `http(s)` URLs; others are refused.
+4. If nothing matches, log warn `[chatbot] no handler registered for frontend tool "x"`.
 
-Las primitivas `fill_form`, `open_modal`, `render_block` e `invoke_host_action`
-del catálogo de E11 caen al paso 1 cuando su `confirmation` no es `auto`. Hosts
-que las quieran ejecutar en `auto` deben subclasear server-side (ROADMAP §5/E11)
-y ya tendrán handler registrado o caerán al log warn.
+The `fill_form`, `open_modal`, `render_block`, and `invoke_host_action` primitives
+fall to step 1 when their `confirmation` is not `auto`. Hosts that want them to
+run in `auto` mode must subclass server-side — they will already have a handler
+registered, or will fall through to the log warn.
 
-## SPA/MPA — detección, persistencia y navegación (E13)
+## SPA/MPA — detection, persistence, and navigation
 
-El widget soporta tanto Multi-Page Apps (Blade clásico) como Single-Page Apps
-(Inertia / Livewire SPA / pushState). El modo se detecta una vez en el primer
-`connectedCallback` del custom element y se cachea por la vida del bundle.
+The widget supports both Multi-Page Apps (classic Blade) and Single-Page Apps
+(Inertia / Livewire SPA / pushState). The mode is detected once on the first
+`connectedCallback` of the custom element and cached for the lifetime of the bundle.
 
-**Heurística de detección** (en orden):
+**Detection heuristic** (in order):
 
-1. `<meta name="chatbot:mode" content="spa">` o `="mpa"` — wins (verdad sobre
-   heurística; útil cuando la detección automática falla).
-2. `window.Inertia` definido → SPA.
-3. `window.Livewire` definido → SPA.
+1. `<meta name="chatbot:mode" content="spa">` or `="mpa"` — wins (ground truth
+   over heuristics; useful when automatic detection fails).
+2. `window.Inertia` defined → SPA.
+3. `window.Livewire` defined → SPA.
 4. Default → MPA.
 
-**Persistencia (`sessionStorage`)**
+**Persistence (`sessionStorage`)**
 
-Clave canónica `chatbot:state:v1`. Shape:
+Canonical key `chatbot:state:v1`. Shape:
 
 ```json
 { "conversationId": 42, "isOpen": true, "draft": "half-typed message" }
 ```
 
-Se guarda con debounce 250ms tras cada cambio (input del textarea, transición
-de estado del widget, mutación de `data-conversation-id`). Se rehidrata al
-montar el custom element — `data-default-open` sólo se aplica si NO hay estado
-persistido. En MPA cada page load reconstruye el widget; en SPA el widget no se
-desmonta entre rutas, así que la persistencia sólo cobra utilidad en hard
-reloads del shell.
+Saved with a 250ms debounce after each change (textarea input, widget state
+transition, `data-conversation-id` mutation). Rehydrated when the custom element
+mounts — `data-default-open` is only applied if there is NO persisted state. In
+MPA mode each page load reconstructs the widget; in SPA mode the widget is not
+unmounted between routes, so persistence only matters on hard reloads of the shell.
 
-Los errores de `sessionStorage` (modo privado, quota lleno, sandbox) se silencian
-— la persistencia es best-effort y nunca rompe la UX.
+`sessionStorage` errors (private mode, quota full, sandbox) are silenced —
+persistence is best-effort and never breaks the UX.
 
-**Adaptadores de navegación**
+**Navigation adapters**
 
-La primitiva interna `navigate` aplica esta cascada cuando el LLM emite un
+The internal `navigate` primitive applies this cascade when the LLM emits a
 `frontend_action { tool: "navigate" }`:
 
-1. `registerTool('navigate', fn)` registrado por el host → gana siempre.
-2. `registerNavigator(fn)` registrado por el host → reemplaza a la primitiva por
-   defecto sin tocar otros tools.
-3. Detección automática al momento de la llamada:
-   - `window.Inertia.visit(url, opts)` si Inertia está presente.
-   - `window.Livewire.navigate(url, opts)` si Livewire está presente.
-   - `window.location.assign(url)` (MPA) en otro caso.
+1. `registerTool('navigate', fn)` registered by the host → always wins.
+2. `registerNavigator(fn)` registered by the host → replaces the default
+   primitive without touching other tools.
+3. Automatic detection at call time:
+   - `window.Inertia.visit(url, opts)` if Inertia is present.
+   - `window.Livewire.navigate(url, opts)` if Livewire is present.
+   - `window.location.assign(url)` (MPA) otherwise.
 
-URLs cross-origin se rehúsan en silencio (defensa contra LLM mal-prompteado).
-Para navegar a otro dominio, el host registra su propio handler vía
+Cross-origin URLs are silently refused (defense against a misprompted LLM).
+To navigate to another domain, the host registers its own handler via
 `registerTool('navigate', …)`.
 
-**Cancelación de stream en navegación SPA**
+**Stream cancellation on SPA navigation**
 
-En modo SPA el widget escucha `inertia:navigate`, `livewire:navigated` y
-`popstate` y aborta el `streamPost` activo si lo hay. Justificación: una
-respuesta a medio renderizar contra una ruta que ya no es la activa produciría
-UI inconsistente. La conversación NO se pierde — el `conversationId` permanece
-y el siguiente turno reanuda contra el backend.
+In SPA mode the widget listens for `inertia:navigate`, `livewire:navigated`, and
+`popstate` and aborts the active `streamPost` if there is one. Rationale: a
+half-rendered response against a route that is no longer active would produce
+inconsistent UI. The conversation is NOT lost — `conversationId` persists and the
+next turn resumes against the backend.
 
 ## Page context
 
-Cada POST a `/chatbot/stream` incluye:
+Every POST to `/chatbot/stream` includes:
 
-- `message`: string del usuario
-- `conversation_id`: si existe (reanudar conversación)
-- `page_context`: el contexto efectivo (meta tag inicial + merge superficial
-  de cada `setPageContext({...})`)
+- `message`: user string
+- `conversation_id`: if it exists (resume conversation)
+- `page_context`: the effective context (initial meta tag + shallow merge of
+  each `setPageContext({...})`)
 
-El widget arranca leyendo `<meta name="chatbot:context">` (si está) y, en
-modo SPA, re-lee el meta tag tras cada `inertia:navigate`/`livewire:navigated`/
-`popstate`. Cualquier cambio (programático o por nav) emite el evento
-`chatbot:context-changed` en `window` con el contexto efectivo en `event.detail`.
+The widget starts by reading `<meta name="chatbot:context">` (if present) and,
+in SPA mode, re-reads the meta tag after each `inertia:navigate`/`livewire:navigated`/
+`popstate`. Any change (programmatic or via nav) emits the `chatbot:context-changed`
+event on `window` with the effective context in `event.detail`.
 
 ```js
 window.addEventListener('chatbot:context-changed', (e) => {
@@ -267,49 +264,47 @@ window.addEventListener('chatbot:context-changed', (e) => {
 });
 ```
 
-El backend sanea el JSON tipo a tipo (sólo strings/números/booleans/arrays
-sobreviven; closures, objects, recursos y nulls se descartan) y, si tras
-sanear todavía excede `chatbot.limits.page_context_kb`, se descarta
-binariamente (D11 de PROGRESS.md — degradación silenciosa, no 422).
+The backend sanitizes the JSON type by type (only strings/numbers/booleans/arrays
+survive; closures, objects, resources, and nulls are discarded) and, if after
+sanitization it still exceeds `chatbot.limits.page_context_kb`, it is silently
+discarded entirely (silent degradation, not 422).
 
-Receta completa, sanitización detallada, hook SPA y guía Backpack opt-in:
-ver [`docs/page-context.md`](page-context.md).
+Full recipe, detailed sanitization, SPA hook, and Backpack opt-in guide:
+see [`docs/page-context.md`](page-context.md).
 
-## Smoke offline
+## Offline smoke test
 
-Un fixture en `tests/js/fixtures/smoke.html` carga el bundle y stubea `fetch`
-para emitir un stream canned. Útil para validar el DoD del ROADMAP sin un
-backend levantado:
+A fixture at `tests/js/fixtures/smoke.html` loads the bundle and stubs `fetch`
+to emit a canned stream. Useful for validating behavior without a running backend:
 
 ```bash
 npm run build
 python3 -m http.server --directory tests/js/fixtures 4173
-# abrir http://localhost:4173/smoke.html
+# open http://localhost:4173/smoke.html
 ```
 
 ## Tests
 
-Vitest + jsdom. La suite cubre máquina de estados, parser SSE (frames /
-reconexión / abort / CSRF / bearer), markdown subset, registries de la API
-global, primitivas FE (auto + queued) y renderers de bloques.
+Vitest + jsdom. The suite covers the state machine, SSE parser (frames /
+reconnect / abort / CSRF / bearer), markdown subset, global API registries,
+FE primitives (auto + queued), and block renderers.
 
 ```bash
-npm test           # vitest, corrida única
+npm test           # vitest, single run
 npm run test:watch # vitest watch mode
-npm run typecheck  # tsc --noEmit estricto
-npm run test:e2e   # Playwright (E13: 2 escenarios MPA + SPA)
-npm run build:check # bundle size guard (cap 80 KB gzip; E14 = 8.00 KB)
+npm run typecheck  # tsc --noEmit strict
+npm run test:e2e   # Playwright (2 MPA + SPA scenarios)
+npm run build:check # bundle size guard (cap 80 KB gzip; current: 8.00 KB)
 ```
 
-Los E2E corren contra fixtures estáticas servidas por
-`scripts/e2e-server.mjs` con `fetch` mockeado — sin Laravel, sin Vite, sin
-DB. Mismo patrón que el smoke fixture pero ejecutado en chromium real.
+E2E tests run against static fixtures served by
+`scripts/e2e-server.mjs` with mocked `fetch` — no Laravel, no Vite, no DB.
+Same pattern as the smoke fixture but executed in real Chromium.
 
-## Limitaciones conocidas
+## Known limitations
 
-- `fill_form`, `open_modal`, `render_block`, `invoke_host_action` quedan
-  encoladas en `confirm`/`manual` (E16 cierra el ciclo).
-- Sin lectura del meta tag `chatbot:context` (E14 lo añade).
-- Sin renderers para `card`/`table`/`list`/`chart` (E15).
-- Markdown subset: sin headings, listas ni code blocks. Override vía
-  `registerBlockRenderer('text', …)` si hace falta.
+- `fill_form`, `open_modal`, `render_block`, `invoke_host_action` are queued
+  in `confirm`/`manual` mode.
+- No complete built-in renderers for `card`/`table`/`list`/`chart`.
+- Markdown subset: no headings, lists, or code blocks. Override via
+  `registerBlockRenderer('text', …)` if needed.

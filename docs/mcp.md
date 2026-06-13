@@ -1,47 +1,49 @@
 # Bridge MCP — `mcp.<server>.<tool>`
 
-> Documento inicial. Una versión más extensa con flujos completos vive en E21.
+*English · [Español](mcp.es.md)*
 
-El paquete puede exponer al LLM tools provistas por servidores **MCP**
-(Model Context Protocol) externos, sin que el host tenga que escribir un
-adapter por cada uno. La integración se apoya en
-[`prism-php/relay`](https://github.com/prism-php/relay), que se instala en el
-host como dependencia opcional.
+> Initial document. A more complete version with end-to-end flows is available in the package documentation.
 
-## Cuándo usarlo
+The package can expose tools provided by external **MCP**
+(Model Context Protocol) servers to the LLM, without the host having to write
+an adapter for each one. The integration relies on
+[`prism-php/relay`](https://github.com/prism-php/relay), which is installed in
+the host as an optional dependency.
 
-- Tienes un servidor MCP existente (un servicio interno, una integración con
-  otro producto, un wrapper de un SaaS) y quieres que el LLM lo invoque
-  como una tool más.
-- No quieres que el chatbot dependa físicamente de la implementación del
-  server: si el server cambia su lista de tools, el chatbot la refresca por
-  cache TTL sin redeploy.
+## When to use it
 
-Si lo que necesitas es escribir lógica concreta de tu host (consultar
-modelos Eloquent, llamar a APIs internas), usa `BackendTool` directo (ver
-[`backend-tools.md`](backend-tools.md)). MCP encaja cuando ya tienes el
-server o cuando el server lo construye otro equipo.
+- You have an existing MCP server (an internal service, an integration with
+  another product, a SaaS wrapper) and you want the LLM to invoke it as
+  just another tool.
+- You don't want the chatbot to physically depend on the server's
+  implementation: if the server changes its list of tools, the chatbot
+  refreshes it via cache TTL without a redeploy.
 
-## Instalación
+If you need to write concrete host logic (querying Eloquent models, calling
+internal APIs), use `BackendTool` directly (see
+[`backend-tools.md`](backend-tools.md)). MCP fits when you already have the
+server or when the server is built by another team.
 
-`prism-php/relay` no se incluye en `composer.json` del paquete: es opt-in
-del host.
+## Installation
+
+`prism-php/relay` is not included in the package's `composer.json`: it is
+opt-in for the host.
 
 ```sh
 composer require prism-php/relay
 php artisan vendor:publish --tag=relay-config
 ```
 
-Si declaras servers en `chatbot.mcp.servers` sin instalar Relay, el paquete
-sigue funcionando: las tools MCP simplemente no se cargan y
-`php artisan chatbot:tools:list` lo señala con un warning accionable.
+If you declare servers in `chatbot.mcp.servers` without installing Relay, the
+package keeps working: MCP tools simply won't load and
+`php artisan chatbot:tools:list` flags this with an actionable warning.
 
-## Configurar un server
+## Configuring a server
 
-La configuración vive en dos sitios:
+Configuration lives in two places:
 
-1. **`config/relay.php`** — `prism-php/relay` lo publica. Aquí declaras el
-   transporte (HTTP / STDIO), la URL o el comando, headers, timeouts, etc.
+1. **`config/relay.php`** — published by `prism-php/relay`. Here you declare
+   the transport (HTTP / STDIO), the URL or command, headers, timeouts, etc.
 
    ```php
    // config/relay.php
@@ -55,7 +57,7 @@ La configuración vive en dos sitios:
    ],
    ```
 
-2. **`config/chatbot.php`** — el bridge sólo necesita metadata extra:
+2. **`config/chatbot.php`** — the bridge only needs extra metadata:
 
    ```php
    'mcp' => [
@@ -63,23 +65,23 @@ La configuración vive en dos sitios:
            'tickets' => [
                'enabled'     => true,
                'permissions' => ['tickets.use_mcp'],
-               'cache_ttl'   => 300, // segundos; 0 desactiva
+               'cache_ttl'   => 300, // seconds; 0 disables
            ],
        ],
    ],
    ```
 
-   Las **claves** del array deben coincidir con los nombres de server
-   declarados en `config/relay.php`.
+   The **array keys** must match the server names declared in
+   `config/relay.php`.
 
-## Cómo aparecen al LLM
+## How they appear to the LLM
 
-Cada tool del server se registra en el `ToolRegistry` con el prefijo
-`mcp.<server>.<tool>`. Para el ejemplo anterior, si el server `tickets`
-expone una tool MCP llamada `search_open`, el LLM la verá como
+Each server tool is registered in the `ToolRegistry` with the prefix
+`mcp.<server>.<tool>`. For the example above, if the `tickets` server exposes
+an MCP tool named `search_open`, the LLM will see it as
 `mcp.tickets.search_open`.
 
-`php artisan chatbot:tools:list` muestra el origen de cada tool:
+`php artisan chatbot:tools:list` shows the origin of each tool:
 
 ```
 +----------------------------------+--------------+--------------------+
@@ -91,53 +93,52 @@ expone una tool MCP llamada `search_open`, el LLM la verá como
 +----------------------------------+--------------+--------------------+
 ```
 
-## Autorización
+## Authorization
 
-- **Permisos** declarados en `chatbot.mcp.servers.<server>.permissions`
-  aplican a **todas** las tools del server (AND con el `Authorizer`
-  configurado en `chatbot.authorization.resolver`). Si quieres exponer
-  algunas tools de un server pero no otras, separa el server en dos en
+- **Permissions** declared in `chatbot.mcp.servers.<server>.permissions`
+  apply to **all** tools in the server (AND-ed with the `Authorizer`
+  configured in `chatbot.authorization.resolver`). If you want to expose
+  some tools from a server but not others, split the server into two in
   `config/relay.php`.
 
-- **Scope de datos** (`AccessScope`) **no aplica** a tools MCP: el server
-  externo es la fuente de verdad y el chatbot no puede saber qué `user_id`
-  filtrar. El adapter declara `defaultScope = All`. Si el server expone
-  datos sensibles, configúralo del lado del server (auth headers, JWT,
-  scopes específicos por usuario).
+- **Data scope** (`AccessScope`) **does not apply** to MCP tools: the
+  external server is the source of truth and the chatbot cannot know which
+  `user_id` to filter on. The adapter declares `defaultScope = All`. If the
+  server exposes sensitive data, configure that on the server side (auth
+  headers, JWT, user-specific scopes).
 
-- **Tenant scope** (gap cross-host E04) **no aplica** a tools MCP: el
-  adapter declara `tenantScope = false` y por tanto no exige
-  `TenantResolver` en el contenedor. El server MCP debe aplicar su propia
-  segregación si la necesita.
+- **Tenant scope** **does not apply** to MCP tools: the adapter declares
+  `tenantScope = false` and therefore does not require a `TenantResolver` in
+  the container. The MCP server must apply its own segregation if needed.
 
 ## Cache
 
-`cache_ttl` controla cuánto tiempo el bridge cachea la lista de tools de
-cada server, evitando un round-trip a Relay por cada turno del chat. La
-cache vive en el cache store por defecto de Laravel.
+`cache_ttl` controls how long the bridge caches the tool list of each server,
+avoiding a round-trip to Relay on every chat turn. The cache lives in
+Laravel's default cache store.
 
-- `cache_ttl: 0` o ausente → sin cache (Relay se consulta cada arranque).
-- `cache_ttl: N` → la lista se refresca cada N segundos.
+- `cache_ttl: 0` or absent → no cache (Relay is queried on every boot).
+- `cache_ttl: N` → the list is refreshed every N seconds.
 
-La cache se aplica al **listado** de tools, no a las invocaciones. Cada
-ejecución de tool sí golpea al server.
+The cache applies to the **tool listing**, not to invocations. Each tool
+execution does hit the server.
 
-## Tolerancia a fallos
+## Fault tolerance
 
-- Si Relay no está instalado: el paquete funciona; sólo las tools MCP
-  faltan. Warning en `chatbot:tools:list`.
-- Si un server cae durante el boot: se loguea warning y el resto de
-  servers se cargan normalmente. El paquete no aborta el boot.
-- Si una invocación de tool falla en runtime: el adapter devuelve
-  `ToolResult::error('runtime', <mensaje>)`. El LLM lo recibe como un
-  resultado de tool con error y puede informar al usuario o reintentar.
+- If Relay is not installed: the package works; only MCP tools are missing.
+  Warning in `chatbot:tools:list`.
+- If a server goes down during boot: a warning is logged and the remaining
+  servers load normally. The package does not abort the boot.
+- If a tool invocation fails at runtime: the adapter returns
+  `ToolResult::error('runtime', <message>)`. The LLM receives it as a tool
+  result with an error and can inform the user or retry.
 
-## Limitaciones de v1
+## v1 Limitations
 
-- No hay granularidad de permisos por tool dentro de un server (todas o
-  ninguna).
-- No hay step-up auth ni `confirmation: confirm` para tools MCP — todas
-  ejecutan en `Auto`. Si necesitas confirmación, expón la operación como
-  una `FrontendTool` local que decida cuándo invocar la MCP por debajo.
-- No se exponen los `artifacts` de `ToolOutput` al widget (sólo el campo
-  `result`). Queda en backlog si emerge la necesidad.
+- There is no per-tool permission granularity within a server (all or
+  nothing).
+- There is no step-up auth or `confirmation: confirm` for MCP tools — all
+  run in `Auto`. If you need confirmation, expose the operation as a local
+  `FrontendTool` that decides when to invoke the MCP underneath.
+- The `artifacts` of `ToolOutput` are not exposed to the widget (only the
+  `result` field). This remains in the backlog if the need arises.

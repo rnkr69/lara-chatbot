@@ -1,31 +1,32 @@
 # Troubleshooting
 
-> Síntomas → causas probables → fix. Ordenado de "más común" a "menos común".
-> Si el síntoma exacto no aparece aquí, busca por código de error / clase de
-> excepción en el repo (`grep -r "ScopeResolverNotConfigured"` etc.) — los
-> mensajes del paquete son específicos por diseño ("falla ruidosamente").
+*English · [Español](troubleshooting.es.md)*
+
+> Symptoms → likely causes → fix. Ordered from "most common" to "least common".
+> If the exact symptom is not listed here, search by error code / exception class
+> in the repo (`grep -r "ScopeResolverNotConfigured"` etc.) — package messages
+> are specific by design ("fail loudly").
 >
-> Cada entrada tiene un código (`L1`, `M3`, …) para que puedas referenciarlo en
-> issues y otras docs.
+> Each entry has a code (`L1`, `M3`, …) so you can reference it in issues and
+> other docs.
 
 ---
 
-## L · Conexión LLM
+## L · LLM Connection
 
-### L1 · `chatbot:test-connection` falla con timeout
+### L1 · `chatbot:test-connection` fails with timeout
 
-**Síntoma**:
+**Symptom**:
 ```
 ConnectException: cURL error 28: Operation timed out after 30000 milliseconds
 ```
 
-**Causa**: el provider responde lento o la red bloquea el outbound.
+**Cause**: the provider responds slowly or the network blocks outbound traffic.
 
 **Fix**:
-1. Verifica que la API key es válida y no ha expirado.
-2. Si estás detrás de proxy corporativo: configura `HTTP_PROXY`/`HTTPS_PROXY`
-   en `.env`.
-3. Sube el timeout en `config/services.php` para el cliente Prism:
+1. Verify the API key is valid and has not expired.
+2. If behind a corporate proxy: configure `HTTP_PROXY`/`HTTPS_PROXY` in `.env`.
+3. Raise the timeout in `config/services.php` for the Prism client:
    ```php
    'anthropic' => [
        'api_key' => env('ANTHROPIC_API_KEY'),
@@ -35,158 +36,160 @@ ConnectException: cURL error 28: Operation timed out after 30000 milliseconds
 
 ### L2 · `LlmException: Provider returned 401 Unauthorized`
 
-**Causa**: API key inválida, mal copiada (espacios, saltos de línea), o de un
-proyecto distinto.
+**Cause**: invalid API key, badly copied (spaces, line breaks), or from a
+different project.
 
 **Fix**:
-- Re-lee la key desde el dashboard del provider y reemplázala.
-- Verifica que no tenga espacios en `.env`: el `chatbot:install` preserva keys
-  existentes; si añadiste manualmente `ANTHROPIC_API_KEY="sk-..."` con
-  espacios alrededor del `=`, Laravel los conserva.
-- Tras editar `.env`: `php artisan config:clear`.
+- Re-read the key from the provider dashboard and replace it.
+- Verify there are no spaces in `.env`: `chatbot:install` preserves existing
+  keys; if you manually added `ANTHROPIC_API_KEY="sk-..."` with spaces around
+  `=`, Laravel retains them.
+- After editing `.env`: `php artisan config:clear`.
 
 ### L3 · `LlmException: model not found`
 
-**Causa**: el modelo configurado en `CHATBOT_MODEL` no existe en el provider,
-o no está habilitado para tu cuenta (Claude Opus suele requerir tier pago).
+**Cause**: the model configured in `CHATBOT_MODEL` does not exist in the
+provider, or is not enabled for your account (Claude Opus typically requires a
+paid tier).
 
 **Fix**:
-- Lista modelos disponibles del provider y ajusta `CHATBOT_MODEL`.
-- Para Claude: `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`,
-  `claude-opus-4-7` son los IDs canónicos (cutoff 2026-01).
+- List available models from the provider and adjust `CHATBOT_MODEL`.
+- For Claude: `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`,
+  `claude-opus-4-7` are the canonical IDs (cutoff 2026-01).
 
-### L4 · LLM responde pero "habla en inglés" cuando esperabas español
+### L4 · LLM responds but "speaks English" when you expected another language
 
-**Causa**: el system prompt base no fija idioma. El LLM mimetiza el idioma del
-último mensaje, pero a veces decide en inglés por defecto.
+**Cause**: the base system prompt does not fix a language. The LLM mimics the
+language of the last message, but sometimes defaults to English.
 
-**Fix**: extiende el addendum del system prompt en
+**Fix**: extend the system prompt addendum in
 `resources/views/vendor/chatbot/system_prompt_addendum.blade.php`:
 
 ```blade
-- Responde siempre en español (España).
-- Si el usuario escribe en otro idioma, responde en ese idioma.
+- Always respond in Spanish (Spain).
+- If the user writes in another language, respond in that language.
 ```
 
-> El addendum se publica con `chatbot:install` (paso opt-in) o con
+> The addendum is published with `chatbot:install` (opt-in step) or with
 > `vendor:publish --tag=chatbot-prompts`.
 
 ---
 
-## M · Widget en el navegador
+## M · Widget in the Browser
 
-### M1 · El widget aparece pero no responde
+### M1 · Widget appears but does not respond
 
-**Síntoma**: click en el FAB → panel se abre → escribes → spinner infinito o
-cierre inmediato del stream.
+**Symptom**: click FAB → panel opens → you type → infinite spinner or
+immediate stream close.
 
-**Causa probable** (en orden de frecuencia):
+**Likely cause** (in order of frequency):
 
-1. **CSRF token ausente**. El widget lee `<meta name="csrf-token">` del head;
-   si no existe, manda la request sin token y Laravel devuelve 419.
-2. **CDN buffer-eando el SSE**. Cloudflare/Fastly por defecto buffer-ean
-   `text/event-stream` si no excluyes la ruta del cache.
-3. **Nginx `proxy_buffering on;`** ignora el header `X-Accel-Buffering: no`.
+1. **Missing CSRF token**. The widget reads `<meta name="csrf-token">` from the
+   head; if absent, the request is sent without a token and Laravel returns 419.
+2. **CDN buffering the SSE**. Cloudflare/Fastly buffer `text/event-stream` by
+   default unless you exclude the route from cache.
+3. **Nginx `proxy_buffering on;`** ignores the `X-Accel-Buffering: no` header.
 
 **Fix**:
-1. Añade `<meta name="csrf-token" content="{{ csrf_token() }}">` al `<head>`.
-2. Excluye `/chatbot/stream*` del cache CDN. Detalle en
-   [`deployment.md`](deployment.md#24-cloudflare--cdns).
-3. Configura Nginx con `proxy_buffering off;` para esa ruta. Detalle en
-   [`deployment.md`](deployment.md#22-nginx).
+1. Add `<meta name="csrf-token" content="{{ csrf_token() }}">` to `<head>`.
+2. Exclude `/chatbot/stream*` from CDN cache. See
+   [`deployment.md`](deployment.md).
+3. Configure Nginx with `proxy_buffering off;` for that route. See
+   [`deployment.md`](deployment.md).
 
-### M2 · El widget no aparece
+### M2 · Widget does not appear
 
-**Síntoma**: no hay FAB en la esquina, ni errores en consola.
+**Symptom**: no FAB in the corner, no console errors.
 
-**Causas**:
+**Causes**:
 
-1. El bundle no está en `public/vendor/chatbot/chatbot-widget.js`:
+1. The bundle is missing from `public/vendor/chatbot/chatbot-widget.js`:
    ```bash
    php artisan vendor:publish --tag=chatbot-assets --force
    ```
-2. El layout no incluye el snippet. Verifica que tienes:
+2. The layout does not include the snippet. Verify you have:
    ```html
    <chatbot-widget data-endpoint="/chatbot/stream"></chatbot-widget>
    <script src="/vendor/chatbot/chatbot-widget.js" defer></script>
    ```
-3. El layout sí incluye el snippet pero está antes del cierre `</head>` con
-   `defer`. Cambia el orden: `<chatbot-widget>` justo antes de `</body>`,
-   `<script>` también antes de `</body>` o con `defer`/`async`.
+3. The layout includes the snippet but it is placed before the closing
+   `</head>` with `defer`. Fix the order: `<chatbot-widget>` just before
+   `</body>`, `<script>` also before `</body>` or with `defer`/`async`.
 
-### M3 · Widget aparece pero el panel se ve "raro" / sin estilos
+### M3 · Widget appears but the panel looks "broken" / unstyled
 
-**Causa**: el shadow DOM normalmente está aislado, pero si tu host inyecta
-estilos vía `* { …}` con `!important`, pueden filtrar. Más común: el host
-elimina el `<style>` interno del paquete por una directiva CSP estricta.
+**Cause**: the shadow DOM is normally isolated, but if your host injects styles
+via `* { … }` with `!important` they can leak through. More commonly: the host
+removes the package's internal `<style>` element due to a strict CSP directive.
 
-**Fix**: añade `style-src 'unsafe-inline'` a tu CSP. El widget usa estilos
-inline porque están scoped al shadow DOM (no son globales).
+**Fix**: add `style-src 'unsafe-inline'` to your CSP. The widget uses inline
+styles because they are scoped to the shadow DOM (not global).
 
-### M4 · "El widget se cierra solo a los segundos"
+### M4 · "The widget closes by itself after a few seconds"
 
-**Síntoma**: el panel se cierra y vuelves al FAB sin haber clickeado.
+**Symptom**: the panel closes and returns to the FAB without a click.
 
-**Causa**: el host tiene un script que dispara `Chatbot.close()` o un
-`window.dispatchEvent` que el widget interpreta como close.
+**Cause**: the host has a script that fires `Chatbot.close()` or a
+`window.dispatchEvent` that the widget interprets as a close signal.
 
-**Fix**: en consola, antes de abrir el widget:
+**Fix**: in the console, before opening the widget:
 ```javascript
 window.addEventListener('chatbot:state-change', e => console.log(e.detail));
 ```
-y reproduce el cierre. Ves qué evento o método lo dispara y revisa tu código.
+then reproduce the close. Observe which event or method triggers it and review
+your code.
 
-### M5 · "Veo dos widgets duplicados"
+### M5 · "I see two duplicate widgets"
 
-**Causa**: el snippet `<chatbot-widget>` aparece dos veces en el DOM (typical
-en Inertia + layout `app` que se aplica a todos los views).
+**Cause**: the `<chatbot-widget>` snippet appears twice in the DOM (typical in
+Inertia + an `app` layout applied to all views).
 
-**Fix**: el web component es idempotente sólo si `window.Chatbot` ya estaba
-montado, pero la **etiqueta** sí se duplica. Asegúrate de incluirlo **una sola
-vez** en tu layout más alto.
+**Fix**: the web component is idempotent only if `window.Chatbot` was already
+mounted, but the **tag** itself does duplicate. Make sure to include it **only
+once** in your outermost layout.
 
 ---
 
 ## H · Tools
 
-### H1 · El LLM no usa una tool nueva
+### H1 · The LLM does not use a new tool
 
-**Síntoma**: ejecutas `chatbot:tools:list`, ves la tool registrada, pero el
-LLM no la invoca aunque preguntes algo que la requiere.
+**Symptom**: you run `chatbot:tools:list`, see the tool registered, but the
+LLM does not invoke it even when you ask something that requires it.
 
-**Causa probable**: la `description()` no es lo suficientemente clara para
-que el LLM decida invocarla.
+**Likely cause**: the `description()` is not clear enough for the LLM to
+decide to invoke it.
 
-**Fix**: el LLM elige tools por la descripción, no por el nombre. Ajusta:
+**Fix**: the LLM picks tools by description, not by name. Adjust:
 
 ```php
-// Mal
-public function description(): string { return 'Lista facturas.'; }
+// Bad
+public function description(): string { return 'List invoices.'; }
 
-// Bien
+// Good
 public function description(): string
 {
-    return 'Lista las facturas del usuario actual con filtros opcionales por '
-         . 'estado (paid|pending|cancelled) y un límite máximo de filas. '
-         . 'Útil cuando el usuario pregunta por sus facturas, pendientes de '
-         . 'pago, o quiere ver el historial reciente.';
+    return 'Lists the current user\'s invoices with optional filters by '
+         . 'status (paid|pending|cancelled) and a maximum row limit. '
+         . 'Useful when the user asks about their invoices, outstanding '
+         . 'payments, or wants to see recent history.';
 }
 ```
 
-> Reglas: incluye **cuándo** invocarla (ejemplos breves), no sólo qué hace.
+> Rule: include **when** to invoke it (brief examples), not just what it does.
 
 ### H2 · `ScopeResolverNotConfiguredException`
 
-**Síntoma**:
+**Symptom**:
 ```
 Rnkr69\LaraChatbot\Authorization\Exceptions\ScopeResolverNotConfiguredException:
-  ScopeResolver no soporta el scope Team.
+  ScopeResolver does not support scope Team.
 ```
 
-**Causa**: la tool declara `defaultScope=Team`/`All` pero el host no
-implementa `ScopeResolver` o lo dejó devolviendo `[]` (no implementado).
+**Cause**: the tool declares `defaultScope=Team`/`All` but the host does not
+implement `ScopeResolver`, or left it returning `[]` (not implemented).
 
-**Fix**: implementa el resolver (ver [`authorization.md §3`](authorization.md#3-scoperesolver--paso-4-scope-de-datos)):
+**Fix**: implement the resolver (see [`authorization.md`](authorization.md)):
 
 ```php
 // app/Chatbot/Authorization/AppScopeResolver.php
@@ -200,97 +203,96 @@ public function resolveAccessibleUserIds(Authenticatable $user, AccessScope $sco
 }
 ```
 
-### H3 · `MissingTenantResolverException` al boot
+### H3 · `MissingTenantResolverException` at boot
 
-**Síntoma**: `php artisan serve` arranca con:
+**Symptom**: `php artisan serve` starts with:
 ```
-La tool 'list_event_attendees' declara tenantScope=true pero no hay
-TenantResolver registrado.
-```
-
-**Fix**: implementa y registra el `TenantResolver`. Ver
-[`authorization.md §4`](authorization.md#4-tenantresolver--paso-3-gap-cross-host).
-
-### H4 · Backend tool con `confirmation=confirm` no se ejecuta
-
-**Síntoma**: el LLM la llama pero el orquestador la ignora con un warning en
-los logs:
-```
-Tool 'delete_record' declara confirmation=confirm; en v1 sólo se admite Auto
-para backend tools. Filtrada del catálogo.
+Tool 'list_event_attendees' declares tenantScope=true but no
+TenantResolver is registered.
 ```
 
-**Causa por diseño**: en v1 las backend tools sólo soportan `confirmation=auto`
-(D9 — pausar/reanudar el stream a mitad de turno es v2).
+**Fix**: implement and register the `TenantResolver`. See
+[`authorization.md`](authorization.md).
 
-**Fix**: declara una **frontend tool** con `confirmation=confirm` que reciba
-los args y, una vez confirmada, dispare la backend tool. Detalle en
-[`backend-tools.md §5.3`](backend-tools.md) (checklist bulk).
+### H4 · Backend tool with `confirmation=confirm` is never executed
 
-### H5 · La tool se ejecuta dos veces para una sola pregunta
+**Symptom**: the LLM calls it but the orchestrator ignores it with a warning in
+the logs:
+```
+Tool 'delete_record' declares confirmation=confirm; in v1 only Auto is
+accepted for backend tools. Filtered from catalogue.
+```
 
-**Síntoma**: `Log::audit` muestra dos llamadas a `list_invoices` para el mismo
-turno.
+**By design**: in v1 backend tools only support `confirmation=auto`
+(pausing/resuming the stream mid-turn is v2).
 
-**Causas**:
+**Fix**: declare a **frontend tool** with `confirmation=confirm` that receives
+the args and, once confirmed, dispatches the backend tool. See
+[`backend-tools.md`](backend-tools.md).
 
-1. **`ChatService` agrupa tool calls del LLM**: si el LLM emite el mismo
-   `tool_call` dos veces en streaming, `ChatService` los ejecuta por separado.
-   No es un bug del paquete; es comportamiento del LLM.
-2. **`max_steps` permite multi-turn**: `chatbot.limits.max_steps=5` permite al
-   LLM iterar tool→LLM→tool. Si el LLM piensa que el primer resultado fue
-   incompleto, vuelve a llamar.
+### H5 · The tool executes twice for a single question
+
+**Symptom**: `Log::audit` shows two calls to `list_invoices` for the same turn.
+
+**Causes**:
+
+1. **`ChatService` groups the LLM's tool calls**: if the LLM emits the same
+   `tool_call` twice during streaming, `ChatService` executes them separately.
+   This is not a package bug; it is LLM behaviour.
+2. **`max_steps` allows multi-turn**: `chatbot.limits.max_steps=5` allows the
+   LLM to iterate tool→LLM→tool. If the LLM considers the first result
+   incomplete, it calls again.
 
 **Fix**:
-- Para idempotencia: tu `handle()` debe ser idempotente para los mismos args
-  (mejor patrón que cazar dobles invocaciones).
-- Si quieres prohibir re-invocación: aumenta la calidad de `description()`
-  para que el LLM no se confunda. O baja `max_steps` a 2 / 3.
+- For idempotency: your `handle()` should be idempotent for the same args
+  (better pattern than chasing double invocations).
+- To prevent re-invocation: improve `description()` quality so the LLM does
+  not get confused. Or lower `max_steps` to 2 / 3.
 
 ---
 
-## A · Acciones de frontend
+## A · Frontend Actions
 
-### A1 · `navigate` no funciona en SPA
+### A1 · `navigate` does not work in an SPA
 
-**Síntoma**: el LLM emite `frontend_action` con `tool=navigate` pero la página
-no cambia.
+**Symptom**: the LLM emits a `frontend_action` with `tool=navigate` but the
+page does not change.
 
-**Causa**: el widget detecta MPA por default y hace `location.assign(url)`. Si
-tu app es Inertia/Livewire, necesitas registrar el navigator SPA:
+**Cause**: the widget detects MPA by default and calls `location.assign(url)`.
+If your app is Inertia/Livewire, you need to register the SPA navigator:
 
-**Fix**: en tu bundle JS (después de cargar el widget):
+**Fix**: in your JS bundle (after loading the widget):
 
 ```javascript
 window.Chatbot.registerNavigator((url) => {
     if (window.Inertia) {
         window.Inertia.visit(url, { preserveScroll: true });
-        return true; // navegado por nosotros
+        return true; // handled by us
     }
-    return false; // delega al fallback (location.assign)
+    return false; // delegate to fallback (location.assign)
 });
 ```
 
-Alternativa: añade `<meta name="chatbot:runtime" content="spa">` al layout y el
-widget aplica el detector heurístico (Inertia/Livewire/popstate). Detalle en
+Alternative: add `<meta name="chatbot:runtime" content="spa">` to the layout
+and the widget applies the heuristic detector (Inertia/Livewire/popstate). See
 [`WIDGET.md`](WIDGET.md).
 
-### A2 · `download_file` no descarga nada
+### A2 · `download_file` does not download anything
 
-**Síntoma**: el LLM emite `frontend_action` con `tool=download_file` y un id;
-el browser no descarga.
+**Symptom**: the LLM emits a `frontend_action` with `tool=download_file` and
+an id; the browser does not download.
 
-**Causas**:
+**Causes**:
 
-1. `chatbot.tools.download_file.allowed_disks` está vacío (default fail-secure
-   — sin disks permitidos, todas las descargas fallan con
+1. `chatbot.tools.download_file.allowed_disks` is empty (fail-secure default
+   — without allowed disks all downloads fail with
    `ToolResult::error('disk_not_allowed', ...)`).
-2. La URL devuelta es `https://`/`http://` directa (rechazada — sólo
-   firmadas locales).
-3. La extensión Blade `<a download>` se bloquea por CSP `default-src 'self'`.
+2. The returned URL is a raw `https://`/`http://` URL (rejected — only locally
+   signed URLs are accepted).
+3. The Blade `<a download>` extension is blocked by `default-src 'self'` CSP.
 
 **Fix**:
-1. En `config/chatbot.php`:
+1. In `config/chatbot.php`:
    ```php
    'tools' => [
        'download_file' => [
@@ -299,26 +301,28 @@ el browser no descarga.
        ],
    ],
    ```
-2. En tu tool concreto, devuelve un disk path firmable, no una URL absoluta.
-3. CSP: añade `connect-src 'self' https://tu-cdn.com` si firmas URLs de S3.
+2. In your concrete tool, return a signable disk path, not an absolute URL.
+3. CSP: add `connect-src 'self' https://your-cdn.com` if you sign S3 URLs.
 
-### A3 · `fill_form` no encuentra los inputs
+### A3 · `fill_form` does not find the inputs
 
-**Síntoma**: el LLM dice "rellené el formulario" pero los campos siguen vacíos.
+**Symptom**: the LLM says "I filled in the form" but the fields are still
+empty.
 
-**Causa probable**:
-1. El `<form>` no tiene `id` ni `data-chatbot-form`, y la página tiene más de
-   un `<form>` (el auto-discovery v1.1.1 elige el primer plausible, que puede
-   no ser el que el LLM quería).
-2. El LLM llama con `name="X"` pero ningún control del form expone ese name
-   ni un alias `data-chatbot-field="X"`.
-3. El widget se cargó antes que el form (Inertia/Livewire renders posteriores).
+**Likely cause**:
+1. The `<form>` has no `id` or `data-chatbot-form`, and the page has more than
+   one `<form>` (the v1.1.1 auto-discovery picks the first plausible one, which
+   may not be the one the LLM intended).
+2. The LLM calls with `name="X"` but no control in the form exposes that name
+   or a `data-chatbot-field="X"` alias.
+3. The widget loaded before the form (Inertia/Livewire later renders).
 
-**Diagnóstico**: abre DevTools console al ejecutar la tool. Desde v1.0.1 la
-primitiva loguea `console.warn` con `availableNames` (lista combinada de `name`
-y `data-chatbot-field` presentes en el form) cuando un field no matchea.
+**Diagnosis**: open the DevTools console when the tool executes. Since v1.0.1
+the primitive logs a `console.warn` with `availableNames` (combined list of
+`name` and `data-chatbot-field` present in the form) when a field does not
+match.
 
-**Fix recomendado** — marca el formulario y los inputs con aliases:
+**Recommended fix** — mark the form and inputs with aliases:
 
 ```html
 <form data-chatbot-form="invoice_create">
@@ -327,20 +331,20 @@ y `data-chatbot-field` presentes en el form) cuando un field no matchea.
 </form>
 ```
 
-El LLM ve `customer` y `amount` (no los names HTML internos) y el widget
-busca primero por `[data-chatbot-field]`. Si tu host es Backpack o usa
-forms Blade custom, automatiza esto con la directiva `@chatbotForm` o el
-comando `chatbot:integrate-form <view>` (v1.1.1) — ver
+The LLM sees `customer` and `amount` (not the internal HTML names) and the
+widget searches first by `[data-chatbot-field]`. If your host is Backpack or
+uses custom Blade forms, automate this with the `@chatbotForm` directive or the
+`chatbot:integrate-form <view>` command (v1.1.1) — see
 [`integrations/custom-forms.md`](integrations/custom-forms.md).
 
 ---
 
-## C · Confirmaciones (E16)
+## C · Confirmations
 
-### C1 · El banner "Confirmar / Cancelar" no aparece
+### C1 · The "Confirm / Cancel" banner does not appear
 
-**Causa**: la tool declara `confirmation=auto` (default). Para que aparezca el
-banner, la **frontend** tool debe declarar `confirmation=confirm` o `manual`.
+**Cause**: the tool declares `confirmation=auto` (default). For the banner to
+appear, the **frontend** tool must declare `confirmation=confirm` or `manual`.
 
 **Fix**:
 ```php
@@ -350,81 +354,81 @@ public function confirmation(): ConfirmationLevel
 }
 ```
 
-### C2 · "Confirmar" da 409 en la 2ª llamada
+### C2 · "Confirm" returns 409 on the second call
 
-**Síntoma**: 1ª llamada `{accept:true}` → 200 OK. 2ª llamada
+**Symptom**: 1st call `{accept:true}` → 200 OK. 2nd call
 `{accept:true,result:{done:true}}` → 409 Conflict.
 
-**Causa**: el row ya está en estado `executed` (alguien lo procesó dos veces).
+**Cause**: the row is already in `executed` state (it was processed twice).
 
-**Esperado**: el endpoint es idempotente — la 2ª llamada con el mismo accept
-sobre un row terminal devuelve 409 con un body informativo, **no** repite la
-acción. Tu cliente debería interpretar 409 sobre `executed` como "ya hecho".
+**Expected**: the endpoint is idempotent — a second call with the same accept
+on a terminal row returns 409 with an informative body, it does **not** repeat
+the action. Your client should treat 409 on `executed` as "already done".
 
-**Fix de cliente**: si el banner del widget está usando un manejo custom,
-trata `409` con `state=executed` igual que `200`.
+**Client fix**: if the widget banner uses custom handling, treat `409` with
+`state=executed` the same as `200`.
 
-### C3 · Pending actions se acumulan en BD
+### C3 · Pending actions accumulate in the database
 
-**Síntoma**: `chatbot_pending_actions` tiene miles de filas en estado `pending`
-con `expires_at` muy en el pasado.
+**Symptom**: `chatbot_pending_actions` has thousands of rows in `pending` state
+with `expires_at` far in the past.
 
-**Causa**: no estás corriendo `chatbot:cleanup-actions` en el scheduler.
+**Cause**: you are not running `chatbot:cleanup-actions` in the scheduler.
 
-**Fix**: ver [`deployment.md §7`](deployment.md#7-scheduler).
+**Fix**: see [`deployment.md`](deployment.md).
 
 ---
 
 ## P · Page Context
 
-### P1 · El bot no "ve" el contexto de la página actual
+### P1 · The bot does not "see" the current page context
 
-**Síntoma**: el usuario pregunta "¿cuáles son las facturas en pantalla?" y el
-bot responde como si no supiera nada de la pantalla.
+**Symptom**: the user asks "what invoices are on screen?" and the bot responds
+as if it knows nothing about the screen.
 
-**Causa**:
+**Cause**:
 
-1. No has añadido `<meta name="chatbot:context">` al layout/view.
-2. La meta tag tiene JSON inválido (escape de comillas mal).
-3. El widget está en SPA mode pero no escucha eventos `inertia:navigate`.
+1. You have not added `<meta name="chatbot:context">` to the layout/view.
+2. The meta tag contains invalid JSON (badly escaped quotes).
+3. The widget is in SPA mode but is not listening for `inertia:navigate` events.
 
 **Fix**:
-1. Añade en la view:
+1. Add to the view:
    ```blade
    <meta name="chatbot:context" content='@json([
        "route" => "invoices.index",
        "filters" => ["status" => "unpaid"],
    ])'>
    ```
-2. Verifica el JSON en consola: `JSON.parse(document.querySelector('meta[name="chatbot:context"]').content)`.
-3. SPA: el widget re-lee el meta tag tras cada `inertia:navigate`/`livewire:navigated`/`popstate`. Si no lo hace, registra en consola:
+2. Verify the JSON in the console: `JSON.parse(document.querySelector('meta[name="chatbot:context"]').content)`.
+3. SPA: the widget re-reads the meta tag after each `inertia:navigate`/`livewire:navigated`/`popstate`. If it does not, register in the console:
    ```javascript
    window.addEventListener('chatbot:context-changed', e => console.log(e.detail));
    ```
-   y verifica que el evento se dispara.
+   and verify the event fires.
 
-### P2 · "El page context se trunca silenciosamente"
+### P2 · "The page context is silently truncated"
 
-**Síntoma**: tu meta tag tiene 50 KB de datos pero el LLM sólo ve un esqueleto.
+**Symptom**: your meta tag has 50 KB of data but the LLM only sees a skeleton.
 
-**Causa**: `chatbot.limits.page_context_kb` (default 16 KB) se excede; el
-sanitizer descarta el contexto entero (D11).
+**Cause**: `chatbot.limits.page_context_kb` (default 16 KB) is exceeded; the
+sanitizer discards the entire context.
 
 **Fix**:
-- Sube el límite si tu use-case lo necesita: `'page_context_kb' => 64`.
-- Mejor: reduce lo que envías al meta tag. El bot no necesita la lista completa
-  de filas, sólo el shape de filtros + IDs visibles.
+- Raise the limit if your use-case requires it: `'page_context_kb' => 64`.
+- Better: reduce what you send in the meta tag. The bot does not need the full
+  list of rows, only the shape of filters + visible IDs.
 
 ---
 
-## E · Errores del paquete (boot)
+## E · Package Errors (boot)
 
 ### E1 · `RouteNotDefinedException: chatbot.stream`
 
-**Causa**: el provider no se registró. Posibles motivos:
+**Cause**: the provider was not registered. Possible reasons:
 
-1. `composer require` no ha refrescado el autoloader.
-2. Auto-discovery deshabilitado en tu `composer.json`:
+1. `composer require` has not refreshed the autoloader.
+2. Auto-discovery is disabled in your `composer.json`:
    ```json
    "extra": {
        "laravel": {
@@ -440,36 +444,36 @@ php artisan config:clear
 php artisan route:list --name=chatbot
 ```
 
-### E2 · `ConfigurationException: Provider X no soportado por Prism`
+### E2 · `ConfigurationException: Provider X not supported by Prism`
 
-**Causa**: `CHATBOT_PROVIDER` apunta a un nombre que Prism no reconoce. Prism
-sigue una convención: `anthropic`, `openai`, `groq`, `gemini`, `mistral`,
-`ollama`. No hay `google` (es `gemini`), ni `chatgpt` (es `openai`).
+**Cause**: `CHATBOT_PROVIDER` points to a name Prism does not recognise. Prism
+uses a convention: `anthropic`, `openai`, `groq`, `gemini`, `mistral`,
+`ollama`. There is no `google` (use `gemini`) or `chatgpt` (use `openai`).
 
-**Fix**: usa los nombres canónicos de Prism. Detalle en
-[`getting-started.md §2.2`](getting-started.md#22-instalar-y-ejecutar-el-wizard).
+**Fix**: use the canonical Prism names. See
+[`getting-started.md`](getting-started.md).
 
 ### E3 · `MigrationException: table chatbot_conversations already exists`
 
-**Causa**: ejecutaste `chatbot:install --force` y publicaste migraciones, pero
-ya estaban aplicadas en una run anterior.
+**Cause**: you ran `chatbot:install --force` and published migrations, but they
+were already applied in a previous run.
 
 **Fix**:
 ```bash
-# Opción A: rollback y re-correr
+# Option A: rollback and re-run
 php artisan migrate:rollback --path=database/migrations/2026_05_08_000001_create_chatbot_conversations_table.php
 php artisan migrate
 
-# Opción B: marcar como ya corridas (si los datos ya están bien)
+# Option B: mark as already run (if the data is already correct)
 php artisan migrate --pretend
-# Si todo OK, marca el batch manualmente en la tabla migrations.
+# If all OK, mark the batch manually in the migrations table.
 ```
 
 ---
 
-## D · Debugging avanzado
+## D · Advanced Debugging
 
-### D1 · Activar log verbose del paquete
+### D1 · Enable verbose package logging
 
 ```env
 LOG_CHANNEL=stack
@@ -500,18 +504,18 @@ Event::listen(\Rnkr69\LaraChatbot\Events\ToolInvoked::class, function ($event) {
 });
 ```
 
-### D2 · Inspeccionar el system prompt real que se envió al LLM
+### D2 · Inspect the actual system prompt sent to the LLM
 
-El system prompt se compone vía `SystemPromptBuilder` (vista publishable +
-addendum + `## Current page` + `## Pending actions`). Para verlo en limpio
-durante un turno:
+The system prompt is composed via `SystemPromptBuilder` (publishable view +
+addendum + `## Current page` + `## Pending actions`). To view it cleanly
+during a turn:
 
 ```php
-// dd-debug temporal en SystemPromptBuilder::build()
+// Temporary dd-debug in SystemPromptBuilder::build()
 \Log::channel('chatbot')->debug('system_prompt', ['body' => $body]);
 ```
 
-O fuera del paquete, sin tocar core:
+Or from outside the package, without touching the core:
 
 ```php
 $prompt = app(\Rnkr69\LaraChatbot\Llm\SystemPromptBuilder::class)
@@ -520,17 +524,17 @@ $prompt = app(\Rnkr69\LaraChatbot\Llm\SystemPromptBuilder::class)
 dd($prompt);
 ```
 
-### D3 · Reproducir un fallo en tests
+### D3 · Reproduce a failure in tests
 
-Cuando un usuario reporta un bug, el patrón más rápido es:
+When a user reports a bug, the fastest pattern is:
 
 ```php
-// tests/Feature/RegressionTest.php (en el host)
+// tests/Feature/RegressionTest.php (in the host)
 test('reproduce bug X', function () {
     $user = User::factory()->create();
 
     $response = $this->actingAs($user)->post('/chatbot/stream', [
-        'message' => 'el mensaje exacto del usuario',
+        'message' => 'the exact user message',
         'page_context' => ['route' => 'invoices.show', 'invoice_id' => 123],
     ]);
 
@@ -539,62 +543,60 @@ test('reproduce bug X', function () {
 });
 ```
 
-Mockea Prism con `Prism::fake()` para evitar la llamada real al LLM. Detalle
-en [`testing.md`](testing.md).
+Mock Prism with `Prism::fake()` to avoid the real LLM call. See
+[`testing.md`](testing.md).
 
 ---
 
 ## F · FAQ
 
-**Q: ¿Funciona con Laravel 10?**
+**Q: Does it work with Laravel 10?**
 
-No en v1. La decisión D1 descartó Laravel 10.
-Si tu app está en L10, planifica el upgrade — `prism-php/prism` también
-requiere ^11.
+Not in v1. If your app is on L10, plan the upgrade — `prism-php/prism` also
+requires ^11.
 
-**Q: ¿Funciona con Octane / FrankenPHP?**
+**Q: Does it work with Octane / FrankenPHP?**
 
-Sí. El SSE bajo Swoole funciona desde 4.x. Bajo FrankenPHP, asegúrate de
-deshabilitar buffering y subir timeouts. Detalle en
-[`deployment.md §2.6`](deployment.md#26-laravel-octane).
+Yes. SSE under Swoole works from 4.x. Under FrankenPHP, make sure to disable
+buffering and raise timeouts. See [`deployment.md`](deployment.md).
 
-**Q: ¿Puedo usar mi propio LLM custom (no soportado por Prism)?**
+**Q: Can I use my own custom LLM (not supported by Prism)?**
 
-Sí, pero requiere extender `LlmGateway`. No es una vía soportada en v1; valora
-si tu LLM puede exponerse vía OpenAI-compatible (LM Studio, vLLM, etc.) — Prism
-soporta endpoints OpenAI-compatibles.
+Yes, but it requires extending `LlmGateway`. This is not a supported path in
+v1; consider whether your LLM can be exposed via an OpenAI-compatible endpoint
+(LM Studio, vLLM, etc.) — Prism supports OpenAI-compatible endpoints.
 
-**Q: ¿Cómo desactivo completamente el chatbot en un entorno?**
+**Q: How do I completely disable the chatbot in an environment?**
 
 ```env
-# Quita el snippet <chatbot-widget> del layout, o
+# Remove the <chatbot-widget> snippet from the layout, or
 CHATBOT_ENABLED=false
 ```
 
-Y en `routes/web.php`:
+And in `routes/web.php`:
 ```php
 if (config('chatbot.enabled', true)) {
     Route::loadFrom(base_path('vendor/rnkr69/lara-chatbot/routes/chatbot.php'));
 }
 ```
 
-**Q: ¿Puedo cambiar la ruta `/chatbot` por otra?**
+**Q: Can I change the `/chatbot` route prefix?**
 
-Sí, en `config/chatbot.php`:
+Yes, in `config/chatbot.php`:
 ```php
 'route' => [
-    'prefix' => 'asistente',
+    'prefix' => 'assistant',
     'middleware' => ['web', 'auth'],
-    'as' => 'asistente.',
+    'as' => 'assistant.',
 ],
 ```
 
-Tras esto, el endpoint pasa a `/asistente/stream`. Recuerda actualizar el
-atributo `data-endpoint` del widget.
+After this, the endpoint becomes `/assistant/stream`. Remember to update the
+`data-endpoint` attribute on the widget.
 
-**Q: ¿Cómo accedo al `Authenticatable` actual desde una tool?**
+**Q: How do I access the current `Authenticatable` from a tool?**
 
-El `ToolContext` que recibe `handle()` lo expone:
+The `ToolContext` received by `handle()` exposes it:
 ```php
 public function handle(array $args, ToolContext $ctx): ToolResult
 {
@@ -607,11 +609,10 @@ public function handle(array $args, ToolContext $ctx): ToolResult
 
 ---
 
-## Soporte
+## Support
 
-- Issues internos: **#chatbot-package** en Slack o repo privado.
-- Para bugs reproducibles: incluye versión del paquete (`composer show rnkr69/lara-chatbot`),
-  versión de Laravel, provider del LLM, fragmento del log con `LOG_LEVEL=debug`,
-  y un snippet de código que reproduzca el problema.
-- Para preguntas genéricas: lee primero `getting-started.md` + `authorization.md`
-  + esta página antes de preguntar.
+- For reproducible bugs: include the package version (`composer show rnkr69/lara-chatbot`),
+  Laravel version, LLM provider, a log excerpt with `LOG_LEVEL=debug`, and a
+  code snippet that reproduces the problem.
+- For general questions: read `getting-started.md` + `authorization.md` +
+  this page before asking.

@@ -1,37 +1,37 @@
-# Frontend Tools — Guía de implementación
+# Frontend Tools — Implementation Guide
 
-> Esta guía cubre el contrato `FrontendTool` (marker introducido en E08,
-> ampliado en E11 con `BaseFrontendTool` y 9 primitivas core publicadas en
-> `src/Tools/Frontend/`) y los flujos en los que el LLM "invoca" tools cuya
-> ejecución real ocurre en el navegador del usuario, no en el backend.
+*English · [Español](FRONTEND_TOOLS.es.md)*
+
+> This guide covers the `FrontendTool` contract (marker interface published in
+> `src/Tools/Frontend/`) and the flows in which the LLM "invokes" tools whose
+> real execution happens in the user's browser, not on the backend.
 >
-> Lee primero `docs/backend-tools.md` — frontend tools heredan toda la
-> mecánica de cascada de autorización + JSON Schema + `ToolResult` y sólo
-> se diferencian en cómo el orquestador (`ChatService`, E08) emite el
-> evento SSE.
+> Read [`docs/backend-tools.md`](backend-tools.md) first — frontend tools inherit the entire
+> authorization cascade + JSON Schema + `ToolResult` mechanics and only
+> differ in how the orchestrator (`ChatService`) emits the SSE event.
 
 ---
 
-## 1. ¿Qué es una frontend tool?
+## 1. What is a frontend tool?
 
-Una `FrontendTool` es una tool que el LLM razona como cualquier otra
-(con `name`, `description`, `parameters`, `permissions`, ...) pero cuya
-acción material la materializa el widget en el browser:
+A `FrontendTool` is a tool that the LLM reasons about like any other
+(with `name`, `description`, `parameters`, `permissions`, ...) but whose
+material action is carried out by the widget in the browser:
 
-- `navigate` no abre el `Order::show` en el backend; le pide al widget
-  que navegue a `/orders/123`.
-- `show_toast` no toca BD; le pide al widget que muestre un toast en
-  pantalla.
-- `download_file` SÍ toca el backend (firma una URL), pero la descarga en
-  sí la dispara el widget con `<a href download>`.
+- `navigate` does not open `Order::show` on the backend; it asks the widget
+  to navigate to `/orders/123`.
+- `show_toast` does not touch the DB; it asks the widget to display a toast
+  on screen.
+- `download_file` DOES touch the backend (signs a URL), but the download
+  itself is triggered by the widget with `<a href download>`.
 
-El orquestador detecta `instanceof FrontendTool` y, en lugar de emitir
-`tool_call` + `tool_result`, emite `frontend_action` con todo lo que el
-widget necesita.
+The orchestrator detects `instanceof FrontendTool` and, instead of emitting
+`tool_call` + `tool_result`, emits `frontend_action` with everything the
+widget needs.
 
 ---
 
-## 2. Contrato
+## 2. Contract
 
 ```php
 namespace Rnkr69\LaraChatbot\Tools\Contracts;
@@ -39,16 +39,15 @@ namespace Rnkr69\LaraChatbot\Tools\Contracts;
 interface FrontendTool extends BackendTool {}
 ```
 
-`FrontendTool` es un **marker interface** sin métodos propios — extiende
-`BackendTool` para que el host pueda registrarla en el mismo
-`ToolRegistry` y para que la cascada de validación/autorización se
-aplique de forma idéntica.
+`FrontendTool` is a **marker interface** with no methods of its own — it
+extends `BackendTool` so the host can register it in the same `ToolRegistry`
+and so the validation/authorization cascade applies identically.
 
-La forma natural de implementar una FE tool es extender
-`Rnkr69\LaraChatbot\Tools\BaseFrontendTool`, que extiende a su vez
-`BaseBackendTool` (DRY) y aporta un `handle()` por defecto que devuelve
-`ToolResult::success([])`. Las primitivas del catálogo + DownloadFileTool
-heredan de aquí.
+The natural way to implement a FE tool is to extend
+`Rnkr69\LaraChatbot\Tools\BaseFrontendTool`, which in turn extends
+`BaseBackendTool` (DRY) and provides a default `handle()` that returns
+`ToolResult::success([])`. The catalog primitives and `DownloadFileTool`
+inherit from here.
 
 ```php
 namespace App\Chatbot\Tools;
@@ -72,33 +71,32 @@ class OpenInvoiceModalTool extends BaseFrontendTool
 }
 ```
 
-Sin tocar nada más, el orquestador emitirá
+Without touching anything else, the orchestrator will emit
 
 ```
 event: frontend_action
 data: {"tool":"open_invoice_modal","args":{"invoice_id":42},"action_id":"<uuid>","confirmation":"auto"}
 ```
 
-cuando el LLM la invoque.
+when the LLM invokes it.
 
 ---
 
-## 3. El "shim" de `BaseFrontendTool::handle()`
+## 3. The `BaseFrontendTool::handle()` shim
 
-`handle()` por defecto devuelve `ToolResult::success([])`. El
-`ChatService`:
+`handle()` returns `ToolResult::success([])` by default. `ChatService`:
 
-1. Corre la cascada `BaseBackendTool::execute()` (validate args →
+1. Runs the `BaseBackendTool::execute()` cascade (validate args →
    permission → tenant → handle).
-2. Si OK, genera un `action_id` UUID y emite `frontend_action` con
+2. If OK, generates an `action_id` UUID and emits `frontend_action` with
    `{tool, args + result.data, action_id, confirmation}`.
-3. Mete `success(['status' => 'queued', 'action_id' => $uuid])` en el
-   buffer que vuelve al LLM, para que el step se cierre coherentemente.
+3. Places `success(['status' => 'queued', 'action_id' => $uuid])` in the
+   buffer returned to the LLM, so the step closes coherently.
 
-Si tu FE tool **no necesita lógica backend**, no override `handle()`. Si
-sí (`DownloadFileTool` firma una URL, una tool propia podría resolver
-slugs de un servicio externo), override y devuelve los campos a mergear
-en `frontend_action.args`:
+If your FE tool **needs no backend logic**, do not override `handle()`. If
+it does (`DownloadFileTool` signs a URL; a custom tool might resolve slugs
+from an external service), override it and return the fields to merge into
+`frontend_action.args`:
 
 ```php
 public function handle(array $args, ToolContext $ctx): ToolResult
@@ -111,52 +109,44 @@ public function handle(array $args, ToolContext $ctx): ToolResult
 }
 ```
 
-El widget recibirá `frontend_action.args.pdf_url` además de los args
-originales del LLM.
+The widget will receive `frontend_action.args.pdf_url` in addition to the
+LLM's original args.
 
 ---
 
-## 4. Niveles de confirmación
+## 4. Confirmation levels
 
-El enum `ConfirmationLevel` (`Auto|Confirm|Manual`) lo define `BackendTool`
-y se hereda. La diferencia con backend tools v1:
+The `ConfirmationLevel` enum (`Auto|Confirm|Manual`) is defined by
+`BackendTool` and inherited. The difference from backend tools:
 
-- **Backend tools v1** sólo soportan `Auto` end-to-end (D9 §1 PROGRESS).
-  El orquestador filtra y avisa por log.
-- **Frontend tools** sí soportan los tres niveles desde E11 (estructura) y
-  E16 (storage de pending actions) — el `frontend_action` lleva el flag
-  para que el widget decida si auto-ejecuta, pide confirmación al usuario
-  o marca como manual.
+- **Backend tools** only support `Auto` end-to-end. The orchestrator
+  filters and warns via log.
+- **Frontend tools** support all three levels — the `frontend_action`
+  carries the flag so the widget decides whether to auto-execute, ask the
+  user for confirmation, or mark as manual.
 
-Cómo aplicarlo: override `confirmation()` y devuelve el nivel deseado.
-El widget (E12+) interpreta:
+How to apply: override `confirmation()` and return the desired level.
+The widget interprets:
 
-| Nivel    | Comportamiento del widget |
-|----------|--------------------------|
-| `auto`   | Ejecuta inmediatamente al recibir el evento. |
-| `confirm`| Muestra UI "¿Confirmas X?" antes de ejecutar. E16 persiste la acción pendiente. |
-| `manual` | El usuario debe disparar la acción explícitamente desde un botón en el chat. |
+| Level    | Widget behaviour |
+|----------|-----------------|
+| `auto`   | Executes immediately upon receiving the event. |
+| `confirm`| Shows "Confirm X?" UI before executing. Persists the pending action. |
+| `manual` | The user must trigger the action explicitly via a button in the chat. |
 
 ---
 
-## 5. Catálogo de primitivas core
+## 5. Core primitives catalogue
 
-Las 8 primitivas viven en `src/Tools/Frontend/` y se registran
-automáticamente vía `chatbot.tools.frontend_primitives`. Cada una expone
-una `description()` cuidada — el LLM elige tool basándose exclusivamente
-en ese texto, así que respétalo o extiende la primitiva con un wording
-mejor adaptado al dominio del host.
+The 8 primitives live in `src/Tools/Frontend/` and are registered
+automatically via `chatbot.tools.frontend_primitives`. Each exposes a
+carefully written `description()` — the LLM chooses a tool based exclusively
+on that text, so respect it or extend the primitive with wording better
+suited to the host domain.
 
-> **v1.1.2** — la primitiva `highlight` fue retirada del catálogo
-> (finding #15). El outline temporal de 2 s sobre un selector
-> LLM-construido entregaba poco valor y enmascaraba fallos silenciosos:
-> cuando el selector no matcheaba, el primitive devolvía sin avisar y el
-> LLM declaraba éxito. Para los casos de uso reales usa `navigate`,
-> `render_block` o `fill_form` + `invoke_host_action('refreshGrid')`.
-
-| Tool                     | `name()`             | Confirmation | Args principales                                        |
+| Tool                     | `name()`             | Confirmation | Main args                                               |
 |--------------------------|----------------------|--------------|---------------------------------------------------------|
-| `NavigateTool`           | `navigate`           | auto         | `url` o `route` + `params`                              |
+| `NavigateTool`           | `navigate`           | auto         | `url` or `route` + `params`                             |
 | `ToggleVisibilityTool`   | `toggle_visibility`  | auto         | `selector`, `action` (`show\|hide\|toggle`)             |
 | `FillFormTool`           | `fill_form`          | confirm      | `fields[]` (required), `selector?`, `form_id?`, `submit?` |
 | `ShowToastTool`          | `show_toast`         | auto         | `message`, `level?` (`info\|success\|warning\|error`)   |
@@ -167,103 +157,103 @@ mejor adaptado al dominio del host.
 
 ### 5.1 `NavigateTool`
 
-Lleva al usuario a otra pantalla. SPA usa el adaptador registrado vía
-`window.Chatbot.registerNavigator(...)` (E13); MPA cae a
+Takes the user to another screen. SPA uses the adapter registered via
+`window.Chatbot.registerNavigator(...)`; MPA falls back to
 `window.location.assign`.
 
 ```
-Usuario: "abre la lista de pedidos"
-LLM    : navigate({route: 'orders.index'})
-Widget : Inertia.visit('/orders')   // o location.assign
+User  : "open the orders list"
+LLM   : navigate({route: 'orders.index'})
+Widget: Inertia.visit('/orders')   // or location.assign
 ```
 
 ### 5.2 `ToggleVisibilityTool`
 
-`show|hide|toggle` sobre uno o varios elementos. Útil para flujos de
-disclosure progresivo ("muéstrame los filtros avanzados").
+`show|hide|toggle` on one or more elements. Useful for progressive
+disclosure flows ("show me the advanced filters").
 
 ### 5.3 `FillFormTool`
 
-Rellena un formulario y opcionalmente lo envía. **Default `confirm`**
-porque el caso típico (`submit=true`) dispara una acción de backend; el
-host puede subclase para devolver `auto` si su uso real es siempre
-"sólo precargar borradores".
+Fills a form and optionally submits it. **Default `confirm`** because the
+typical case (`submit=true`) triggers a backend action; the host can
+subclass to return `auto` if the real use case is always "just pre-fill
+drafts".
 
-Targeting (v1.1.2, finding #9.f):
+Targeting:
 
-1. **`selector`** (preferido) — CSS selector que resuelve al `<form>`
-   directamente o a un wrapper cuyo primer `<form>` descendiente se usa.
-   Lo emite el page context provider de Backpack como
+1. **`selector`** (preferred) — CSS selector that resolves to the `<form>`
+   directly or to a wrapper whose first descendant `<form>` is used.
+   Emitted by the Backpack page context provider as
    `crud.form.selector = '[bp-section="crud-operation-create"] form'`,
-   apoyándose en el contrato `bp-section` estable de Backpack 5/6/7.
-2. **`form_id`** — alternativa: id de un `<form>` o de un wrapper con
-   `data-chatbot-form`. Útil cuando el host etiqueta los forms.
-3. **Auto-discovery** — si no se pasa nada, busca el primer `<form>`
-   plausible (`main form`, `form#crudTable`, `form.form`, then any
-   `form`). Drop un `console.warn` para diagnóstico.
+   relying on the stable `bp-section` contract in Backpack 5/6/7.
+2. **`form_id`** — alternative: id of a `<form>` or a wrapper with
+   `data-chatbot-form`. Useful when the host labels its forms.
+3. **Auto-discovery** — if nothing is passed, searches for the first
+   plausible `<form>` (`main form`, `form#crudTable`, `form.form`, then any
+   `form`). Drops a `console.warn` for diagnostics.
 
-Los `fields[].name` matchean tanto el atributo HTML `name` como el alias
-amigable `data-chatbot-field` (el alias gana cuando ambos existen). Si el
-LLM llama con un name inexistente, el warn de consola lista los dos
-conjuntos para diagnóstico.
+`fields[].name` matches both the HTML `name` attribute and the friendly
+alias `data-chatbot-field` (the alias wins when both exist). If the LLM
+calls with a non-existent name, the console warning lists both sets for
+diagnostics.
 
 ```
-Usuario: "rellena el formulario con priority=express, risk=high"
-LLM    : fill_form({
+User  : "fill the form with priority=express, risk=high"
+LLM   : fill_form({
            selector: '[bp-section="crud-operation-create"] form',
            fields: [
              {name: 'priority', value: 'express'},
              {name: 'risk', value: 'high'},
            ],
          })
-Widget : muestra "¿Confirmas la modificación del formulario?"
+Widget: shows "Confirm form modification?"
 ```
 
-Para hosts Backpack la sincronización con `crud.form.{selector, fields[]}`
-del page context permite que el LLM resuelva FK selects (`Mars → 2`)
-sin guessing — ver [`integrations/backpack.md §5`](integrations/backpack.md).
-Para forms custom (no-Backpack), publica el schema con la directiva
-`@chatbotForm` — ver [`integrations/custom-forms.md`](integrations/custom-forms.md).
+For Backpack hosts, synchronisation with `crud.form.{selector, fields[]}`
+from the page context lets the LLM resolve FK selects (`Mars → 2`) without
+guessing — see [`integrations/backpack.md`](integrations/backpack.md).
+For custom (non-Backpack) forms, publish the schema with the `@chatbotForm`
+directive — see [`integrations/custom-forms.md`](integrations/custom-forms.md).
 
 ### 5.4 `ShowToastTool`
 
-Notificación efímera. NO la uses para preguntas — los toasts auto-cierran;
-para preguntar usa el chat o un modal.
+Ephemeral notification. Do NOT use it for questions — toasts auto-close;
+use the chat or a modal to ask the user something.
 
 ### 5.5 `OpenModalTool`
 
-Modal overlay con un bloque tipado dentro y botones de acción opcionales.
-Si las `actions[]` incluyen tools destructivas, considera subclase para
-devolver `confirm`.
+Modal overlay with a typed block inside and optional action buttons.
+If the `actions[]` include destructive tools, consider subclassing to
+return `confirm`.
 
 ```
-LLM    : open_modal({
-           title: 'Confirmar borrado',
-           block: {type: 'card', data: {summary: '3 pedidos archivados'}},
+LLM   : open_modal({
+           title: 'Confirm deletion',
+           block: {type: 'card', data: {summary: '3 orders archived'}},
            actions: [
-             {label: 'Borrar', tool: 'archive_orders', args: {ids: [1,2,3]}},
-             {label: 'Cancelar'},
+             {label: 'Delete', tool: 'archive_orders', args: {ids: [1,2,3]}},
+             {label: 'Cancel'},
            ],
          })
 ```
 
 ### 5.6 `RenderBlockTool`
 
-Inserta un bloque en el hilo del chat (no overlay). Para respuestas ricas
-inline. Renderers concretos en E15.
+Inserts a block into the chat thread (not an overlay). For rich inline
+responses. See [`block-renderers.md`](block-renderers.md) for the concrete renderers.
 
 ### 5.7 `InvokeHostActionTool`
 
-Escape hatch. El host registra acciones JS con
+Escape hatch. The host registers JS actions with
 `window.Chatbot.registerAction('refreshGrid', () => {...})`. Default
-`manual` por contrato conservador.
+`manual` by conservative contract.
 
 ### 5.8 `DownloadFileTool`
 
-Genera una URL firmada con expiración para descargar archivos del host.
-**Excepción al patrón shim**: su `handle()` ejecuta lógica backend.
+Generates a signed URL with expiry for downloading files from the host.
+**Exception to the shim pattern**: its `handle()` executes backend logic.
 
-#### Configuración
+#### Configuration
 
 ```php
 // config/chatbot.php
@@ -275,11 +265,11 @@ Genera una URL firmada con expiración para descargar archivos del host.
 ],
 ```
 
-`allowed_disks` vacío = ningún disk permitido (fail-secure default).
+Empty `allowed_disks` = no disk allowed (fail-secure default).
 
 #### Ownership
 
-Subclase y override `assertCanDownload()` para reglas de dominio:
+Subclass and override `assertCanDownload()` for domain rules:
 
 ```php
 namespace App\Chatbot\Tools;
@@ -292,11 +282,11 @@ class HostDownloadFileTool extends DownloadFileTool
 {
     protected function assertCanDownload(string $disk, string $path, ToolContext $ctx): ?ToolResult
     {
-        // Sólo PDFs de OPAs cuyo owner sea el usuario actual
+        // Only PDFs whose owner is the current user
         if (preg_match('#invoices/(\d+)\.pdf$#', $path, $m)) {
             $invoice = \App\Models\Invoice::find((int) $m[1]);
             if ($invoice === null || $invoice->user_id !== $ctx->user->getAuthIdentifier()) {
-                return ToolResult::error('not_owner', 'No puedes descargar esta factura.');
+                return ToolResult::error('not_owner', 'You cannot download this invoice.');
             }
         }
         return null;
@@ -304,46 +294,46 @@ class HostDownloadFileTool extends DownloadFileTool
 }
 ```
 
-Y reemplaza la primitiva default en config:
+And replace the default primitive in config:
 
 ```php
 'frontend_primitives' => [
     // ...
-    \App\Chatbot\Tools\HostDownloadFileTool::class, // en lugar de la default
+    \App\Chatbot\Tools\HostDownloadFileTool::class, // instead of the default
 ],
 ```
 
-#### Flujo en el widget
+#### Widget flow
 
 ```
-LLM   : download_file({url_or_disk_path: 's3-invoices::2026/123.pdf', filename: 'factura.pdf'})
+LLM   : download_file({url_or_disk_path: 's3-invoices::2026/123.pdf', filename: 'invoice.pdf'})
 Tool  : Storage::disk('s3-invoices')->temporaryUrl(...)
 SSE   : event: frontend_action
         data: {tool, args: {url_or_disk_path, filename, download_url, expires_at}, action_id, confirmation: 'auto'}
-Widget: <a href="<download_url>" download="factura.pdf">  → click programático
+Widget: <a href="<download_url>" download="invoice.pdf">  → programmatic click
 ```
 
 ---
 
-## 6. Eventos y persistencia
+## 6. Events and persistence
 
-El evento `Rnkr69\LaraChatbot\Events\ToolInvoked` (gap E08) se dispara también
-para frontend tools — incluyendo cuando la cascada las rechaza. Listeners
-de audit/PII reciben la invocación igual que para backend tools.
+The `Rnkr69\LaraChatbot\Events\ToolInvoked` event is also fired for
+frontend tools — including when the cascade rejects them. Audit/PII
+listeners receive the invocation just as they do for backend tools.
 
-`tool_call` y `tool_result` SSE se omiten para frontend tools (su shape
-informativo es `frontend_action`). Si la cascada las rechaza, `ChatService`
-emite `tool_result` con `ok=false` (informativo) y devuelve el error al
-LLM.
+`tool_call` and `tool_result` SSE are omitted for frontend tools (their
+informational shape is `frontend_action`). If the cascade rejects them,
+`ChatService` emits `tool_result` with `ok=false` (informational) and
+returns the error to the LLM.
 
 ---
 
-## 7. Recetas de override
+## 7. Override recipes
 
-| Caso | Receta |
+| Case | Recipe |
 |---|---|
-| Cambiar `confirmation` de una primitiva | Subclase + override `confirmation()`. Reemplazar la entrada en `chatbot.tools.frontend_primitives`. |
-| Inyectar permisos a una primitiva | Subclase + override `permissions()`. Las primitivas core devuelven `[]` (público). |
-| Adaptar el wording al dominio del host | Subclase + override `description()`. El LLM lee este texto, no el del paquete. |
-| Aplicar tenant scope (E04) | Subclase + override `tenantScope(): bool` → true + bind un `TenantResolver`. Ojo: la cascada lo aplica antes del shim. |
-| FE tool con backend logic | Override `handle()` y devuelve `ToolResult::success([campos a mergear])`. ChatService los inyecta en `frontend_action.args`. |
+| Change the `confirmation` of a primitive | Subclass + override `confirmation()`. Replace the entry in `chatbot.tools.frontend_primitives`. |
+| Inject permissions into a primitive | Subclass + override `permissions()`. Core primitives return `[]` (public). |
+| Adapt the wording to the host domain | Subclass + override `description()`. The LLM reads this text, not the package's. |
+| Apply tenant scope | Subclass + override `tenantScope(): bool` → true + bind a `TenantResolver`. Note: the cascade applies this before the shim. |
+| FE tool with backend logic | Override `handle()` and return `ToolResult::success([fields to merge])`. ChatService injects them into `frontend_action.args`. |

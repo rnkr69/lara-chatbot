@@ -1,69 +1,70 @@
 # Authorization
 
-> Cómo el paquete decide si un usuario puede invocar una tool y qué datos puede
-> ver. Cubre la cascada de 4 pasos —**permission → scope → tenant → ownership**—
-> y los 3 contratos que el host implementa: `Authorizer`, `ScopeResolver`,
+*English · [Español](authorization.es.md)*
+
+> How the package decides whether a user may invoke a tool and what data they
+> can see. Covers the 4-step cascade —**permission → scope → tenant → ownership**—
+> and the 3 contracts the host implements: `Authorizer`, `ScopeResolver`,
 > `TenantResolver`.
 >
-> Pre-lectura: §1 del `getting-started.md` (instalación) + §2 del `ROADMAP.md`
-> (modelo conceptual).
+> Pre-reading: §1 of [`getting-started.md`](getting-started.md) (installation).
 
 ---
 
-## 1. Cascada de autorización
+## 1. Authorization cascade
 
-Antes de invocar `handle()` de cualquier tool, `BaseBackendTool::execute()`
-recorre cuatro filtros en orden estricto. Si **cualquier** paso falla, la tool
-devuelve un `ToolResult::error(...)` y `handle()` **no se invoca**.
+Before invoking `handle()` on any tool, `BaseBackendTool::execute()`
+runs through four filters in strict order. If **any** step fails, the tool
+returns a `ToolResult::error(...)` and `handle()` is **not invoked**.
 
 ```mermaid
 flowchart TD
-    A[ChatService recibe tool_call] --> B{1 · args válidos?<br/>JSON Schema → Validator}
+    A[ChatService receives tool_call] --> B{1 · valid args?<br/>JSON Schema → Validator}
     B -->|no| BX[error: validation]
-    B -->|sí| C{2 · permission?<br/>Authorizer::check}
+    B -->|yes| C{2 · permission?<br/>Authorizer::check}
     C -->|no| CX[error: unauthorized]
-    C -->|sí| D{3 · tenantScope=true?}
+    C -->|yes| D{3 · tenantScope=true?}
     D -->|no| F[handle args, ctx]
-    D -->|sí| E{4 · TenantResolver<br/>resuelve != []?}
+    D -->|yes| E{4 · TenantResolver<br/>resolves != []?}
     E -->|[]| EX[error: out_of_scope]
-    E -->|null o lista| F
+    E -->|null or list| F
     F --> G{5 · accessibleQuery?<br/>whereIn user/tenant}
-    G --> H[handle ejecuta query<br/>filtrada]
+    G --> H[handle runs filtered<br/>query]
     H --> I[ToolResult::success]
 ```
 
-| # | Paso | Donde | Falla con |
+| # | Step | Where | Fails with |
 |---|---|---|---|
-| 1 | Validar args | `BaseBackendTool::execute()` | `error('validation', …)` |
+| 1 | Validate args | `BaseBackendTool::execute()` | `error('validation', …)` |
 | 2 | Permission | `Authorizer::check($user, $tool->permissions())` | `error('unauthorized', …)` |
 | 3 | Tenant scope | `TenantResolver::resolveAccessibleTenantIds(...)` | `error('out_of_scope', …)` |
-| 4 | Scope de datos | `ScopeResolver::resolveAccessibleUserIds(...)` aplicado en `accessibleQuery()` | tool devuelve `[]` o tu policy decide |
-| 5 | Ownership puntual | tu `handle()` con `accessibleQuery()->where('id', …)` | `error('not_owner', …)` |
+| 4 | Data scope | `ScopeResolver::resolveAccessibleUserIds(...)` applied in `accessibleQuery()` | tool returns `[]` or your policy decides |
+| 5 | Pointwise ownership | your `handle()` with `accessibleQuery()->where('id', …)` | `error('not_owner', …)` |
 
-> Pasos 1-3 son automáticos. Pasos 4-5 los expresas tú dentro de `handle()`
-> usando el helper `$this->accessibleQuery(…)`.
+> Steps 1–3 are automatic. Steps 4–5 are expressed by you inside `handle()`
+> using the `$this->accessibleQuery(…)` helper.
 
 ---
 
-## 2. `Authorizer` — paso 1 (permission)
+## 2. `Authorizer` — step 1 (permission)
 
-Decide si un usuario tiene **TODOS** los permisos declarados por
-`$tool->permissions()` (regla AND). Lista vacía = "tool pública" = `true`.
+Decides whether a user holds **ALL** permissions declared by
+`$tool->permissions()` (AND rule). Empty list = "public tool" = `true`.
 
-### 2.1 Implementaciones del paquete
+### 2.1 Built-in implementations
 
-| Implementación | Activación | Cómo verifica |
+| Implementation | Activation | How it checks |
 |---|---|---|
-| `SpatieAuthorizer` | `chatbot.authorization.resolver = 'spatie'` (default si Spatie está instalado) | `$user->can($permission)` por cada permiso, AND con short-circuit. |
-| `GateAuthorizer` | `chatbot.authorization.resolver = 'gate'` (fallback) | `Gate::forUser($user)->allows($permission)` por cada permiso. |
-| Custom | `chatbot.authorization.authorizer = MyAuthorizer::class` | Tu clase. |
+| `SpatieAuthorizer` | `chatbot.authorization.resolver = 'spatie'` (default when Spatie is installed) | `$user->can($permission)` per permission, AND with short-circuit. |
+| `GateAuthorizer` | `chatbot.authorization.resolver = 'gate'` (fallback) | `Gate::forUser($user)->allows($permission)` per permission. |
+| Custom | `chatbot.authorization.authorizer = MyAuthorizer::class` | Your class. |
 
-### 2.2 Spatie + ownership: receta paso a paso
+### 2.2 Spatie + ownership: step-by-step recipe
 
-> **Caso 1**: empleado regular ve sólo sus facturas; manager ve las de su
-> equipo; admin ve todas.
+> **Case 1**: regular employee sees only their own invoices; manager sees their
+> team's; admin sees all.
 
-**Paso 1.** Modelar permisos y roles (`database/seeders/PermissionSeeder.php`):
+**Step 1.** Model permissions and roles (`database/seeders/PermissionSeeder.php`):
 
 ```php
 $view = Permission::firstOrCreate(['name' => 'invoices.view']);
@@ -74,20 +75,20 @@ $manager  = Role::firstOrCreate(['name' => 'manager'])->givePermissionTo([$view,
 $admin    = Role::firstOrCreate(['name' => 'admin'])->givePermissionTo(Permission::all());
 ```
 
-**Paso 2.** Declarar el permiso en la tool:
+**Step 2.** Declare the permission on the tool:
 
 ```php
 public function permissions(): array { return ['invoices.view']; }
 ```
 
-**Paso 3.** Declarar el scope **default**:
+**Step 3.** Declare the **default** scope:
 
 ```php
 public function defaultScope(): AccessScope { return AccessScope::Self; }
 ```
 
-**Paso 4.** Permitir overrides por rol (opcional). El bot recibe el scope que
-elige el host basándose en el rol del usuario, no fijándose en `defaultScope()`:
+**Step 4.** Allow role-based overrides (optional). The bot receives the scope
+chosen by the host based on the user's role, rather than relying on `defaultScope()`:
 
 ```php
 // app/Chatbot/Tools/ListInvoicesTool.php
@@ -102,13 +103,13 @@ public function defaultScope(): AccessScope
 }
 ```
 
-> **Por qué dentro de la tool y no en el ScopeResolver**: el `ScopeResolver`
-> mapea `AccessScope` → `[user_id, …]`. La elección del *AccessScope* en
-> función del rol/contexto es del que define la tool. Mantener la decisión
-> del scope en la tool deja al `ScopeResolver` puramente declarativo.
+> **Why inside the tool and not in the ScopeResolver**: the `ScopeResolver`
+> maps `AccessScope` → `[user_id, …]`. The choice of *AccessScope* based on
+> role/context belongs to the tool's author. Keeping the scope decision in the
+> tool leaves the `ScopeResolver` purely declarative.
 
-**Paso 5.** En `handle()`, pasa el scope al helper `accessibleQuery()`. El helper
-lee `defaultScope()` automáticamente:
+**Step 5.** In `handle()`, pass the scope to the `accessibleQuery()` helper. The
+helper reads `defaultScope()` automatically:
 
 ```php
 public function handle(array $args, ToolContext $ctx): ToolResult
@@ -122,21 +123,21 @@ public function handle(array $args, ToolContext $ctx): ToolResult
 }
 ```
 
-`accessibleQuery()` aplica `whereIn('user_id', $accessibleIds)` donde
-`$accessibleIds` viene del `ScopeResolver`. Si tu modelo usa otro nombre de
-columna:
+`accessibleQuery()` applies `whereIn('user_id', $accessibleIds)` where
+`$accessibleIds` comes from the `ScopeResolver`. If your model uses a different
+column name:
 
 ```php
 class ListInvoicesTool extends BaseBackendTool
 {
-    protected string $ownerColumn = 'created_by_id'; // por defecto: 'user_id'
+    protected string $ownerColumn = 'created_by_id'; // default: 'user_id'
     // …
 }
 ```
 
-### 2.3 Authorizer custom
+### 2.3 Custom Authorizer
 
-Si tu host tiene un sistema propietario:
+If your host has a proprietary permission system:
 
 ```php
 namespace App\Chatbot\Authorization;
@@ -148,7 +149,7 @@ class CustomAuthorizer implements Authorizer
 {
     public function check(Authenticatable $user, array $permissions): bool
     {
-        if ($permissions === []) return true; // tool pública
+        if ($permissions === []) return true; // public tool
 
         return collect($permissions)->every(
             fn ($perm) => $this->companyAcl->isGranted($user, $perm),
@@ -167,29 +168,28 @@ class CustomAuthorizer implements Authorizer
 
 ---
 
-## 3. `ScopeResolver` — paso 4 (scope de datos)
+## 3. `ScopeResolver` — step 4 (data scope)
 
-Mapea `AccessScope` → lista de IDs de usuario cuyas filas el invocador puede
-ver.
+Maps `AccessScope` → a list of user IDs whose rows the caller may see.
 
 ### 3.1 Default `NullScopeResolver`
 
-El paquete bind por defecto un `NullScopeResolver`:
+The package binds a `NullScopeResolver` by default:
 
-| Scope | Comportamiento |
+| Scope | Behaviour |
 |---|---|
-| `Self` | devuelve `[user.id]` |
-| `Team` | lanza `ScopeResolverNotConfiguredException` |
-| `All` | lanza `ScopeResolverNotConfiguredException` |
+| `Self` | returns `[user.id]` |
+| `Team` | throws `ScopeResolverNotConfiguredException` |
+| `All` | throws `ScopeResolverNotConfiguredException` |
 
-**Política "falla ruidosamente"**: si una tool del host declara
-`defaultScope=Team` pero el host no implementa el resolver, el primer turno del
-LLM revienta con un mensaje claro ("ScopeResolver no configurado para Team")
-en lugar de devolver datos vacíos silenciosamente.
+**"Fail loudly" policy**: if a host tool declares `defaultScope=Team` but the
+host has not implemented a resolver, the first LLM turn throws with a clear
+message ("ScopeResolver not configured for Team") instead of silently returning
+empty data.
 
-### 3.2 Implementación host: receta
+### 3.2 Host implementation: recipe
 
-`chatbot:install` genera un stub en `app/Chatbot/Authorization/AppScopeResolver.php`:
+`chatbot:install` generates a stub at `app/Chatbot/Authorization/AppScopeResolver.php`:
 
 ```php
 namespace App\Chatbot\Authorization;
@@ -212,13 +212,13 @@ class AppScopeResolver implements ScopeResolver
 
     private function teamMemberIds(Authenticatable $user): array
     {
-        // Patrón "manager → equipo": el manager ve a los suyos + a sí mismo.
+        // "manager → team" pattern: the manager sees their reports + themselves.
         return $user->reports()->pluck('id')->prepend($user->getAuthIdentifier())->all();
     }
 }
 ```
 
-Y se registra:
+Register it:
 
 ```php
 // config/chatbot.php
@@ -227,9 +227,9 @@ Y se registra:
 ],
 ```
 
-### 3.3 Patrón "manager → equipo" paso a paso
+### 3.3 "Manager → team" pattern step by step
 
-**Modelo de dominio** (asumiendo tabla `users` con columna self-FK
+**Domain model** (assuming a `users` table with a self-referencing FK
 `manager_id`):
 
 ```php
@@ -238,43 +238,43 @@ public function manager() { return $this->belongsTo(User::class, 'manager_id'); 
 
 public function reports() { return $this->hasMany(User::class, 'manager_id'); }
 
-/** Recursivo: subordinados directos + indirectos. */
+/** Recursive: direct + indirect subordinates. */
 public function reportsTree()
 {
     return User::query()
-        ->whereDescendantOf($this) // si usas nested set / closure table
+        ->whereDescendantOf($this) // if using nested set / closure table
         ->orWhere('id', $this->id);
 }
 ```
 
-**ScopeResolver con jerarquía recursiva**:
+**ScopeResolver with recursive hierarchy**:
 
 ```php
 private function teamMemberIds(Authenticatable $user): array
 {
     return User::query()
-        ->whereIn('manager_id', $user->reports()->pluck('id')) // 2º nivel
-        ->orWhere('manager_id', $user->getAuthIdentifier())    // 1er nivel
+        ->whereIn('manager_id', $user->reports()->pluck('id')) // 2nd level
+        ->orWhere('manager_id', $user->getAuthIdentifier())    // 1st level
         ->orWhere('id', $user->getAuthIdentifier())            // self
         ->pluck('id')
         ->all();
 }
 ```
 
-> **Performance**: para árboles grandes (>100 nodos), considera materializar
-> la jerarquía en una tabla `team_members` o cachear en Redis. El resolver se
-> invoca en **cada tool call**; un `O(profundidad × N)` recursivo sin caché
-> puede dominar el wall-clock del turno.
+> **Performance**: for large trees (>100 nodes), consider materialising the
+> hierarchy in a `team_members` table or caching it in Redis. The resolver is
+> called on **every tool call**; an uncached `O(depth × N)` recursion can
+> dominate the turn's wall-clock time.
 
-### 3.4 Tooling para descubrir bugs
+### 3.4 Tooling to discover bugs
 
 ```bash
-# Lista todas las tools registradas y su scope default
+# List all registered tools and their default scope
 php artisan chatbot:tools:list
 ```
 
-Si una tool con `defaultScope=Team` aparece pero tu `AppScopeResolver` no
-implementa `Team` correctamente, en el primer turno del LLM verás:
+If a tool with `defaultScope=Team` appears but your `AppScopeResolver` does not
+implement `Team` correctly, on the first LLM turn you will see:
 
 ```
 Rnkr69\LaraChatbot\Authorization\Exceptions\ScopeResolverNotConfiguredException:
@@ -283,25 +283,24 @@ Rnkr69\LaraChatbot\Authorization\Exceptions\ScopeResolverNotConfiguredException:
 
 ---
 
-## 4. `TenantResolver` — paso 3 (gap cross-host)
+## 4. `TenantResolver` — step 3 (cross-host gap)
 
-> **Origen**: hosts multi-tenant (`corporation_id`) y entity-scoped
-> (`event_id`). 4ª dimensión cuando `permission/scope/ownership` no son
-> suficientes.
+> **Background**: multi-tenant hosts (`corporation_id`) and entity-scoped
+> hosts (`event_id`). A 4th dimension when `permission/scope/ownership` are
+> not sufficient.
 
-Mapea `(usuario, tool, pageContext)` → IDs de tenant accesibles.
+Maps `(user, tool, pageContext)` → accessible tenant IDs.
 
-| Retorno | Significado | Efecto en `accessibleQuery()` |
+| Return value | Meaning | Effect in `accessibleQuery()` |
 |---|---|---|
-| `null` | invocador tiene acceso a TODOS los tenants | NO se aplica `whereIn` por tenant |
-| `[]` | invocador no tiene acceso a NINGUNO | la cascada corta con `out_of_scope` antes de `handle()` |
-| `[id1, id2, …]` | acceso restringido a esos tenants | `whereIn(tenant_column, $ids)` |
+| `null` | caller has access to ALL tenants | no `whereIn` by tenant is applied |
+| `[]` | caller has access to NONE | cascade short-circuits with `out_of_scope` before `handle()` |
+| `[id1, id2, …]` | access restricted to those tenants | `whereIn(tenant_column, $ids)` |
 
-### 4.1 Cuándo declarar `tenantScope=true`
+### 4.1 When to declare `tenantScope=true`
 
-Una tool de tu host debe declararlo cuando lee/escribe sobre una tabla con
-columna de tenant **y** los tenants son sub-conjuntos de la organización (no
-todo el mundo ve todos):
+A host tool must declare it when it reads/writes a table with a tenant column
+**and** tenants are sub-sets of the organisation (not everyone sees everyone):
 
 ```php
 class ListEventAttendeesTool extends BaseBackendTool
@@ -321,7 +320,7 @@ class ListEventAttendeesTool extends BaseBackendTool
 }
 ```
 
-### 4.2 TenantResolver de ejemplo
+### 4.2 Example TenantResolver
 
 ```php
 namespace App\Chatbot\Authorization;
@@ -337,18 +336,18 @@ class CorporationTenantResolver implements TenantResolver
         BackendTool $tool,
         array $pageContext,
     ): ?array {
-        // 1) Admin global: ningún filtro.
+        // 1) Global admin: no filter.
         if ($user->hasRole('global_admin')) {
             return null;
         }
 
-        // 2) Si el page context tiene una corporación seleccionada, filtra a esa.
+        // 2) If page context contains a selected corporation, filter to it.
         if ($selected = $pageContext['corporation_id'] ?? null) {
             $allowed = $user->corporations()->pluck('id')->all();
             return in_array($selected, $allowed, strict: true) ? [$selected] : [];
         }
 
-        // 3) Caso general: todas las corporaciones del usuario.
+        // 3) General case: all corporations the user belongs to.
         return $user->corporations()->pluck('id')->all();
     }
 }
@@ -361,10 +360,10 @@ class CorporationTenantResolver implements TenantResolver
 ],
 ```
 
-### 4.3 Fail-fast al boot
+### 4.3 Fail-fast at boot
 
-Si una tool registrada declara `tenantScope=true` pero `chatbot.authorization.tenant_resolver`
-es `null`, el `ToolRegistry` lanza:
+If a registered tool declares `tenantScope=true` but
+`chatbot.authorization.tenant_resolver` is `null`, `ToolRegistry` throws:
 
 ```
 Rnkr69\LaraChatbot\Tools\Exceptions\MissingTenantResolverException:
@@ -372,10 +371,10 @@ Rnkr69\LaraChatbot\Tools\Exceptions\MissingTenantResolverException:
   TenantResolver registrado en chatbot.authorization.tenant_resolver.
 ```
 
-Esto sucede en el **boot** del provider (`php artisan serve` no arranca), no
-en runtime. Política "falla ruidosamente".
+This happens at provider **boot** (`php artisan serve` will not start), not at
+runtime. "Fail loudly" policy.
 
-### 4.4 Combinar tenant + scope
+### 4.4 Combining tenant + scope
 
 ```mermaid
 flowchart LR
@@ -386,16 +385,16 @@ flowchart LR
     Q --> R[whereIn user_id, ...userIds<br/>+ whereIn tenant_col, ...tenantIds]
 ```
 
-Ambos filtros se aplican en AND. Un manager con scope=Team que pertenece a las
-corporaciones [1,3] verá `WHERE user_id IN (123, 124, 125) AND corporation_id IN (1, 3)`.
+Both filters are applied with AND. A manager with scope=Team who belongs to
+corporations [1,3] will see `WHERE user_id IN (123, 124, 125) AND corporation_id IN (1, 3)`.
 
 ---
 
-## 5. Ownership puntual — paso 5
+## 5. Pointwise ownership — step 5
 
-`accessibleQuery()` filtra masivamente por usuario+tenant. Para verificar
-ownership de un registro **concreto** (`target_id` que llega del LLM), el
-patrón canónico es:
+`accessibleQuery()` filters broadly by user+tenant. To verify ownership of a
+**specific** record (`target_id` arriving from the LLM), the canonical pattern
+is:
 
 ```php
 public function handle(array $args, ToolContext $ctx): ToolResult
@@ -414,12 +413,13 @@ public function handle(array $args, ToolContext $ctx): ToolResult
 }
 ```
 
-> **Nunca** hagas `Invoice::find($args['target_id'])`. Saltarte
-> `accessibleQuery()` deshabilita la cascada y permite leer/mutar registros
-> ajenos. El `Authorizer::check` ha pasado, pero ese paso **no** valida
-> ownership puntual — sólo "puede invocar la tool en abstracto".
+> **Never** do `Invoice::find($args['target_id'])`. Bypassing
+> `accessibleQuery()` disables the cascade and allows reading/mutating records
+> that belong to others. `Authorizer::check` has already passed, but that step
+> does **not** validate pointwise ownership — it only checks "can invoke the
+> tool in the abstract".
 
-Si tu host tiene policies Laravel ya escritas:
+If your host already has Laravel policies:
 
 ```php
 if (! $ctx->user->can('update', $invoice)) {
@@ -427,37 +427,38 @@ if (! $ctx->user->can('update', $invoice)) {
 }
 ```
 
-Combinar `accessibleQuery` + `Gate::authorize` es seguro por construcción —
-el primer paso filtra por scope/tenant; el segundo aplica reglas de policy
-que no encajan en `whereIn` (e.g. "sólo si la factura no está cerrada").
+Combining `accessibleQuery` + `Gate::authorize` is safe by construction —
+the first step filters by scope/tenant; the second applies policy rules that
+don't fit in a `whereIn` (e.g. "only if the invoice is not closed").
 
 ---
 
-## 6. Filtrado del catálogo
+## 6. Catalogue filtering
 
-Antes de pasar el catálogo de tools al LLM, `ChatService::resolveTools()` filtra
-las tools cuyo `Authorizer::check($user, $tool->permissions())` devuelve `false`.
+Before passing the tool catalogue to the LLM, `ChatService::resolveTools()`
+filters out tools for which `Authorizer::check($user, $tool->permissions())`
+returns `false`.
 
-**Implicación**: el LLM nunca ve una tool que el usuario no puede invocar.
-Por tanto, no la sugerirá.
+**Implication**: the LLM never sees a tool the user cannot invoke, and
+therefore will never suggest it.
 
 ```mermaid
 flowchart LR
-    R[ToolRegistry: 25 tools] --> F{Authorizer::check<br/>por cada tool}
-    F -->|granted| L[LLM ve 17 tools]
-    F -->|denied| X[descartadas silenciosamente]
+    R[ToolRegistry: 25 tools] --> F{Authorizer::check<br/>for each tool}
+    F -->|granted| L[LLM sees 17 tools]
+    F -->|denied| X[silently discarded]
 ```
 
-Este filtrado **no** sustituye la cascada de autorización: si una tool fue
-filtrada por error y aun así llega un `tool_call` (improbable pero defensivo),
-`BaseBackendTool::execute()` la corta con `unauthorized`.
+This filtering does **not** replace the authorization cascade: if a tool were
+incorrectly passed through and a `tool_call` still arrives (unlikely but
+defensive), `BaseBackendTool::execute()` will cut it with `unauthorized`.
 
 ---
 
-## 7. Eventos de auditoría
+## 7. Audit events
 
-Tras cada invocación (incluyendo errores `unauthorized`/`out_of_scope`), el
-orquestador emite `Rnkr69\LaraChatbot\Events\ToolInvoked`. Engánchalo desde
+After every invocation (including `unauthorized`/`out_of_scope` errors), the
+orchestrator emits `Rnkr69\LaraChatbot\Events\ToolInvoked`. Listen to it from
 `AppServiceProvider::boot()`:
 
 ```php
@@ -474,37 +475,36 @@ Event::listen(\Rnkr69\LaraChatbot\Events\ToolInvoked::class, function ($event) {
 });
 ```
 
-> Para escenarios con datos sensibles, redacta los `args` antes de loguear.
-> El paquete no aplica redaction automática.
+> For scenarios with sensitive data, redact `args` before logging.
+> The package does not apply automatic redaction.
 
 ---
 
-## 8. Checklist de revisión de seguridad
+## 8. Security review checklist
 
-- [ ] Cada tool declara `permissions()` no-vacía si tiene efectos.
-- [ ] `Authorizer` configurado correctamente (`spatie`/`gate`/custom),
-      verificable con `chatbot:test-connection` + un mensaje del usuario que
-      dispare una tool.
-- [ ] `ScopeResolver` implementa `Self`/`Team`/`All` (o lanza si tu app no usa
-      uno de los scopes — conscientemente, no por olvido).
-- [ ] Tools que tocan tablas con columna tenant declaran `tenantScope=true`
-      y pasan `tenantColumn:` al `accessibleQuery()`.
-- [ ] `TenantResolver` registrado en `config/chatbot.php` si **al menos una**
-      tool declara `tenantScope=true`.
-- [ ] Tools con `target_id` validan ownership con
-      `accessibleQuery()->where('id', …)->first()` antes de mutar.
-- [ ] Listener de `ToolInvoked` registrado para auditoría.
-- [ ] Tests cubriendo: usuario sin permiso, usuario con permiso pero scope
-      vacío, ownership ajeno (otro user / tenant). Ver
-      [`testing.md`](testing.md) para patrones.
+- [ ] Every tool declares a non-empty `permissions()` if it has side effects.
+- [ ] `Authorizer` correctly configured (`spatie`/`gate`/custom),
+      verifiable with `chatbot:test-connection` + a user message that triggers
+      a tool.
+- [ ] `ScopeResolver` implements `Self`/`Team`/`All` (or throws if your app
+      does not use one of the scopes — intentionally, not by omission).
+- [ ] Tools that touch tables with a tenant column declare `tenantScope=true`
+      and pass `tenantColumn:` to `accessibleQuery()`.
+- [ ] `TenantResolver` registered in `config/chatbot.php` if **at least one**
+      tool declares `tenantScope=true`.
+- [ ] Tools with a `target_id` validate ownership with
+      `accessibleQuery()->where('id', …)->first()` before mutating.
+- [ ] `ToolInvoked` listener registered for auditing.
+- [ ] Tests covering: user without permission, user with permission but empty
+      scope, foreign ownership (different user / tenant). See
+      [`testing.md`](testing.md) for patterns.
 
 ---
 
-## 9. Referencias
+## 9. References
 
-- Contratos: `src/Authorization/Contracts/{Authorizer,ScopeResolver,TenantResolver}.php`.
-- Implementaciones default: `src/Authorization/{SpatieAuthorizer,GateAuthorizer,NullScopeResolver}.php`.
-- Trait que aplica la cascada: `src/Authorization/Concerns/AuthorizesToolAccess.php`.
-- Excepciones: `src/Authorization/Exceptions/{ScopeResolverNotConfiguredException,ToolUnauthorizedException}.php`.
-- Doc del contrato `BackendTool`: [`backend-tools.md`](backend-tools.md).
-- Decisión de diseño: ROADMAP §2.4 + PROJECT_DEFINITION §8.2.
+- Contracts: `src/Authorization/Contracts/{Authorizer,ScopeResolver,TenantResolver}.php`.
+- Default implementations: `src/Authorization/{SpatieAuthorizer,GateAuthorizer,NullScopeResolver}.php`.
+- Trait that applies the cascade: `src/Authorization/Concerns/AuthorizesToolAccess.php`.
+- Exceptions: `src/Authorization/Exceptions/{ScopeResolverNotConfiguredException,ToolUnauthorizedException}.php`.
+- `BackendTool` contract doc: [`backend-tools.md`](backend-tools.md).

@@ -1,58 +1,56 @@
 # Getting Started
 
-> **Nota sobre versiones**: este documento contiene referencias internas
-> (`v1.x`, `v2.x`, finding `#N`) a milestones del periodo pre-0.4, no a
-> releases públicas. La release actual es `0.4.0`; toda la funcionalidad
-> descrita aquí está disponible en ella.
+*English · [Español](getting-started.es.md)*
 
-> Guía end-to-end del integrador. Si eres dev de un proyecto Laravel y necesitas
-> levantar `rnkr69/lara-chatbot` en una tarde sin pedir ayuda, este es tu sitio.
+> End-to-end integrator guide. If you are a developer on a Laravel project and need
+> to get `rnkr69/lara-chatbot` running in an afternoon without asking for help,
+> this is your place.
 >
-> Pre-requisitos cubiertos en [Requisitos](#1-requisitos). Si ya pasaste por
-> `composer require rnkr69/lara-chatbot` y `chatbot:install`, salta al
-> [Hola mundo](#3-hola-mundo-tu-primera-conversacion) o al
-> [Primera tool end-to-end](#5-primera-tool-end-to-end).
+> Prerequisites are covered in [Requirements](#1-requirements). If you have already
+> run `composer require rnkr69/lara-chatbot` and `chatbot:install`, jump to
+> [Hello world](#3-hello-world-your-first-conversation) or
+> [First tool end-to-end](#5-first-tool-end-to-end).
 
 ---
 
-## 1. Requisitos
+## 1. Requirements
 
-| Componente | Versión | Notas |
+| Component | Version | Notes |
 |---|---|---|
-| PHP | `^8.2` | Testeado en 8.2 / 8.3 / 8.4. Requiere `ext-pdo`, `ext-json`, `ext-mbstring`. |
-| Laravel | `^11.0` o `^12.0` | El paquete soporta las dos últimas mayors. |
-| Base de datos | MySQL ≥ 8.0, PostgreSQL ≥ 13, SQLite | Cualquier driver soportado por Eloquent + JSON columns. |
-| LLM provider | Anthropic / OpenAI / Groq / Gemini / Mistral / Ollama | Cualquiera soportado por [Prism](https://github.com/prism-php/prism). |
-| Node + npm | `node ≥ 20`, `npm ≥ 10` | Sólo si vas a customizar el widget; el bundle precompilado se publica vía `vendor:publish --tag=chatbot-assets`. |
+| PHP | `^8.2` | Tested on 8.2 / 8.3 / 8.4. Requires `ext-pdo`, `ext-json`, `ext-mbstring`. |
+| Laravel | `^11.0` or `^12.0` | The package supports the two latest major versions. |
+| Database | MySQL ≥ 8.0, PostgreSQL ≥ 13, SQLite | Any driver supported by Eloquent + JSON columns. |
+| LLM provider | Anthropic / OpenAI / Groq / Gemini / Mistral / Ollama | Any provider supported by [Prism](https://github.com/prism-php/prism). |
+| Node + npm | `node ≥ 20`, `npm ≥ 10` | Only if you plan to customise the widget; the precompiled bundle is published via `vendor:publish --tag=chatbot-assets`. |
 
-**Instalación desde el repositorio.** El paquete se consume vía un repositorio
-VCS de Composer apuntando a `https://github.com/rnkr69/lara-chatbot.git` (ver
-§2.1). Detalle de alternativas Satis / Packeton / Private Packagist en
+**Installing from the repository.** The package is consumed via a Composer VCS
+repository pointing to `https://github.com/rnkr69/lara-chatbot.git` (see §2.1).
+Details on Satis / Packeton / Private Packagist alternatives in
 [`distribution.md`](distribution.md).
 
-**Ruta de login del host.** El paquete monta `/chatbot*` detrás del middleware
-`auth` (`chatbot.route.middleware`). Cuando un usuario sin sesión accede a una
-de esas rutas, el guard `auth` de Laravel redirige a la ruta **nombrada `login`**.
-Si tu host no la define —Backpack, por ejemplo, registra `backpack.auth.login`,
-no `login`— la petición revienta con `RouteNotFoundException: Route [login] not
-defined` → **HTTP 500** en vez de un redirect limpio al login. Define una ruta
-`login`, **o** configura `redirectGuestsTo()` en `bootstrap/app.php`:
+**Host login route.** The package mounts `/chatbot*` behind the `auth` middleware
+(`chatbot.route.middleware`). When an unauthenticated user accesses one of those
+routes, Laravel's `auth` guard redirects to the **named route `login`**.
+If your host does not define it — Backpack, for example, registers
+`backpack.auth.login`, not `login` — the request explodes with
+`RouteNotFoundException: Route [login] not defined` → **HTTP 500** instead of a
+clean redirect to login. Define a `login` route, **or** configure
+`redirectGuestsTo()` in `bootstrap/app.php`:
 
 ```php
 ->withMiddleware(function (Middleware $middleware) {
-    // Apunta a la ruta de login real del host (Backpack, Filament, custom…).
+    // Point to the host's actual login route (Backpack, Filament, custom…).
     $middleware->redirectGuestsTo(fn () => route('backpack.auth.login'));
 })
 ```
 
-Afecta a cualquier ruta `auth` del host, no sólo a las del chatbot — pero v2.0
-lo hace evidente al exponer un link directo a `/chatbot/dashboard` en el nav.
+This affects any `auth` route in the host, not only the chatbot routes.
 
 ---
 
-## 2. Instalación rápida
+## 2. Quick installation
 
-### 2.1 Declarar el repositorio en `composer.json`
+### 2.1 Declare the repository in `composer.json`
 
 ```json
 {
@@ -70,25 +68,25 @@ lo hace evidente al exponer un link directo a `/chatbot/dashboard` en el nav.
 
 ### Laravel 11
 
-El paquete **permite** Laravel 11 (`illuminate/* ^11.0|^12.0`), pero Laravel 11
-alcanzó su **fin de soporte de seguridad (~marzo 2026)**: toda la línea `11.x`
-arrastra un advisory sin parchear. Las versiones recientes de Composer bloquean
-por defecto la instalación de paquetes marcados con advisories (`audit.block-insecure`),
-así que **una instalación limpia sobre Laravel 11 falla** con un error tipo
+The package **supports** Laravel 11 (`illuminate/* ^11.0|^12.0`), but Laravel 11
+reached its **end of security support (~March 2026)**: the entire `11.x` line
+carries an unpatched advisory. Recent versions of Composer block installation of
+packages flagged with advisories (`audit.block-insecure`) by default, so **a clean
+install on Laravel 11 fails** with an error like
 `… not loaded, because they are affected by security advisories`.
 
-Recomendación: **usa Laravel 12**. Si aun así necesitas correr sobre Laravel 11
-y aceptas el riesgo de un framework sin parches de seguridad, desactiva el bloqueo
-en tu app host antes de instalar:
+Recommendation: **use Laravel 12**. If you still need to run on Laravel 11 and
+accept the risk of an unpatched framework, disable the block in your host app
+before installing:
 
 ```bash
-# opción A — config de Composer del proyecto host
+# option A — Composer config of the host project
 composer config audit.block-insecure false
 composer update rnkr69/lara-chatbot
 ```
 
 ```json
-// opción B — en el composer.json del host
+// option B — in the host's composer.json
 {
     "config": {
         "audit": { "block-insecure": false }
@@ -96,66 +94,67 @@ composer update rnkr69/lara-chatbot
 }
 ```
 
-Esto es decisión del host, no del paquete: solo afecta a cómo Composer trata los
-advisories en tu proyecto. La CI del paquete prueba únicamente Laravel 12 por este
-motivo.
+This is the host's decision, not the package's: it only affects how Composer
+handles advisories in your project. The package CI tests only Laravel 12 for
+this reason.
 
-### 2.2 Instalar y ejecutar el wizard
+### 2.2 Install and run the wizard
 
 ```bash
 composer update rnkr69/lara-chatbot
 php artisan chatbot:install
 ```
 
-El wizard `chatbot:install` te guía a través de 9 pasos idempotentes:
+The `chatbot:install` wizard guides you through 9 idempotent steps:
 
-1. **Publicar config** (`config/chatbot.php`).
-2. **Publicar migraciones** (2 tablas: `chatbot_conversations`, `chatbot_messages`,
+1. **Publish config** (`config/chatbot.php`).
+2. **Publish migrations** (3 tables: `chatbot_conversations`, `chatbot_messages`,
    `chatbot_pending_actions`).
-3. **Publicar vistas** (`system_prompt.blade.php`, `page.blade.php`).
-4. **Publicar lang** (`en/`, `es/`).
-5. **Provider + modelo del LLM** — elige uno de los 6 presets, escribe la API key
-   en `.env`. Si la key ya existe en `.env`, **se preserva** (no se sobrescribe).
-6. **Detectar Spatie** — si `spatie/laravel-permission` está instalado, propone
-   `SpatieAuthorizer`; si no, default `gate`.
-7. **Stub `ScopeResolver`** — genera `app/Chatbot/Authorization/AppScopeResolver.php`
-   con el patrón `Self|Team|All`.
-8. **Opt-in `TenantResolver`** — si tu app necesita una 4ª dimensión de aislamiento
-   (corporación, evento, espacio…), el wizard genera el stub.
-9. **Opt-in `ListMyInvoicesTool`**, **`system_prompt_addendum.blade.php`** y
-   **layout injection** del snippet `<chatbot-widget>`.
+3. **Publish views** (`system_prompt.blade.php`, `page.blade.php`).
+4. **Publish lang** (`en/`, `es/`).
+5. **LLM provider + model** — choose one of the 6 presets and write the API key
+   in `.env`. If the key already exists in `.env`, it is **preserved** (not overwritten).
+6. **Detect Spatie** — if `spatie/laravel-permission` is installed, proposes
+   `SpatieAuthorizer`; otherwise defaults to `gate`.
+7. **Stub `ScopeResolver`** — generates `app/Chatbot/Authorization/AppScopeResolver.php`
+   with the `Self|Team|All` pattern.
+8. **Opt-in `TenantResolver`** — if your app needs a 4th isolation dimension
+   (corporation, event, space…), the wizard generates the stub.
+9. **Opt-in `ListMyInvoicesTool`**, **`system_prompt_addendum.blade.php`** and
+   **layout injection** of the `<chatbot-widget>` snippet.
 
-**Modos del wizard:**
+**Wizard modes:**
 
 ```bash
-php artisan chatbot:install                  # interactivo
-php artisan chatbot:install --no-interaction # defaults seguros (no toca código del host)
-php artisan chatbot:install --force          # sobrescribe publishables existentes
+php artisan chatbot:install                  # interactive
+php artisan chatbot:install --no-interaction # safe defaults (does not touch host code)
+php artisan chatbot:install --force          # overwrites existing publishables
 ```
 
-### 2.3 Migrar
+### 2.3 Migrate
 
 ```bash
 php artisan migrate
 ```
 
-### 2.4 Verificar conexión LLM
+### 2.4 Verify LLM connection
 
 ```bash
 php artisan chatbot:test-connection
 ```
 
-Lanza un `ping` → `pong` contra el provider configurado. Si falla, ver
-[`troubleshooting.md`](troubleshooting.md#l1-fallos-de-conexion-llm).
+Sends a `ping` → `pong` against the configured provider. If it fails, see
+[`troubleshooting.md`](troubleshooting.md).
 
 ---
 
-## 3. Hola mundo: tu primera conversación
+## 3. Hello world: your first conversation
 
-### 3.1 Inyectar el widget
+### 3.1 Inject the widget
 
-Si **no** marcaste "layout injection" en el wizard, añade manualmente el snippet
-antes de `</body>` en tu layout principal (`resources/views/layouts/app.blade.php`):
+If you did **not** select "layout injection" in the wizard, manually add the
+snippet before `</body>` in your main layout
+(`resources/views/layouts/app.blade.php`):
 
 ```blade
 {{-- chatbot:widget --}}
@@ -167,21 +166,20 @@ antes de `</body>` en tu layout principal (`resources/views/layouts/app.blade.ph
 <script src="{{ asset('vendor/chatbot/chatbot-widget.js') }}" defer></script>
 ```
 
-> Si no ves `vendor/chatbot/chatbot-widget.js` en `public/`, ejecuta
+> If you do not see `vendor/chatbot/chatbot-widget.js` under `public/`, run
 > `php artisan vendor:publish --tag=chatbot-assets`.
 
-#### Hosts MPA y rehidratación del historial
+#### MPA hosts and history rehydration
 
-Si tu layout monta `<chatbot-widget>` en una app **MPA** (Laravel server-rendered,
-Backpack, WordPress admin, cualquier shell que recarga el HTML al navegar), el
-widget se vuelve a montar en cada página. Para que el historial del chat
-sobreviva a esas navegaciones, el bundle necesita poder resolver el endpoint
-de conversaciones.
+If your layout mounts `<chatbot-widget>` in an **MPA** app (Laravel
+server-rendered, Backpack, WordPress admin, any shell that reloads the HTML on
+navigation), the widget remounts on every page. For the chat history to survive
+those navigations, the bundle needs to resolve the conversations endpoint.
 
-Por defecto **deriva** la URL de `data-endpoint` cambiando `/stream` por
-`/conversations` (el patrón canónico que sirve el paquete), así que el snippet
-de arriba funciona tal cual. Si tus rutas no siguen ese patrón (prefijo custom,
-subdominio, route name remapped), declara el atributo explícito:
+By default it **derives** the URL from `data-endpoint` by replacing `/stream`
+with `/conversations` (the canonical pattern served by the package), so the
+snippet above works as-is. If your routes do not follow that pattern (custom
+prefix, subdomain, remapped route name), declare the explicit attribute:
 
 ```blade
 <chatbot-widget
@@ -192,14 +190,14 @@ subdominio, route name remapped), declara el atributo explícito:
 </chatbot-widget>
 ```
 
-Cuando el atributo explícito está presente siempre gana sobre la deriva. Ver
-[`WIDGET.md`](WIDGET.md#atributos-del-web-component) para la tabla completa.
+When the explicit attribute is present it always wins over the derived URL. See
+[`WIDGET.md`](WIDGET.md) for the full attribute reference.
 
-#### Sincronizar el modo claro/oscuro con el toggle del host
+#### Syncing light/dark mode with the host toggle
 
-Si tu admin tiene un selector light/dark (Backpack-Tabler, Tabler standalone,
-AdminLTE, Filament — cualquier shell que escribe `<html data-bs-theme>`) y
-quieres que el widget acompañe al resto del chrome, añade `data-theme="auto"`:
+If your admin has a light/dark selector (Backpack-Tabler, standalone Tabler,
+AdminLTE, Filament — any shell that writes `<html data-bs-theme>`) and you want
+the widget to follow the rest of the chrome, add `data-theme="auto"`:
 
 ```blade
 <chatbot-widget
@@ -210,35 +208,34 @@ quieres que el widget acompañe al resto del chrome, añade `data-theme="auto"`:
 </chatbot-widget>
 ```
 
-En `auto` (default desde v2.2.2) el widget resuelve el modo en este orden:
-(1) `<html data-bs-theme>` si el host lo declara, (2) `prefers-color-scheme`
-del SO. Además observa cambios runtime de ambas señales — el usuario pulsa
-el icono del topbar, el widget se actualiza al instante sin reload. Para
-forzar un modo concreto independientemente del host, declara
-`data-theme="light"` o `data-theme="dark"`.
+In `auto` mode (default since v2.2.2) the widget resolves the mode in this order:
+(1) `<html data-bs-theme>` if the host declares it, (2) the OS `prefers-color-scheme`.
+It also observes runtime changes to both signals — the user clicks the topbar icon
+and the widget updates instantly without a reload. To force a specific mode
+regardless of the host, declare `data-theme="light"` or `data-theme="dark"`.
 
-#### Registrar host hooks sin race con `defer`
+#### Registering host hooks without a race with `defer`
 
-Cuando cargas `chatbot-widget.js` con `defer` y un segundo script del host (con
-`registerTool`, `registerBlockRenderer`, `registerNavigator`…) también con `defer`,
-ambos esperan a `DOMContentLoaded` y se ejecutan en orden. Si el bundle ya
-inicializó la API y emitió `chatbot:ready` antes de que el segundo script
-adjunte su listener, el listener nunca se dispara.
+When you load `chatbot-widget.js` with `defer` and a second host script (with
+`registerTool`, `registerBlockRenderer`, `registerNavigator`…) also with `defer`,
+both wait for `DOMContentLoaded` and execute in order. If the bundle already
+initialised the API and emitted `chatbot:ready` before the second script attaches
+its listener, the listener never fires.
 
-Desde **v1.1** la API expone `whenReady(cb)` que evita esa carrera con
-double-check interno (si la API ya está lista, defiere `cb` a un microtask;
-si no, escucha el evento `chatbot:ready` con `{once: true}`):
+Since **v1.1** the API exposes `whenReady(cb)`, which avoids that race with an
+internal double-check (if the API is already ready, it defers `cb` to a microtask;
+if not, it listens for the `chatbot:ready` event with `{once: true}`):
 
 ```js
-// resources/js/chatbot-actions.js (cargado con defer detrás del bundle)
+// resources/js/chatbot-actions.js (loaded with defer after the bundle)
 window.Chatbot.whenReady(() => {
   window.Chatbot.registerTool('open_invoice_drawer', /* … */);
   window.Chatbot.registerNavigator(/* … */);
 });
 ```
 
-Si tu script se carga **antes** que el bundle (poco común), `window.Chatbot`
-todavía no existe — usa el evento directamente:
+If your script loads **before** the bundle (uncommon), `window.Chatbot` does not
+exist yet — use the event directly:
 
 ```js
 document.addEventListener('chatbot:ready', () => {
@@ -246,46 +243,45 @@ document.addEventListener('chatbot:ready', () => {
 }, { once: true });
 ```
 
-### 3.2 Probar
+### 3.2 Test it
 
-1. Abre tu app autenticado (rutas con middleware `auth` por default).
-2. Click en el FAB del widget (esquina inferior derecha).
-3. Escribe "hola".
+1. Open your app while authenticated (routes use the `auth` middleware by default).
+2. Click the widget FAB (bottom-right corner).
+3. Type "hello".
 
-Si el bot responde, está funcionando. **Si no responde**, ver
-[`troubleshooting.md`](troubleshooting.md#m1-el-widget-aparece-pero-no-responde).
+If the bot responds, it is working. **If it does not respond**, see
+[`troubleshooting.md`](troubleshooting.md).
 
 ---
 
-## 4. Cómo funciona
+## 4. How it works
 
-> Cuatro flujos cubren el 95% de las interacciones. Los diagramas siguientes son
-> deliberadamente compactos; el detalle técnico vive en `LARA_CHATBOT_ROADMAP.md`
-> §1–2.
+> Four flows cover 95% of interactions. The following diagrams are deliberately
+> compact; technical detail lives in the documentation for each component.
 
-### 4.1 Chat simple (sin tools)
+### 4.1 Simple chat (no tools)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as Usuario
+    participant U as User
     participant W as Widget
     participant C as ChatController
     participant S as ChatService
     participant L as Prism / LLM
-    U->>W: escribe "hola"
+    U->>W: types "hello"
     W->>C: POST /chatbot/stream (SSE)
     C->>S: handle(prompt, ctx)
     S->>L: chat (system + history + user msg)
     L-->>S: stream tokens
-    loop por cada token
+    loop for each token
         S-->>C: yield delta
         C-->>W: event: delta
-        W-->>U: render incremental
+        W-->>U: incremental render
     end
     S-->>C: yield done(usage)
     C-->>W: event: done
-    Note over S: persiste assistant message
+    Note over S: persists assistant message
 ```
 
 ### 4.2 Tool call (Backend)
@@ -293,25 +289,25 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as Usuario
+    participant U as User
     participant W as Widget
     participant S as ChatService
     participant A as Authorizer
     participant T as Tool (BackendTool)
     participant L as Prism / LLM
-    U->>W: "¿cuántas facturas pendientes tengo?"
+    U->>W: "how many pending invoices do I have?"
     W->>S: POST /chatbot/stream
-    S->>L: chat con catálogo de tools (filtrado por permisos)
+    S->>L: chat with tool catalogue (filtered by permissions)
     L-->>S: tool_call(name=list_my_invoices, args)
     S->>A: check(user, tool.permissions)
     A-->>S: granted
     S->>T: execute(args, ctx)
-    Note over T: 1) validar args<br/>2) cascada permission/scope/tenant<br/>3) handle()
+    Note over T: 1) validate args<br/>2) permission/scope/tenant cascade<br/>3) handle()
     T-->>S: ToolResult::success({items})
     S-->>W: event: tool_call
     S-->>W: event: tool_result
-    S->>L: chat con tool_result inyectado
-    L-->>S: stream tokens (respuesta natural)
+    S->>L: chat with injected tool_result
+    L-->>S: stream tokens (natural language response)
     S-->>W: event: delta x N
     S-->>W: event: done
 ```
@@ -321,71 +317,71 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as Usuario
+    participant U as User
     participant W as Widget
     participant S as ChatService
     participant L as Prism / LLM
-    U->>W: "llévame al detalle de la factura 42"
+    U->>W: "take me to invoice 42"
     W->>S: POST /chatbot/stream
-    S->>L: chat con catálogo (incluye `navigate`)
+    S->>L: chat with catalogue (includes `navigate`)
     L-->>S: tool_call(name=navigate, args={url:"/invoices/42"})
-    Note over S: instanceof FrontendTool<br/>=> ramifica
-    S->>S: execute() valida + autoriza<br/>(handle() devuelve success([]) por default)
+    Note over S: instanceof FrontendTool<br/>=> branches
+    S->>S: execute() validates + authorises<br/>(handle() returns success([]) by default)
     S-->>W: event: frontend_action {tool, args, action_id, confirmation:auto}
-    Note over W: cascade:<br/>1) registerTool host?<br/>2) primitiva interna<br/>3) builtin (navigate)
+    Note over W: cascade:<br/>1) host registerTool?<br/>2) internal primitive<br/>3) builtin (navigate)
     W->>U: SPA: Inertia visit /invoices/42
     S-->>W: event: tool_result (status:queued)
-    S->>L: chat con tool_result
-    L-->>S: stream "Te llevo a la factura 42…"
+    S->>L: chat with tool_result
+    L-->>S: stream "Taking you to invoice 42…"
     S-->>W: event: delta x N
     S-->>W: event: done
 ```
 
-### 4.4 Confirmación de usuario (`confirmation=confirm`/`manual`)
+### 4.4 User confirmation (`confirmation=confirm`/`manual`)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as Usuario
+    participant U as User
     participant W as Widget
     participant S as ChatService
     participant P as PendingActionStore
     participant L as Prism / LLM
-    U->>W: "borra el comentario 17"
+    U->>W: "delete comment 17"
     W->>S: POST /chatbot/stream
     S->>L: chat
     L-->>S: tool_call(name=delete_comment_fe, confirmation=confirm)
     S->>P: store(pending, expires_at=+10min)
     S-->>W: event: frontend_action {action_id, confirmation:confirm}
     S-->>L: tool_result(status:awaiting_user)
-    L-->>S: "¿Confirmas borrar el comentario 17?"
+    L-->>S: "Do you confirm deleting comment 17?"
     S-->>W: event: delta + done
-    Note over W: banner "Confirmar / Cancelar"<br/>sobre el mensaje del asistente
-    U->>W: click "Confirmar"
+    Note over W: "Confirm / Cancel" banner<br/>above the assistant message
+    U->>W: click "Confirm"
     W->>S: POST /chatbot/actions/{action_id}/confirm {accept:true}
     S->>P: transition(pending → confirmed)
-    Note over W: ejecuta primitiva localmente
+    Note over W: executes primitive locally
     W->>S: POST /chatbot/actions/{action_id}/confirm {accept:true,result:{done:true}}
     S->>P: transition(confirmed → executed)
-    Note over S: Próximo turno: el LLM ve `## Pending actions` actualizado
+    Note over S: Next turn: LLM sees updated `## Pending actions`
 ```
 
-> **Backend tools en v1**: sólo soportan `confirmation=auto`. Para "confirmación
-> dura" en backend, declara una **frontend tool** con `confirmation=confirm` que
-> dispare la backend tool al confirmarse. Detalle en
+> **Backend tools**: only support `confirmation=auto`. For a hard confirmation in
+> the backend, declare a **frontend tool** with `confirmation=confirm` that triggers
+> the backend tool upon confirmation. Details in
 > [`confirmation-flow.md`](confirmation-flow.md).
 
 ---
 
-## 5. Primera tool end-to-end
+## 5. First tool end-to-end
 
-> Vamos a construir `ListMyInvoicesTool`: el LLM puede llamarla para enumerar las
-> facturas accesibles al usuario. Tiempo objetivo: 10 minutos.
+> We are going to build `ListMyInvoicesTool`: the LLM can call it to list the
+> invoices accessible to the current user. Target time: 10 minutes.
 
-### 5.1 Modelo de dominio (mock)
+### 5.1 Domain model (mock)
 
-Asumimos que tienes un modelo `App\Models\Invoice` con columnas
-`id, user_id, status, total, created_at`. Si no lo tienes, puedes generarlo con:
+We assume you have an `App\Models\Invoice` model with columns
+`id, user_id, status, total, created_at`. If you do not, generate it with:
 
 ```bash
 php artisan make:model Invoice --migration
@@ -402,13 +398,13 @@ Schema::create('invoices', function (Blueprint $table) {
 });
 ```
 
-### 5.2 Stub de la tool
+### 5.2 Tool stub
 
 ```bash
 php artisan chatbot:make:tool ListMyInvoices
 ```
 
-Genera `app/Chatbot/Tools/ListMyInvoicesTool.php`. Ábrelo y rellena:
+Generates `app/Chatbot/Tools/ListMyInvoicesTool.php`. Open it and fill in:
 
 ```php
 namespace App\Chatbot\Tools;
@@ -425,7 +421,7 @@ class ListMyInvoicesTool extends BaseBackendTool
 
     public function description(): string
     {
-        return 'Lista las facturas accesibles al usuario actual con filtros opcionales.';
+        return 'Lists the invoices accessible to the current user with optional filters.';
     }
 
     public function parameters(): array
@@ -436,11 +432,11 @@ class ListMyInvoicesTool extends BaseBackendTool
                 'status' => [
                     'type' => 'string',
                     'enum' => ['paid', 'pending', 'cancelled'],
-                    'description' => 'Filtra por estado.',
+                    'description' => 'Filter by status.',
                 ],
                 'limit' => [
                     'type' => 'integer',
-                    'description' => 'Máximo de filas (default 20, máx 100).',
+                    'description' => 'Maximum number of rows (default 20, max 100).',
                 ],
             ],
             'required' => [],
@@ -464,9 +460,9 @@ class ListMyInvoicesTool extends BaseBackendTool
 }
 ```
 
-### 5.3 Permiso
+### 5.3 Permission
 
-Si tu app usa **Spatie**, da el permiso al rol relevante:
+If your app uses **Spatie**, grant the permission to the relevant role:
 
 ```php
 // database/seeders/RoleSeeder.php
@@ -474,16 +470,17 @@ $role = Role::firstOrCreate(['name' => 'employee']);
 $role->givePermissionTo('invoices.view');
 ```
 
-Si tu app usa **Gate**, regístralo en `AuthServiceProvider`:
+If your app uses **Gate**, register it in `AuthServiceProvider`:
 
 ```php
-Gate::define('invoices.view', fn ($user) => true); // política según tu app
+Gate::define('invoices.view', fn ($user) => true); // policy per your app
 ```
 
-### 5.4 ScopeResolver del host
+### 5.4 Host ScopeResolver
 
-El stub generado en `chatbot:install` (`app/Chatbot/Authorization/AppScopeResolver.php`)
-ya resuelve `Self → [user.id]`. Para `Team` (managers), edita:
+The stub generated by `chatbot:install`
+(`app/Chatbot/Authorization/AppScopeResolver.php`) already resolves
+`Self → [user.id]`. For `Team` (managers), edit:
 
 ```php
 public function resolveTeam($user): array
@@ -492,39 +489,39 @@ public function resolveTeam($user): array
 }
 ```
 
-Detalle completo en [`authorization.md`](authorization.md).
+Full details in [`authorization.md`](authorization.md).
 
-### 5.5 Probar
+### 5.5 Test it
 
 ```text
-Tú: ¿qué facturas tengo pendientes?
-Bot: Tienes 3 facturas pendientes:
-     - #105 — 1.250 € (hace 2 días)
-     - #112 — 890 € (hace 5 horas)
-     - #118 — 320 € (hace 1 hora)
-     ¿Quieres ver el detalle de alguna?
+You: what pending invoices do I have?
+Bot: You have 3 pending invoices:
+     - #105 — €1,250 (2 days ago)
+     - #112 — €890 (5 hours ago)
+     - #118 — €320 (1 hour ago)
+     Would you like to see the detail of any of them?
 ```
 
-> **No aparece la tool en el catálogo**: revisa `chatbot.tools.auto_discover=true`
-> y `chatbot.tools.paths=['app/Chatbot/Tools']`. Verifica con
+> **Tool does not appear in the catalogue**: check `chatbot.tools.auto_discover=true`
+> and `chatbot.tools.paths=['app/Chatbot/Tools']`. Verify with
 > `php artisan chatbot:tools:list`.
 >
-> **El LLM no la usa aunque exista**: ajusta `description()` para que sea claro
-> *cuándo* invocarla. El LLM elige tools por la descripción.
+> **The LLM does not use it even though it exists**: refine `description()` to make
+> it clear *when* it should be invoked. The LLM selects tools based on the description.
 
 ---
 
-## 6. Primera frontend tool
+## 6. First frontend tool
 
-> Frontend tools son tools que el LLM "razona" como cualquier otra pero cuyo
-> efecto material lo materializa el widget en el navegador. Catálogo built-in:
+> Frontend tools are tools that the LLM "reasons about" like any other, but whose
+> material effect is executed by the widget in the browser. Built-in catalogue:
 > `navigate`, `toggle_visibility`, `fill_form`, `show_toast`, `open_modal`,
 > `render_block`, `invoke_host_action`, `download_file`.
 >
-> Para acciones específicas de tu app que no encajen en las primitivas, usa
-> `invoke_host_action` + un handler JS:
+> For app-specific actions that do not fit the built-in primitives, use
+> `invoke_host_action` + a JS handler:
 
-### 6.1 Tool PHP (shim)
+### 6.1 PHP tool (shim)
 
 ```php
 namespace App\Chatbot\Tools;
@@ -536,7 +533,7 @@ class OpenInvoiceDrawerTool extends BaseFrontendTool
     public function name(): string { return 'open_invoice_drawer'; }
     public function description(): string
     {
-        return 'Abre el drawer lateral con el detalle de una factura por su id.';
+        return 'Opens the side drawer with the detail of an invoice by its id.';
     }
     public function parameters(): array
     {
@@ -552,9 +549,9 @@ class OpenInvoiceDrawerTool extends BaseFrontendTool
 }
 ```
 
-### 6.2 Handler JS
+### 6.2 JS handler
 
-En tu bundle principal (`resources/js/app.ts` o donde montes el widget):
+In your main bundle (`resources/js/app.ts` or wherever you mount the widget):
 
 ```javascript
 window.Chatbot.registerTool('open_invoice_drawer', async ({ invoice_id }) => {
@@ -567,57 +564,57 @@ window.Chatbot.registerTool('open_invoice_drawer', async ({ invoice_id }) => {
 });
 ```
 
-Detalle completo en [`FRONTEND_TOOLS.md`](FRONTEND_TOOLS.md).
+Full details in [`FRONTEND_TOOLS.md`](FRONTEND_TOOLS.md).
 
 ---
 
-## 7. Próximos pasos
+## 7. Next steps
 
-| Necesito… | Lee |
+| I need to… | Read |
 |---|---|
-| Entender la cascada permission → scope → tenant → ownership | [`authorization.md`](authorization.md) |
-| Activar el Personal Dashboard (pinear bloques, modo `layout` vs standalone) | [`dashboard.md`](dashboard.md) |
-| Construir tools de backend complejas (bulk, MCP, eventos) | [`backend-tools.md`](backend-tools.md) |
-| Construir tools de frontend (formularios, navegación, descargas) | [`FRONTEND_TOOLS.md`](FRONTEND_TOOLS.md) |
-| Renderizar bloques tipados (cards, tablas, gráficas) | [`block-renderers.md`](block-renderers.md) |
-| Inyectar contexto de la página actual al LLM | [`page-context.md`](page-context.md) |
-| Pedir confirmación antes de ejecutar acciones destructivas | [`confirmation-flow.md`](confirmation-flow.md) |
-| Conectar servidores MCP externos | [`mcp.md`](mcp.md) |
-| Customizar el widget (theming, slots, web component) | [`WIDGET.md`](WIDGET.md) |
-| Integración con Backpack (admin) | [`integrations/backpack.md`](integrations/backpack.md) |
-| Desplegar a producción (CDN, SSE detrás de proxy, rate limit) | [`deployment.md`](deployment.md) |
-| Algo va mal en runtime | [`troubleshooting.md`](troubleshooting.md) |
-| Distribuir versiones del paquete | [`distribution.md`](distribution.md) |
-| Correr la suite de tests del paquete | [`testing.md`](testing.md) |
+| Understand the permission → scope → tenant → ownership cascade | [`authorization.md`](authorization.md) |
+| Enable the Personal Dashboard (pinning blocks, `layout` vs standalone mode) | [`dashboard.md`](dashboard.md) |
+| Build complex backend tools (bulk, MCP, events) | [`backend-tools.md`](backend-tools.md) |
+| Build frontend tools (forms, navigation, downloads) | [`FRONTEND_TOOLS.md`](FRONTEND_TOOLS.md) |
+| Render typed blocks (cards, tables, charts) | [`block-renderers.md`](block-renderers.md) |
+| Inject current-page context into the LLM | [`page-context.md`](page-context.md) |
+| Ask for confirmation before executing destructive actions | [`confirmation-flow.md`](confirmation-flow.md) |
+| Connect external MCP servers | [`mcp.md`](mcp.md) |
+| Customise the widget (theming, slots, web component) | [`WIDGET.md`](WIDGET.md) |
+| Backpack (admin) integration | [`integrations/backpack.md`](integrations/backpack.md) |
+| Deploy to production (CDN, SSE behind a proxy, rate limiting) | [`deployment.md`](deployment.md) |
+| Something is wrong at runtime | [`troubleshooting.md`](troubleshooting.md) |
+| Distribute package versions | [`distribution.md`](distribution.md) |
+| Run the package test suite | [`testing.md`](testing.md) |
 
 ---
 
-## 8. Checklist de "estoy listo para producción"
+## 8. Production-readiness checklist
 
-- [ ] `composer require` instalado y `chatbot:install` ejecutado.
-- [ ] Migrations corridas (`chatbot_conversations`, `chatbot_messages`,
-      `chatbot_pending_actions` presentes).
-- [ ] `chatbot:doctor` no reporta errores (verifica config + auth + DB +
-      assets + LLM + tools en una sola pasada — v1.1.1).
-- [ ] `chatbot:test-connection` responde `pong`.
-- [ ] Al menos una tool de host con `permissions()` declaradas.
-- [ ] `ScopeResolver` con `resolveTeam`/`resolveAll` implementados (no devolviendo
+- [ ] `composer require` installed and `chatbot:install` executed.
+- [ ] Migrations run (`chatbot_conversations`, `chatbot_messages`,
+      `chatbot_pending_actions` present).
+- [ ] `chatbot:doctor` reports no errors (verifies config + auth + DB +
+      assets + LLM + tools in one pass — v1.1.1).
+- [ ] `chatbot:test-connection` responds `pong`.
+- [ ] At least one host tool with `permissions()` declared.
+- [ ] `ScopeResolver` with `resolveTeam`/`resolveAll` implemented (not returning
       `[]`).
-- [ ] Si tu app es multi-tenant: `TenantResolver` registrado y todas las tools
-      sensibles con `tenantScope=true`.
-- [ ] `chatbot.system_prompt.addendum_view` apunta a una vista del host con tono
-      / dominio / glosario propios.
-- [ ] Layout principal contiene `<chatbot-widget>` + `<script src="…/chatbot-widget.js">`.
-- [ ] Asset publicado: `public/vendor/chatbot/chatbot-widget.js` accesible.
-- [ ] CSP / proxy permite SSE (`text/event-stream`, sin buffering). Ver
+- [ ] If your app is multi-tenant: `TenantResolver` registered and all sensitive
+      tools have `tenantScope=true`.
+- [ ] `chatbot.system_prompt.addendum_view` points to a host view with its own
+      tone / domain / glossary.
+- [ ] Main layout contains `<chatbot-widget>` + `<script src="…/chatbot-widget.js">`.
+- [ ] Asset published: `public/vendor/chatbot/chatbot-widget.js` accessible.
+- [ ] CSP / proxy allows SSE (`text/event-stream`, no buffering). See
       [`deployment.md`](deployment.md).
-- [ ] Listener de `Rnkr69\LaraChatbot\Events\ToolInvoked` registrado en
-      `EventServiceProvider` para auditoría.
-- [ ] Si usas la página de chat (`/chatbot`) o el Personal Dashboard
+- [ ] Listener for `Rnkr69\LaraChatbot\Events\ToolInvoked` registered in
+      `EventServiceProvider` for auditing.
+- [ ] If you use the chat page (`/chatbot`) or the Personal Dashboard
       (`/chatbot/dashboard`): `chatbot.page.layout` / `chatbot.dashboard.layout`
-      apuntan a un layout del host. **Sin layout configurado esas páginas
-      corren standalone — sin la navegación del host**; en ese caso setea al
-      menos `chatbot.{page,dashboard}.back_url` para no dejarlas como islas sin
-      salida. Ver [`dashboard.md`](dashboard.md) §5.2.
+      point to a host layout. **Without a configured layout those pages run
+      standalone — without the host navigation**; in that case set at least
+      `chatbot.{page,dashboard}.back_url` to avoid leaving them as dead-end islands.
+      See [`dashboard.md`](dashboard.md).
 
-Si todos los checks están en verde: estás listo. ¡Buen viaje!
+If all checks are green: you are ready. Safe travels!

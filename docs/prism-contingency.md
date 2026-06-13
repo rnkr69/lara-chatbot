@@ -1,124 +1,127 @@
-# Plan B: ¿qué pasa si Prism muere?
+# Plan B: What happens if Prism dies?
 
-`rnkr69/lara-chatbot` usa [`prism-php/prism`](https://github.com/prism-php/prism)
-como capa de abstracción del LLM. Esto es deliberado y conveniente — un
-host puede cambiar de Anthropic a OpenAI a Ollama editando una línea de
-config — pero introduce una dependencia load-bearing en un paquete
-todavía pre-`1.0`.
+*English · [Español](prism-contingency.es.md)*
 
-Este documento responde a la pregunta "¿qué hacemos si Prism deja de
-mantenerse o sube a una v1 con breaking change que rompe lo nuestro?".
+`rnkr69/lara-chatbot` uses [`prism-php/prism`](https://github.com/prism-php/prism)
+as the LLM abstraction layer. This is deliberate and convenient — a
+host can switch from Anthropic to OpenAI to Ollama by editing a single
+config line — but it introduces a load-bearing dependency on a package
+that is still pre-`1.0`.
 
----
-
-## Por qué dependemos de Prism
-
-- **Multi-provider gratis.** Anthropic, OpenAI, Groq, Gemini, Mistral,
-  Ollama detrás de la misma API. Construir esto en casa son meses.
-- **Streaming con shape unificado.** Eventos `TextDeltaEvent`,
-  `ToolCallEvent`, `ToolResultEvent`, `StreamEndEvent` con la misma
-  semántica para todos los proveedores.
-- **Tool calling con normalizing de schemas.** Los proveedores difieren
-  en cómo expresan tools y args; Prism lo unifica.
-- **Idiomático Laravel.** `Prism::fake()`, facade, container bindings —
-  los tests del paquete (especialmente
-  `tests/Feature/Llm/LlmGatewayTest.php` y
-  `tests/Feature/Services/ChatServiceTest.php`) se apoyan en esto.
+This document answers the question "what do we do if Prism stops being
+maintained or releases a v1 with a breaking change that breaks our code?".
 
 ---
 
-## Estado de Prism (a fecha de este doc — 2026-05-16)
+## Why we depend on Prism
 
-- Versión instalada: `^0.100`. Pre-`1.0`. Mismo color de bandera que
-  nosotros.
-- Mantainership: comunidad activa, releases regulares (semanal en
-  general). Sin entidad corporativa detrás visible.
-- Riesgo bajo a corto plazo. Riesgo medio a 12-24 meses (la mayoría de
-  paquetes Laravel pre-1.0 sobreviven, pero algunos no — y ya tuvimos
-  que esquivar uno [`consoletvs/charts`] que sí murió).
-
-Acción recomendada: el mantenedor del paquete revisa la actividad de
-Prism cada release tag del paquete (mensual aproximadamente). Si hay
-≥3 meses sin merges ni respuesta a issues, activar el plan B.
+- **Free multi-provider support.** Anthropic, OpenAI, Groq, Gemini, Mistral,
+  Ollama behind the same API. Building this in-house takes months.
+- **Streaming with a unified shape.** `TextDeltaEvent`,
+  `ToolCallEvent`, `ToolResultEvent`, `StreamEndEvent` events with the same
+  semantics across all providers.
+- **Tool calling with schema normalisation.** Providers differ in how
+  they express tools and args; Prism unifies them.
+- **Idiomatic Laravel.** `Prism::fake()`, facade, container bindings —
+  the package tests (especially
+  `tests/Feature/Llm/LlmGatewayTest.php` and
+  `tests/Feature/Services/ChatServiceTest.php`) rely on this.
 
 ---
 
-## Plan B: cliente directo
+## Prism status (as of this doc — 2026-05-16)
 
-### Qué tendría que pasar
+- Installed version: `^0.100`. Pre-`1.0`. Same flag colour as us.
+- Maintainership: active community, regular releases (roughly weekly).
+  No visible corporate entity behind it.
+- Low risk in the short term. Medium risk at 12-24 months (most
+  pre-1.0 Laravel packages survive, but some do not — and we already
+  had to sidestep one [`consoletvs/charts`] that did die).
 
-Reemplazar Prism con el SDK oficial del proveedor activo de cada host
-(la mayoría hoy: SDK de Anthropic). Esto significa:
+Recommended action: the package maintainer reviews Prism activity at
+each package release tag (roughly monthly). If there are ≥3 months
+without merges or responses to open issues, activate Plan B.
 
-1. Reescribir `Rnkr69\LaraChatbot\Llm\LlmGateway` para hablar directo con
-   el SDK del proveedor (HTTP a través del cliente oficial).
-2. Mantener el shape de eventos que `ChatService` consume hoy
+---
+
+## Plan B: direct client
+
+### What would need to happen
+
+Replace Prism with the official SDK of the active provider for each
+host (the majority today: the Anthropic SDK). This means:
+
+1. Rewrite `Rnkr69\LaraChatbot\Llm\LlmGateway` to talk directly to the
+   provider SDK (HTTP via the official client).
+2. Maintain the event shape that `ChatService` consumes today
    (`TextDeltaEvent`, `ToolCallEvent`, `ToolResultEvent`, `StreamEndEvent`)
-   construyéndolos a mano desde el stream del proveedor.
-3. Reemplazar `Prism::fake()` en los ~10 tests que lo usan con un
-   mock equivalente del cliente HTTP del SDK (Mockery, o el helper de
-   testing del SDK si existe).
-4. Perder el multi-provider gratis. Soportar un segundo proveedor
-   requiere repetir los pasos 1-3 contra su SDK.
+   by building them manually from the provider stream.
+3. Replace `Prism::fake()` in the ~10 tests that use it with an
+   equivalent mock of the SDK's HTTP client (Mockery, or the SDK's own
+   testing helper if one exists).
+4. Lose free multi-provider support. Supporting a second provider
+   requires repeating steps 1-3 against its SDK.
 
-### Esfuerzo estimado
+### Estimated effort
 
-- Reescritura del gateway contra Anthropic SDK: **3-5 días-persona**.
-  La abstracción ya existe (`LlmGateway`), sólo cambia su implementación.
-- Tests adaptados: **1-2 días-persona**.
-- Cobertura de los 6 proveedores actuales: **3-4 semanas-persona**
-  (típicamente no haría falta — el host produce un PR sólo para los
-  proveedores que realmente usa).
+- Gateway rewrite against the Anthropic SDK: **3-5 person-days**.
+  The abstraction already exists (`LlmGateway`); only its implementation
+  changes.
+- Tests adapted: **1-2 person-days**.
+- Coverage of the 6 current providers: **3-4 person-weeks**
+  (typically not needed — a host submits a PR only for the
+  providers it actually uses).
 
-### Qué perderíamos
+### What we would lose
 
-- **Multi-provider gratis.** Cambiar Anthropic→OpenaI deja de ser una
-  línea de config y pasa a ser una PR.
-- **MCP bridge** (que vive sobre `prism-php/relay`) — habría que
-  reimplementarlo desde el spec de MCP o desinstalarlo. Como hoy
-  ningún host integrado usa MCP (es experimental), esto se puede
-  diferir.
-- **Normalizing de schemas de tools.** Lo tendríamos que mantener
-  nosotros si un día queremos soportar más de un proveedor.
-
----
-
-## Trigger de activación
-
-Activar el plan B si **uno o más** de los siguientes:
-
-1. Prism queda **≥3 meses sin merges** ni respuesta a issues abiertos.
-2. Prism sube a **v1.x con breaking change** que rompe nuestro `LlmGateway`
-   y el upgrade requiere ≥2 semanas de trabajo (en ese punto, evaluar
-   si vale más reescribir contra el SDK directo).
-3. El proveedor que la mayoría de hosts usa (Anthropic hoy) saca una
-   capability nueva que Prism tarda **≥1 mes** en soportar y bloquea
-   algo que ya pidió un host.
-4. Un análisis de seguridad detecta una **vulnerabilidad en Prism** sin
-   parche disponible y necesitamos quitar la dependencia inmediatamente.
-
-Hasta entonces: seguir en Prism, mantener tests amplios (`Prism::fake()`
-cubre la superficie de uso), y revisar el estado al cortar cada tag.
+- **Free multi-provider support.** Switching Anthropic→OpenAI would no
+  longer be a one-line config change but a PR.
+- **MCP bridge** (which lives on top of `prism-php/relay`) — it would
+  have to be reimplemented from the MCP spec or uninstalled. Since no
+  currently integrated host uses MCP (it is experimental), this can
+  be deferred.
+- **Tool schema normalisation.** We would have to maintain this
+  ourselves if we ever want to support more than one provider.
 
 ---
 
-## Lo que SÍ está hecho hoy
+## Activation trigger
 
-- `LlmGateway` es un contrato propio del paquete — el resto del código
-  no importa nada de Prism directamente, sólo el gateway. Eso significa
-  que la sustitución es local a un archivo.
-- Tests del orquestador (`ChatServiceTest`, `EvalRunnerTest`) usan
-  `Prism::fake()` — el día que reemplacemos Prism, esos mocks tienen
-  que cambiar pero la cobertura de comportamiento del orquestador
-  sigue siendo válida (el contract no cambia).
-- Versión de Prism pinneada a `^0.100` en `composer.json` para evitar
-  un upgrade automático a una potencial v1 disruptiva. Cuando Prism
-  saque v1 estable, evaluar el upgrade antes de subir.
+Activate Plan B if **one or more** of the following apply:
+
+1. Prism goes **≥3 months without merges** or responses to open issues.
+2. Prism releases **v1.x with a breaking change** that breaks our
+   `LlmGateway` and the upgrade requires ≥2 weeks of work (at that
+   point, evaluate whether rewriting against the direct SDK is more
+   worthwhile).
+3. The provider most hosts use (Anthropic today) ships a new capability
+   that Prism takes **≥1 month** to support and it blocks something a
+   host has already requested.
+4. A security analysis detects a **vulnerability in Prism** with no
+   available patch and we need to remove the dependency immediately.
+
+Until then: stay on Prism, keep broad test coverage (`Prism::fake()`
+covers the usage surface), and review its status at each tag cut.
+
+---
+
+## What IS already done today
+
+- `LlmGateway` is the package's own contract — the rest of the code
+  imports nothing from Prism directly, only the gateway. This means
+  the substitution is local to a single file.
+- Orchestrator tests (`ChatServiceTest`, `EvalRunnerTest`) use
+  `Prism::fake()` — when we replace Prism those mocks will need to
+  change, but the behavioural coverage of the orchestrator remains
+  valid (the contract does not change).
+- Prism version pinned to `^0.100` in `composer.json` to prevent an
+  automatic upgrade to a potentially disruptive v1. When Prism ships a
+  stable v1, evaluate the upgrade before bumping.
 
 ---
 
 ## TL;DR
 
-El plan B existe, está documentado, es ejecutable en una semana, y la
-arquitectura del paquete lo soporta sin reescritura masiva. No necesitas
-ejecutarlo — sólo demostrarle al tech lead que existe.
+Plan B exists, is documented, is executable in a week, and the package
+architecture supports it without a massive rewrite. You do not need to
+execute it — you just need to show the tech lead that it exists.

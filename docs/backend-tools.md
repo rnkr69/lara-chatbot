@@ -1,23 +1,25 @@
-# Backend Tools — Guía de implementación
+# Backend Tools — Implementation Guide
 
-> **Nota sobre versiones**: las etiquetas `E\d+` y `v2.x` que aparecen en
-> este documento referencian milestones internos del periodo pre-0.4,
-> no releases públicas. La funcionalidad descrita está en la release `0.4.0`.
+*English · [Español](backend-tools.es.md)*
 
-> Esta guía cubre el contrato `BackendTool`. Para frontend tools (que
-> extienden `BackendTool`) ver `docs/FRONTEND_TOOLS.md`.
+> **Version note**: `v2.x` tags in this document reference internal milestones
+> from the pre-0.4 period, not public releases. The functionality described is
+> available in release `0.4.0`.
+
+> This guide covers the `BackendTool` contract. For frontend tools (which
+> extend `BackendTool`) see [`docs/FRONTEND_TOOLS.md`](FRONTEND_TOOLS.md).
 >
-> Se complementa con `docs/authorization.md` (cascada permission → scope →
-> tenant → ownership) y `docs/getting-started.md` (instalación).
+> Complements [`docs/authorization.md`](authorization.md) (permission → scope →
+> tenant → ownership cascade) and [`docs/getting-started.md`](getting-started.md) (installation).
 
 ---
 
-## 1. Anatomía de una tool
+## 1. Anatomy of a tool
 
-Toda tool del backend implementa la interfaz
-`Rnkr69\LaraChatbot\Tools\Contracts\BackendTool`. La forma normal es extender
-`BaseBackendTool`, que se ocupa de validar args y aplicar la cascada de
-autorización antes de invocar `handle()`.
+Every backend tool implements the interface
+`Rnkr69\LaraChatbot\Tools\Contracts\BackendTool`. The standard approach is to extend
+`BaseBackendTool`, which handles argument validation and applies the authorization
+cascade before invoking `handle()`.
 
 ```php
 namespace App\Chatbot\Tools;
@@ -33,7 +35,7 @@ class ListMyInvoicesTool extends BaseBackendTool
 
     public function description(): string
     {
-        return 'Lista las facturas del usuario actual con filtros opcionales.';
+        return 'List the current user invoices with optional filters.';
     }
 
     public function parameters(): array
@@ -71,15 +73,15 @@ class ListMyInvoicesTool extends BaseBackendTool
 }
 ```
 
-Stubear con:
+Scaffold with:
 
 ```bash
-php artisan chatbot:make:tool ListMyInvoices            # tool de lectura
+php artisan chatbot:make:tool ListMyInvoices            # read tool
 php artisan chatbot:make:tool MarkOrderAsPaid --type=write
 ```
 
-Si `chatbot.tools.auto_discover=true` (default), la tool se registra al
-boot escaneando `app/Chatbot/Tools`. Para registrar manualmente:
+If `chatbot.tools.auto_discover=true` (default), the tool is registered at
+boot by scanning `app/Chatbot/Tools`. To register manually:
 
 ```php
 // AppServiceProvider::boot()
@@ -89,60 +91,59 @@ app(\Rnkr69\LaraChatbot\Tools\ToolRegistry::class)
 
 ---
 
-## 2. Contrato `BackendTool`
+## 2. `BackendTool` contract
 
-| Método           | Descripción                                                                                                         |
+| Method           | Description                                                                                                         |
 |------------------|---------------------------------------------------------------------------------------------------------------------|
-| `name()`         | Identificador único (snake_case). El LLM invoca por nombre.                                                          |
-| `description()`  | Una sola frase orientada al LLM ("para qué sirve").                                                                  |
-| `parameters()`   | JSON Schema mínimo (`type`/`properties`/`required`/`enum`). Validado antes de `handle()`.                            |
-| `permissions()`  | Lista AND de permisos. Vacía = tool pública.                                                                         |
-| `defaultScope()` | `AccessScope` aplicado a `accessibleQuery()` y a `accessibleUserIds()`.                                              |
-| `confirmation()` | `Auto`/`Confirm`/`Manual`. Backend tools v1 sólo soportan `Auto`.                                                    |
-| `tenantScope()`  | `bool`. Si `true`, el `ToolRegistry` exige `TenantResolver` registrado al boot. Default `false`.                     |
-| `handle()`       | Lógica de la tool. Recibe args ya validados + `ToolContext`. Devuelve `ToolResult`.                                  |
+| `name()`         | Unique identifier (snake_case). The LLM invokes by name.                                                             |
+| `description()`  | Single LLM-facing sentence ("what it does").                                                                         |
+| `parameters()`   | Minimal JSON Schema (`type`/`properties`/`required`/`enum`). Validated before `handle()`.                            |
+| `permissions()`  | AND list of permissions. Empty = public tool.                                                                        |
+| `defaultScope()` | `AccessScope` applied to `accessibleQuery()` and `accessibleUserIds()`.                                              |
+| `confirmation()` | `Auto`/`Confirm`/`Manual`. Backend tools v1 only support `Auto`.                                                     |
+| `tenantScope()`  | `bool`. If `true`, `ToolRegistry` requires a registered `TenantResolver` at boot. Default `false`.                   |
+| `handle()`       | Tool logic. Receives validated args + `ToolContext`. Returns `ToolResult`.                                           |
 
 ### `ToolResult`
 
-Tres factory methods cubren todos los estados:
+Three factory methods cover all states:
 
 ```php
 ToolResult::success(['items' => $rows]);                  // ok
 ToolResult::error('not_owner', 'Pedido no accesible.');   // error
-ToolResult::awaitingUser($pendingActionId, '¿Confirmar?'); // sólo FE tools (E16)
+ToolResult::awaitingUser($pendingActionId, '¿Confirmar?'); // FE tools only
 ```
 
-Categorías de error recomendadas (la lista no es cerrada, pero estos
-identificadores los entiende el LLM):
+Recommended error categories (the list is open-ended, but the LLM understands
+these identifiers):
 
-- `validation` — args no pasaron la validación. Lo emite `BaseBackendTool`
-  automáticamente; no lo emitas tú.
-- `unauthorized` — el usuario no tiene permisos (`Authorizer::check`
-  devolvió `false`).
-- `out_of_scope` — el scope no autoriza acceso al recurso pedido.
-- `not_owner` — el recurso existe pero el usuario no es propietario.
-- `runtime` — error inesperado durante la ejecución (DB caída, API externa
-  off, ...). El mensaje viaja al LLM, no incluyas internals.
+- `validation` — args failed validation. Emitted automatically by `BaseBackendTool`;
+  do not emit it yourself.
+- `unauthorized` — the user lacks permissions (`Authorizer::check` returned `false`).
+- `out_of_scope` — the scope does not authorize access to the requested resource.
+- `not_owner` — the resource exists but the user does not own it.
+- `runtime` — unexpected error during execution (DB down, external API off, ...).
+  The message travels to the LLM; do not include internals.
 
 ---
 
-## 3. Cascada de autorización
+## 3. Authorization cascade
 
-`BaseBackendTool::execute()` aplica los pasos en este orden:
+`BaseBackendTool::execute()` applies the steps in this order:
 
-1. **Validación de args** — `parameters()` se mapea a Laravel Validator
-   vía `JsonSchemaToRules`. Si fallan: `ToolResult::error('validation', ...)`
-   sin invocar `handle()`.
-2. **Permission check** — `Authorizer::check($user, permissions())`. Si
-   falla: `ToolResult::error('unauthorized', ...)`.
-3. **Tenant scope** (opcional, gap cross-host) — sólo si `tenantScope()`
-   es `true`. Si `TenantResolver` devuelve `[]` → `error('out_of_scope', ...)`.
-   Si `null` (bypass) o lista no vacía, continúa.
-4. **`handle()`** — recibe args válidos.
+1. **Arg validation** — `parameters()` is mapped to Laravel Validator
+   via `JsonSchemaToRules`. On failure: `ToolResult::error('validation', ...)`
+   without invoking `handle()`.
+2. **Permission check** — `Authorizer::check($user, permissions())`. On
+   failure: `ToolResult::error('unauthorized', ...)`.
+3. **Tenant scope** (optional, cross-host gap) — only if `tenantScope()`
+   is `true`. If `TenantResolver` returns `[]` → `error('out_of_scope', ...)`.
+   If `null` (bypass) or a non-empty list, continues.
+4. **`handle()`** — receives valid args.
 
-**Ownership puntual** lo verifica cada `handle()` en su query (helper
-`accessibleQuery()` aplica `whereIn` por scope automáticamente). Para
-tools que toman un `target_id` y mutan, el patrón es:
+**Point-in-time ownership** is verified by each `handle()` in its query (the
+`accessibleQuery()` helper applies `whereIn` by scope automatically). For
+tools that take a `target_id` and mutate, the pattern is:
 
 ```php
 $order = $this->accessibleQuery(Order::query(), $ctx)
@@ -156,40 +157,39 @@ if (! $order) {
 
 ---
 
-## 4. Tenant scope (gap cross-host)
+## 4. Tenant scope (cross-host gap)
 
-Si tu host tiene una dimensión adicional de aislamiento (corporación,
-evento, espacio...) que se debe combinar con la cascada estándar:
+If your host has an additional isolation dimension (corporation, event,
+space...) that must be combined with the standard cascade:
 
-1. Implementa `TenantResolver` (ver `docs/authorization.md` §4).
-2. En tu tool, devuelve `tenantScope(): true`.
-3. Si la tabla tiene una columna tenant, pásasela a `accessibleQuery()`:
+1. Implement `TenantResolver` (see [`docs/authorization.md`](authorization.md) §4).
+2. In your tool, return `tenantScope(): true`.
+3. If the table has a tenant column, pass it to `accessibleQuery()`:
 
 ```php
 $rows = $this->accessibleQuery($query, $ctx, tenantColumn: 'corporation_id')->get();
 ```
 
-El `ToolRegistry` hace **fail fast al boot** si una tool con
-`tenantScope=true` se registra y no hay `TenantResolver` bind:
+The `ToolRegistry` **fails fast at boot** if a tool with `tenantScope=true` is
+registered and there is no `TenantResolver` binding:
 `MissingTenantResolverException`.
 
 ---
 
-## 5. Patrón Bulk Actions
+## 5. Bulk Actions pattern
 
-> **Origen del patrón**: casos de acciones masivas (aprobaciones en lote,
-> envíos masivos de email). Documentado aquí, sin código nuevo en E06.
-> El soporte real de `confirmation=confirm` para backend tools queda en
-> backlog v2; en v1 las tools bulk usan **frontend tools** de confirmación
-> que disparan la backend tool una vez confirmada.
+> **Pattern origin**: mass-action use cases (batch approvals, bulk email sends).
+> Real `confirmation=confirm` support for backend tools is in the v2 backlog;
+> in v1 bulk tools use **frontend tools** for confirmation, which then fire the
+> backend tool once confirmed.
 
-### 5.1 Cuándo aplicar
+### 5.1 When to apply
 
-Una tool entra en el patrón bulk cuando acepta `target_ids[]` (más de un
-registro) y la operación tiene efectos significativos (escribe, envía
-correos, factura, etc.).
+A tool falls into the bulk pattern when it accepts `target_ids[]` (more than one
+record) and the operation has significant side effects (writes, sends emails,
+invoices, etc.).
 
-### 5.2 Esqueleto de tool bulk
+### 5.2 Bulk tool skeleton
 
 ```php
 namespace App\Chatbot\Tools;
@@ -232,11 +232,11 @@ class ApproveOrdersBulkTool extends BaseBackendTool
 
     public function handle(array $args, ToolContext $ctx): ToolResult
     {
-        $ids = array_slice((array) $args['target_ids'], 0, 100); // tope duro
+        $ids = array_slice((array) $args['target_ids'], 0, 100); // hard cap
 
         $orders = $this->accessibleQuery(\App\Models\Order::query(), $ctx)
             ->whereIn('id', $ids)
-            ->lockForUpdate() // contra carreras
+            ->lockForUpdate() // prevent race conditions
             ->get()
             ->keyBy('id');
 
@@ -277,36 +277,33 @@ class ApproveOrdersBulkTool extends BaseBackendTool
 }
 ```
 
-### 5.3 Checklist de "qué considerar" en una tool bulk
+### 5.3 Checklist for bulk tools
 
-- [ ] **Idempotencia**: cada item se puede reprocesar sin duplicar efectos
-      (chequear estado actual antes de mutar).
-- [ ] **Lock pesimista** (`lockForUpdate`) o **CAS** (`where('status', $expected)`)
-      para evitar carreras si dos turnos del LLM disparan la misma tool.
-- [ ] **Tope duro** en el tamaño del array (`array_slice` o `array_chunk`)
-      para protegerte de prompts maliciosos.
-- [ ] **Partial-success** explícito en `ToolResult`: `succeeded[]` +
-      `failed[]` con razón por item. Nunca abortes el lote por un fallo
-      individual sin dejar trazabilidad de los procesados.
-- [ ] **Rate limit / quota**: si la operación llama a una API externa,
-      considera throttling por tool (futuro `chatbot.limits.rate_limit_per_tool`).
-- [ ] **Audit log**: el evento `Chatbot\Events\ToolInvoked` (E08) lleva los
-      args y el result; un Listener bulk-aware puede registrar partial
-      success por item.
-- [ ] **Confirmación**: en v1, **no uses `ConfirmationLevel::Confirm` en la
-      backend tool**. En su lugar, define una **frontend tool** con
-      `confirmation=confirm` que reciba `target_ids[]` y, una vez confirmada
-      por el usuario (E16 → `chatbot_pending_actions`), invoca la backend
-      tool real. Mientras tanto, el LLM puede usar bloques `actions` (E15)
-      con un botón "Confirmar aprobación de N pedidos" que dispare la
-      frontend tool.
+- [ ] **Idempotency**: each item can be reprocessed without duplicating effects
+      (check current state before mutating).
+- [ ] **Pessimistic lock** (`lockForUpdate`) or **CAS** (`where('status', $expected)`)
+      to avoid races if two LLM turns fire the same tool.
+- [ ] **Hard cap** on array size (`array_slice` or `array_chunk`)
+      to protect against malicious prompts.
+- [ ] **Explicit partial-success** in `ToolResult`: `succeeded[]` +
+      `failed[]` with a per-item reason. Never abort the batch on a single
+      failure without leaving a trace of processed items.
+- [ ] **Rate limit / quota**: if the operation calls an external API,
+      consider per-tool throttling (future `chatbot.limits.rate_limit_per_tool`).
+- [ ] **Audit log**: the `Chatbot\Events\ToolInvoked` event carries the
+      args and result; a bulk-aware Listener can record partial success per item.
+- [ ] **Confirmation**: in v1, **do not use `ConfirmationLevel::Confirm` on the
+      backend tool**. Instead, define a **frontend tool** with
+      `confirmation=confirm` that receives `target_ids[]` and, once confirmed
+      by the user (`chatbot_pending_actions`), invokes the real backend tool.
+      Meanwhile, the LLM can use `actions` blocks with a "Confirm approval of N
+      orders" button that fires the frontend tool.
 
-### 5.4 Cómo el LLM decide invocar bulk
+### 5.4 How the LLM decides to invoke bulk
 
-El system prompt base (E05) ya recomienda al modelo "agrupar acciones
-similares en un solo tool call cuando sea posible". Refuerza esta regla en
-tu addendum (`chatbot.system_prompt.addendum_view`) si tu host tiene tools
-bulk:
+The base system prompt already advises the model to "group similar actions into
+a single tool call when possible". Reinforce this rule in your addendum
+(`chatbot.system_prompt.addendum_view`) if your host has bulk tools:
 
 ```blade
 @if(in_array('approve_orders_bulk', $tools ?? []))
@@ -317,15 +314,14 @@ bulk:
 
 ---
 
-## 6. Write tools — patrón canónico `create_*` / `update_*` / `delete_*`
+## 6. Write tools — canonical pattern `create_*` / `update_*` / `delete_*`
 
-> Añadido en v1.1.1 (findings #11). Reads ya están bien cubiertos por §1–§4;
-> esta sección documenta el patrón estándar para tools que mutan datos
-> (crear recursos, actualizar campos, borrar). Es el segundo escenario más
-> común tras los reads y, sin patrón documentado, cada host re-inventa
-> validation, confirm flow y manejo de errores.
+> Reads are well covered by §1–§4. This section documents the standard pattern
+> for tools that mutate data (create resources, update fields, delete). It is the
+> second most common scenario after reads, and without a documented pattern each
+> host re-invents validation, confirm flow, and error handling.
 
-### 6.1 Ejemplo de extremo a extremo — `CreateMissionTool`
+### 6.1 End-to-end example — `CreateMissionTool`
 
 ```php
 namespace App\Chatbot\Tools;
@@ -422,17 +418,17 @@ class CreateMissionTool extends BaseBackendTool
 
 ### 6.2 Confirmation strategy
 
-| Escenario | `confirmation()` | Justificación |
+| Scenario | `confirmation()` | Rationale |
 |---|---|---|
-| `create_*` no destructivo (queda en draft, editable) | `Auto` | Backend tools en v1 sólo soportan `Auto`. El LLM debe construir un summary explícito ("voy a crear esta mission con estos datos. ¿Procedo?") y esperar ack del usuario en lenguaje natural antes de llamar. |
-| `update_*` campo individual | `Auto` | Idem. Reversible y granular. |
-| `delete_*` / `cancel_*` / acciones irreversibles | Indirecto via frontend tool | Crea una `FrontendTool` con `confirmation=confirm` que muestra el banner; tras Accept, el handler JS llama al endpoint del host que ejecuta la backend tool real. Mismo patrón que `ConfirmApproveOrdersBulkTool` en [`integrations/backpack.md §6.2`](integrations/backpack.md). |
-| Bulk approve/cancel | Frontend wrapper | Idem. |
+| Non-destructive `create_*` (lands in draft, editable) | `Auto` | Backend tools in v1 only support `Auto`. The LLM must build an explicit summary ("I am going to create this mission with this data. Shall I proceed?") and wait for a natural-language ack from the user before calling. |
+| `update_*` single field | `Auto` | Same. Reversible and granular. |
+| `delete_*` / `cancel_*` / irreversible actions | Indirect via frontend tool | Create a `FrontendTool` with `confirmation=confirm` that shows the banner; after Accept, the JS handler calls the host endpoint that executes the real backend tool. Same pattern as `ConfirmApproveOrdersBulkTool` in [`integrations/backpack.md`](integrations/backpack.md). |
+| Bulk approve/cancel | Frontend wrapper | Same. |
 
-### 6.3 Validation rules reutilizables
+### 6.3 Reusable validation rules
 
-Para no duplicar reglas entre el `FormRequest` del controller y la tool,
-extrae las rules a una clase static:
+To avoid duplicating rules between the controller's `FormRequest` and the tool,
+extract the rules to a static class:
 
 ```php
 namespace App\Validation;
@@ -464,79 +460,73 @@ class MissionRules
 }
 ```
 
-El `StoreMissionRequest::rules()` y la tool consumen ambos `MissionRules::store()`.
-Cuando cambias una rule, ambos sitios la ven. Sin duplicación.
+Both `StoreMissionRequest::rules()` and the tool consume `MissionRules::store()`.
+When you change a rule, both locations see it. No duplication.
 
-### 6.4 Required vs Optional en JSON Schema
+### 6.4 Required vs Optional in JSON Schema
 
-Marca como `required` SOLO lo estrictamente obligatorio para que la fila
-quede en `draft` válido. Todo lo demás (hazmat, notes, insurance) **opcional**
-en el schema — eso permite al LLM:
+Mark as `required` ONLY what is strictly necessary for the row to be a valid
+`draft`. Everything else (hazmat, notes, insurance) **optional** in the schema —
+that allows the LLM to:
 
-- Crear con lo mínimo de info que el usuario le dio.
-- Ofrecer follow-up natural ("¿quieres añadir hazmat / crew_size / notas?")
-  via `update_mission` en turns siguientes.
+- Create with the minimum info the user provided.
+- Offer natural follow-up ("do you want to add hazmat / crew_size / notes?")
+  via `update_mission` in subsequent turns.
 
-Si marcas todo `required`, el LLM hará 20 preguntas seguidas antes de
-poder ejecutar la tool. UX pobre.
+If you mark everything `required`, the LLM will ask 20 questions in a row before
+it can execute the tool. Poor UX.
 
-### 6.5 Loop conversacional con `error.validation`
+### 6.5 Conversational loop with `error.validation`
 
-El fix de finding #2 en v1.1.0 (`correlation_id` + `APP_DEBUG`-gated
-message) ya hace que `ToolResult::error('validation', '<message>')` llegue
-útil al LLM. Documentar explícitamente:
+> When you return `ToolResult::error('validation', '<message>')`, the LLM
+> sees `<message>` and **should re-ask the user for the offending field
+> without aborting the turn**. Example: if `departure_at must be after now`,
+> the LLM responds "The departure_at you gave (X) is in the past. What future
+> date?" and invokes the tool again once it receives new input.
 
-> Cuando devuelves `ToolResult::error('validation', '<message>')`, el LLM
-> ve `<message>` y **debería re-preguntar al usuario por el campo
-> problemático sin abortar el turn**. Ejemplo: si `departure_at must be
-> after now`, el LLM responde "El departure_at que diste (X) es pasado.
-> ¿Qué fecha futura?" y vuelve a invocar la tool al recibir nueva input.
+For the LLM to understand this without thinking, repeat it in the `description()`
+of each write tool — the package system prompt already includes general guidance,
+but the tool description is the most locally visible signal when the LLM selects it.
 
-Para que el LLM entienda esto sin pensarlo, repítelo en la `description()`
-de cada write tool — el system prompt del package ya incluye guidance
-general, pero la descripción de la tool es lo más localmente visible
-cuando el LLM la elige.
+### 6.6 Scaffold with `chatbot:make:tool --type=write`
 
-### 6.6 Scaffold con `chatbot:make:tool --type=write`
-
-El comando `chatbot:make:tool` ya soporta `--type=write` desde v1.0 y
-genera un esqueleto de write tool con TODOs para policy gate, validation
-y mutación. Úsalo:
+The `chatbot:make:tool` command has supported `--type=write` since v1.0 and
+generates a write tool skeleton with TODOs for the policy gate, validation,
+and mutation. Use it:
 
 ```
 php artisan chatbot:make:tool CreateMission --type=write
 ```
 
-El stub ya recoge los patrones de §6.2 / §6.4 / §6.5. Sólo tienes que
-rellenar `description()`, `parameters()`, `permissions()` y `handle()`.
+The stub already embeds the patterns from §6.2 / §6.4 / §6.5. You only need to
+fill in `description()`, `parameters()`, `permissions()`, and `handle()`.
 
 ---
 
-## 7. Eventos
+## 7. Events
 
-Tras cada invocación (incluida la bulk, las MCP y los rechazos por
-autorización), el orquestador `ChatService` (E08) dispara
-`Rnkr69\LaraChatbot\Events\ToolInvoked` con la siguiente forma:
+After each invocation (including bulk, MCP, and authorization rejections),
+the `ChatService` orchestrator fires
+`Rnkr69\LaraChatbot\Events\ToolInvoked` with the following shape:
 
 ```php
 new ToolInvoked(
     user:         $ctx->user,            // Authenticatable
-    tool:         $tool,                 // BackendTool (incluye FrontendTool y McpBackendTool)
-    args:         $args,                 // array<string, mixed> tal como llegó del LLM
-    result:       $toolResult,           // ToolResult final (post-cascada)
-    durationMs:   $elapsed,              // float — wall-clock de la invocación
+    tool:         $tool,                 // BackendTool (includes FrontendTool and McpBackendTool)
+    args:         $args,                 // array<string, mixed> as received from the LLM
+    result:       $toolResult,           // final ToolResult (post-cascade)
+    durationMs:   $elapsed,              // float — wall-clock of the invocation
     conversation: $ctx->conversation,    // ?Conversation
 );
 ```
 
-El evento se dispara una vez por tool call, **incluyendo** los casos
-`error('unauthorized', ...)`, `error('out_of_scope', ...)` y
-`error('validation', ...)` — el listener distingue por
-`$event->result->isOk()` vs `isError()`.
+The event fires once per tool call, **including** the `error('unauthorized', ...)`,
+`error('out_of_scope', ...)`, and `error('validation', ...)` cases — the listener
+distinguishes them via `$event->result->isOk()` vs `isError()`.
 
-Tu host engancha un Listener en su `EventServiceProvider` (o
-`AppServiceProvider::boot()`) para añadir trazabilidad, redaction de
-PII, métricas, partial-success bulk, etc., sin tocar el paquete:
+Your host wires up a Listener in its `EventServiceProvider` (or
+`AppServiceProvider::boot()`) to add traceability, PII redaction, metrics,
+bulk partial-success recording, etc., without touching the package:
 
 ```php
 // AppServiceProvider::boot()
@@ -552,35 +542,34 @@ Event::listen(\Rnkr69\LaraChatbot\Events\ToolInvoked::class, function ($event) {
 });
 ```
 
-Para tools bulk (§5), el listener puede leer `$event->result->data`
-para extraer counts de partial-success y reportarlos a su pipeline de
-auditoría. La cardinalidad del evento es 1 por tool call (no por
-target dentro del bulk) — la tool agrupa el resultado.
+For bulk tools (§5), the listener can read `$event->result->data` to extract
+partial-success counts and report them to its audit pipeline. Event cardinality
+is 1 per tool call (not per target within the bulk) — the tool aggregates the result.
 
 ---
 
-## 8. Bridge MCP (E07)
+## 8. MCP bridge
 
-Los servidores MCP externos se exponen como `BackendTool` "remotas" con
-prefijo `mcp.<server>.<tool>`. La interfaz contractual es la misma; el
-host no diferencia una tool local de una remota salvo por el name.
-Detalle en `docs/mcp.md` cuando E07 esté disponible.
+External MCP servers are exposed as "remote" `BackendTool` instances with the
+prefix `mcp.<server>.<tool>`. The contractual interface is the same; the host
+cannot distinguish a local tool from a remote one except by name.
+Full detail in [`docs/mcp.md`](mcp.md).
 
 ---
 
 ## 9. Pinnable tools (v2.0)
 
-A partir de v2.0 (Personal Dashboard, ver [`dashboard.md`](dashboard.md))
-una tool puede **opt-in** a que los bloques que produce sean fijables al
-dashboard del usuario y re-ejecutables periódicamente desde allí. El
-contrato `BackendTool` gana un método:
+From v2.0 onwards (Personal Dashboard, see [`dashboard.md`](dashboard.md)),
+a tool can **opt-in** to having the blocks it produces pinned to the user's
+dashboard and re-executed periodically from there. The `BackendTool` contract
+gains a method:
 
 ```php
 public function pinnable(): bool;
 ```
 
-`BaseBackendTool::pinnable()` devuelve `false` por defecto — todas las
-tools v1 existentes siguen sin emitir el botón 📌. El opt-in es explícito:
+`BaseBackendTool::pinnable()` returns `false` by default — all existing v1 tools
+continue without emitting the 📌 button. Opt-in is explicit:
 
 ```php
 public function pinnable(): bool
@@ -589,35 +578,33 @@ public function pinnable(): bool
 }
 ```
 
-> **Importante** — `pinnable()` sólo aplica si la tool devuelve **al menos
-> un block**. El botón 📌 lo emite el orquestador SSE desde `ToolResult::blocks`,
-> NO desde el `data` plano. Una tool que hace `ToolResult::success($data)` sin
-> el segundo argumento `blocks: [...]` declarará `pinnable() === true` pero
-> nunca generará el botón 📌 — el flag queda inerte y nadie se entera hasta
-> el E2E. Ver §9.2 para los dos recipes canónicos (tabla / KPI), que SÍ
-> emiten blocks. `php artisan chatbot:tools:test <name>` avisa explícitamente
-> cuando una tool pinnable devuelve 0 blocks.
+> **Important** — `pinnable()` only applies if the tool returns **at least one
+> block**. The 📌 button is emitted by the SSE orchestrator from `ToolResult::blocks`,
+> NOT from the plain `data`. A tool that does `ToolResult::success($data)` without
+> the second argument `blocks: [...]` will declare `pinnable() === true` but will
+> never generate the 📌 button — the flag stays inert and nothing surfaces until
+> E2E. See §9.2 for the two canonical recipes (table / KPI) that DO emit blocks.
+> `php artisan chatbot:tools:test <name>` explicitly warns when a pinnable tool
+> returns 0 blocks.
 
 ### 9.1 Enforcement: `confirmation === Auto`
 
-`pinnable=true` **sólo es respetado** si `confirmation() === Confirmation::Auto`.
-Una tool con `Confirmation::Confirm` o `Confirmation::Manual` no debe
-poder re-ejecutarse silenciosamente desde el dashboard (eso burlaría la
-guardia explícita de UX en el chat). El orquestador marca el block con
-`pinnable=false` aunque el método devuelva `true` cuando esa precondición
-falla.
+`pinnable=true` is **only honoured** if `confirmation() === Confirmation::Auto`.
+A tool with `Confirmation::Confirm` or `Confirmation::Manual` must not be
+silently re-executed from the dashboard (that would bypass the explicit UX guard
+in chat). The orchestrator marks the block with `pinnable=false` even if the
+method returns `true` when this precondition fails.
 
-Para detectar tools mal configuradas, `php artisan chatbot:tools:list`
-emite un warning explícito:
+To catch misconfigured tools, `php artisan chatbot:tools:list` emits an explicit
+warning:
 
 ```
 WARN  invoice_dunning is pinnable() but confirmation() != Auto — pinnable will be ignored.
 ```
 
-### 9.2 Ejemplos: tabla pinnable vs KPI pinnable
+### 9.2 Examples: pinnable table vs pinnable KPI
 
-**Listing-style** (tabla con filas que el usuario quiere ver fresca cada
-día):
+**Listing-style** (table with rows the user wants refreshed each day):
 
 ```php
 class ListMyInvoicesTool extends BaseBackendTool
@@ -641,7 +628,7 @@ class ListMyInvoicesTool extends BaseBackendTool
 }
 ```
 
-**Stats-style** (KPI que el usuario quiere monitorizar):
+**Stats-style** (KPI the user wants to monitor):
 
 ```php
 class InvoiceStatsTool extends BaseBackendTool
@@ -670,22 +657,22 @@ class InvoiceStatsTool extends BaseBackendTool
 }
 ```
 
-### 9.3 Qué NO declarar pinnable
+### 9.3 What NOT to declare pinnable
 
-- Tools `create_*` / `update_*` / `delete_*` (mutaciones). Aunque la
-  llamada haya tenido éxito al pin, re-ejecutarla al refresh duplicaría la
-  mutación. Estas tools deben quedarse con `confirmation = Confirm`
-  o `Manual` — y como consecuencia `pinnable()` se ignora aunque tu opt-in.
-- Tools que envían emails, generan PDFs, llaman a APIs externas con coste
-  por request, etc. Igual razón.
-- Tools cuyo resultado depende fuertemente de un `page_context` que no
-  declaras en `pageContextKeys()`. El replay desde `/chatbot/dashboard`
-  no tiene contexto de página propio; ver §9.4.
+- `create_*` / `update_*` / `delete_*` tools (mutations). Even if the pin call
+  succeeded, re-executing it on refresh would duplicate the mutation. These tools
+  should stay with `confirmation = Confirm` or `Manual` — and as a result
+  `pinnable()` is ignored even if you opt in.
+- Tools that send emails, generate PDFs, call external APIs with per-request
+  costs, etc. Same reason.
+- Tools whose result depends heavily on a `page_context` you do not declare in
+  `pageContextKeys()`. The replay from `/chatbot/dashboard` has no page context
+  of its own; see §9.4.
 
-### 9.4 Page context al pin/replay
+### 9.4 Page context at pin/replay
 
-Si tu tool depende de claves de `page_context` para producir resultados
-correctos, declara qué claves necesita:
+If your tool depends on `page_context` keys to produce correct results, declare
+which keys it needs:
 
 ```php
 public function pageContextKeys(): array
@@ -694,22 +681,22 @@ public function pageContextKeys(): array
 }
 ```
 
-El orquestador filtra `page_context` activo a esas claves al emitir el
-block (`source.page_context_keys`); el endpoint de pin captura el subset
-filtrado en `source.page_context_snapshot`; el `ReplayService` aplica el
-snapshot al `ToolContext` antes de invocar `handle()`. Detalle completo en
-[`page-context.md` §7](page-context.md#7-page-context-en-pin-replay).
+The orchestrator filters the active `page_context` to those keys when emitting
+the block (`source.page_context_keys`); the pin endpoint captures the filtered
+subset in `source.page_context_snapshot`; the `ReplayService` applies the
+snapshot to the `ToolContext` before invoking `handle()`. Full detail in
+[`page-context.md`](page-context.md).
 
 ---
 
-## 10. Envelope `meta.*` en blocks (v2.2.1)
+## 10. `meta.*` envelope in blocks (v2.2.1)
 
-Cada entrada de `ToolResult::blocks[]` admite, además de `type` + `data`,
-una clave `meta` opcional con un bag `{string: mixed}` libre que el
-orquestador propaga **verbatim** al frame `block` del SSE. El widget
-bundle lee `meta` como `BlockPayload.meta` y lo expone a la pipeline de
-hooks cliente↔cliente. Consumers v1.x que sólo conocen `{type, data}`
-ignoran la clave sin error — la adición es aditiva.
+Each entry in `ToolResult::blocks[]` accepts, in addition to `type` + `data`,
+an optional `meta` key with a free `{string: mixed}` bag that the orchestrator
+propagates **verbatim** to the SSE `block` frame. The widget bundle reads `meta`
+as `BlockPayload.meta` and exposes it to the client↔client hook pipeline.
+v1.x consumers that only know `{type, data}` ignore the key without error — the
+addition is additive.
 
 ```php
 return ToolResult::success(
@@ -720,7 +707,7 @@ return ToolResult::success(
             'title'       => '✅ Added',
             'description' => 'Pinned to the dashboard.',
         ],
-        // Opcional, aditivo. Consumers que no conocen la clave la ignoran.
+        // Optional, additive. Consumers that do not know the key ignore it.
         'meta' => [
             'side_effects' => [
                 'type'           => 'widget_added',
@@ -732,14 +719,13 @@ return ToolResult::success(
 );
 ```
 
-### 10.1 Carril canónico: `meta.side_effects`
+### 10.1 Canonical lane: `meta.side_effects`
 
-Las 5 tools del Personal Dashboard conversacional (v2.2) lo usan para que
-el bundle del dashboard, cuando está montado en la misma página que el
-chat, refresque su UI sin F5 después de cada mutación. Ver
-[`dashboard.md` §12.6](dashboard.md#126-cross-client-signal-chatbotdashboard-mutation-v221).
+The 5 conversational Personal Dashboard tools (v2.2) use this so that the
+dashboard bundle, when mounted on the same page as the chat, refreshes its UI
+without an F5 after each mutation. See [`dashboard.md`](dashboard.md).
 
-Tipos emitidos hoy (`side_effects.type`):
+Types emitted today (`side_effects.type`):
 
 - `widget_added`     → `{type, dashboard_slug, widget_id}`
 - `widget_updated`   → `{type, dashboard_slug, widget_id, changes[]}`
@@ -747,23 +733,21 @@ Tipos emitidos hoy (`side_effects.type`):
 - `dashboard_updated`→ `{type, dashboard_slug, new_slug?, new_name?, changes[]}`
 - `dashboard_deleted`→ `{type, dashboard_slug, was_default, promoted_slug?}`
 
-El widget bundle despacha `chatbot:dashboard-mutation` (CustomEvent en
-`document`) con el `side_effects` íntegro como `detail` cuando llega un
-frame `block` que lo contenga.
+The widget bundle dispatches `chatbot:dashboard-mutation` (CustomEvent on
+`document`) with the full `side_effects` as `detail` when a `block` frame
+containing it arrives.
 
-### 10.2 Cuándo añadir un carril nuevo en `meta`
+### 10.2 When to add a new lane in `meta`
 
-Reserva el envelope para metadata **fuera de banda**: hooks UX que no
-caben en `data` (renderizable) ni en `source` (replay). Si una tool propia
-necesita que un bundle del host reaccione a su éxito (refrescar una
-tabla, levantar un toast, invalidar un cache), puedes:
+Reserve the envelope for **out-of-band** metadata: UX hooks that do not fit in
+`data` (renderable) or `source` (replay). If a host tool needs a host bundle to
+react to its success (refresh a table, raise a toast, invalidate a cache), you can:
 
-1. Estampar `meta.<tu_carril>` en el block de éxito.
-2. Hacer que el host escuche un evento custom suyo desde un listener
-   global de `chatbot:dashboard-mutation` (si reaprovechas el mismo
-   evento) o bien dispatch'eando uno propio en el handler de blocks del
-   widget bundle.
+1. Stamp `meta.<your_lane>` on the success block.
+2. Have the host listen for its own custom event from a global
+   `chatbot:dashboard-mutation` listener (if reusing the same event) or by
+   dispatching its own in the widget bundle's block handler.
 
-No usar `meta` para datos que el LLM o el renderer necesiten leer — eso
-va en `data`. No usar `meta` para datos del replay — eso lo estampa el
-orquestador en `source`, no el tool.
+Do not use `meta` for data the LLM or renderer need to read — that goes in
+`data`. Do not use `meta` for replay data — the orchestrator stamps that in
+`source`, not the tool.

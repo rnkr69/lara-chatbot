@@ -1,41 +1,42 @@
 # Integration · Custom forms (no-Backpack)
 
-> Cómo integrar `fill_form` con `<form>` que no vienen de Backpack
-> (Blade plano, Livewire, Inertia, Filament — cualquier stack). Introducido
-> en v1.1.1 (finding #13).
+*English · [Español](custom-forms.es.md)*
+
+> How to integrate `fill_form` with `<form>` elements that do not come from Backpack
+> (plain Blade, Livewire, Inertia, Filament — any stack).
 >
-> Pre-lectura: [`page-context.md`](../page-context.md) +
-> [`FRONTEND_TOOLS.md`](../FRONTEND_TOOLS.md). Para hosts que SÍ usan
-> Backpack la integración es out-of-the-box — ver
+> Pre-reading: [`page-context.md`](../page-context.md) +
+> [`FRONTEND_TOOLS.md`](../FRONTEND_TOOLS.md). For hosts that DO use
+> Backpack the integration is out-of-the-box — see
 > [`integrations/backpack.md`](backpack.md).
 
 ---
 
-## 1. ¿Por qué este doc?
+## 1. Why this doc?
 
-`BackpackPageContextProvider` introspecta el `CrudPanel` para emitir el
-schema del form (campos, types, options). Cualquier app Laravel
-"estándar" no tiene ese mecanismo: el `<form>` vive en una view Blade
-plana / Livewire component / Inertia page, y sin ayuda del integrador el
-LLM no sabe qué `name` HTML tiene cada control ni qué values esperan
-los selects.
+`BackpackPageContextProvider` introspects the `CrudPanel` to emit the
+form schema (fields, types, options). Any "standard" Laravel app lacks
+that mechanism: the `<form>` lives in a plain Blade view / Livewire
+component / Inertia page, and without help from the integrator the LLM
+does not know what HTML `name` each control has or what values the
+selects expect.
 
-El package ofrece tres piezas para cerrar ese gap:
+The package offers three pieces to close that gap:
 
-| Pieza | Qué hace |
+| Piece | What it does |
 |---|---|
-| `@chatbotForm` Blade directive | tagea el `<form>` y publica su schema al page context |
-| `chatbot:scan-forms` | auditoría: lista forms taggeados vs untagged |
-| `chatbot:integrate-form` | wizard interactivo que añade `@chatbotForm` a un form concreto |
+| `@chatbotForm` Blade directive | tags the `<form>` and publishes its schema to the page context |
+| `chatbot:scan-forms` | audit: lists tagged vs. untagged forms |
+| `chatbot:integrate-form` | interactive wizard that adds `@chatbotForm` to a specific form |
 
-Con eso, el LLM ve el schema del form en `## Current page` y puede
-llamar `fill_form` con `name` y `value` correctos sin guessing.
+With these, the LLM sees the form schema under `## Current page` and can
+call `fill_form` with the correct `name` and `value` without guessing.
 
 ---
 
-## 2. La directiva `@chatbotForm`
+## 2. The `@chatbotForm` directive
 
-### 2.1 Sintaxis
+### 2.1 Syntax
 
 ```blade
 <form method="post"
@@ -48,11 +49,11 @@ llamar `fill_form` con `name` y `value` correctos sin guessing.
 </form>
 ```
 
-El primer argumento es el **id** que el LLM usará en `form_id`. El
-segundo (opcional) es el **source** del schema. Tres variantes
-soportadas:
+The first argument is the **id** the LLM will use in `form_id`. The
+second (optional) is the schema **source**. Three variants are
+supported:
 
-### 2.2 Variante 1 — FormRequest FQCN (recomendada)
+### 2.2 Variant 1 — FormRequest FQCN (recommended)
 
 ```blade
 <form method="post" action="{{ route('contact.store') }}"
@@ -61,11 +62,11 @@ soportadas:
 </form>
 ```
 
-La directiva instancia el FormRequest, lee `rules()` y mapea cada regla
-a un schema field con `Rnkr69\LaraChatbot\Validation\RulesToFormSchema`.
-Soporta:
+The directive instantiates the FormRequest, reads `rules()`, and maps
+each rule to a schema field via `Rnkr69\LaraChatbot\Validation\RulesToFormSchema`.
+Supported mappings:
 
-| Regla Laravel | Schema generado |
+| Laravel rule | Generated schema |
 |---|---|
 | `'required'` | `required: true` |
 | `'email'` | `type: 'email'` |
@@ -75,11 +76,11 @@ Soporta:
 | `'date_format:Y-m-d H:i'` | `type: 'datetime'` |
 | `'url'` | `type: 'url'` |
 | `'file'` / `'image'` | `type: 'file'` |
-| `'in:a,b,c'` o `Rule::in([...])` | `type: 'select'`, `options: ['a','b','c']` |
+| `'in:a,b,c'` or `Rule::in([...])` | `type: 'select'`, `options: ['a','b','c']` |
 | `'max:255'` / `'min:1'` | `max: 255` / `min: 1` |
 
-Si el FormRequest implementa `attributes()` (labels amigables), la
-directiva los usa como `label`:
+If the FormRequest implements `attributes()` (human-friendly labels), the
+directive uses them as `label`:
 
 ```php
 class ContactRequest extends FormRequest
@@ -92,15 +93,15 @@ class ContactRequest extends FormRequest
 }
 ```
 
-→ el schema emite `{name: 'email', label: 'Tu correo electrónico', type: 'email', required: true}`.
+→ the schema emits `{name: 'email', label: 'Tu correo electrónico', type: 'email', required: true}`.
 
-**Ventaja**: las rules son la single source of truth — cuando cambias
-la validación, el schema del LLM se actualiza solo. **Edge case**:
-rules array-nested (`items.*.name`) se ignoran (el LLM no sabe rellenar
-array fields así de cleanly). Hosts con forms array-heavy deben caer a
-variante 2 o ampliar el mapper.
+**Advantage**: rules are the single source of truth — when you change
+the validation, the LLM schema updates automatically. **Edge case**:
+array-nested rules (`items.*.name`) are ignored (the LLM cannot fill
+array fields cleanly at this time). Hosts with heavily array-based forms
+should fall back to variant 2 or extend the mapper.
 
-### 2.3 Variante 2 — Lista inline
+### 2.3 Variant 2 — Inline list
 
 ```blade
 <form method="post" action="{{ route('contact.store') }}"
@@ -118,15 +119,15 @@ variante 2 o ampliar el mapper.
 </form>
 ```
 
-La forma **más simple y predecible**. Útil cuando:
+The **simplest and most predictable** form. Useful when:
 
-- No hay FormRequest (el form va directo al controller).
-- Quieres exponer options custom que no salen de rules (e.g. labels
-  amigables para enums).
-- Tu form tiene campos que NO mapean 1:1 con rules (un hidden, un
-  campo computado).
+- There is no FormRequest (the form goes directly to the controller).
+- You want to expose custom options that do not come from rules (e.g.
+  friendly labels for enums).
+- Your form has fields that do NOT map 1:1 to rules (a hidden field, a
+  computed field).
 
-### 2.4 Variante 3 — Runtime-extracted (sin schema)
+### 2.4 Variant 3 — Runtime-extracted (no schema)
 
 ```blade
 <form method="post" action="..." @chatbotForm('contact-form')>
@@ -137,64 +138,64 @@ La forma **más simple y predecible**. Útil cuando:
 </form>
 ```
 
-Sin segundo argumento. La directiva emite el atributo
-`data-chatbot-form` + un `<script>` ligero que, al boot del widget,
-escanea el form y publica `{name, type, required}` extraídos del DOM
-via `Chatbot.setPageContext({form: {...}})`.
+No second argument. The directive emits the `data-chatbot-form`
+attribute plus a lightweight `<script>` that, on widget boot, scans the
+form and publishes `{name, type, required}` extracted from the DOM via
+`Chatbot.setPageContext({form: {...}})`.
 
-Schema más pobre (sin labels amigables, sin options de selects), pero
-útil como punto de partida cuando no quieres tocar nada del código
-existente. Migra a variante 1 o 2 cuando la UX te lo pida.
+The schema is less rich (no friendly labels, no select options), but
+useful as a starting point when you do not want to touch any existing
+code. Migrate to variant 1 or 2 when UX demands it.
 
 ---
 
-## 3. Aliases con `data-chatbot-field`
+## 3. Aliases with `data-chatbot-field`
 
-Para fields con `name` HTML feo (`metadata[options][0][value]`,
-`payload[items][3][qty]`), expón un alias amigable que el LLM pueda usar:
+For fields with an ugly HTML `name` (`metadata[options][0][value]`,
+`payload[items][3][qty]`), expose a friendly alias for the LLM to use:
 
 ```html
 <input name="metadata[options][0][value]" data-chatbot-field="first_option">
 ```
 
-El LLM ve `first_option` en el schema del page context (cuando lo
-declares en variante 1/2) y `fillForm` busca por
-`[data-chatbot-field]` antes que por `[name]`. Si el LLM llama con un
-name que no existe, el warn de "field not found" lista AMBOS conjuntos
-(`name` y `data-chatbot-field`) para diagnóstico.
+The LLM sees `first_option` in the page context schema (when declared in
+variant 1/2) and `fillForm` searches by `[data-chatbot-field]` before
+`[name]`. If the LLM calls with a name that does not exist, the
+"field not found" warning lists BOTH sets (`name` and `data-chatbot-field`)
+for diagnostics.
 
 ---
 
-## 4. Combinarlo con una write tool
+## 4. Combining with a write tool
 
-A veces quieres que el LLM también pueda **enviar** el form sin que el
-usuario esté en `/contact`. Patrón:
+Sometimes you want the LLM to also be able to **submit** the form when
+the user is not on `/contact`. Pattern:
 
-1. Mantén `@chatbotForm('contact-form', ContactRequest::class)` en la
-   view (para que cuando el usuario sí esté en la página el LLM
-   prerellene el form).
-2. Crea una backend write tool `submit_contact_form` que valida con
-   `ContactRequest::rules()` (ver
-   [`backend-tools.md §6`](../backend-tools.md)) y persiste.
-3. El LLM decide ruta a ruta: si el usuario está en `/contact` →
-   `fill_form` (mejor UX, usuario revisa); si está en otra página →
-   `submit_contact_form` directo.
+1. Keep `@chatbotForm('contact-form', ContactRequest::class)` in the
+   view (so that when the user is on the page the LLM can pre-fill
+   the form).
+2. Create a backend write tool `submit_contact_form` that validates
+   with `ContactRequest::rules()` (see
+   [`backend-tools.md`](../backend-tools.md)) and persists.
+3. The LLM decides route by route: if the user is on `/contact` →
+   `fill_form` (better UX, user reviews); if on another page →
+   `submit_contact_form` directly.
 
-Los dos sitios consumen la MISMA clase de rules — sin drift entre
-front (lo que ve el LLM) y back (lo que valida server-side).
+Both sites consume the SAME rules class — no drift between front (what
+the LLM sees) and back (what the server validates).
 
 ---
 
-## 5. Comandos de soporte
+## 5. Support commands
 
-### 5.1 `chatbot:scan-forms` — auditoría
+### 5.1 `chatbot:scan-forms` — audit
 
 ```
 php artisan chatbot:scan-forms
 ```
 
-Escanea `resources/views/&star;&star;/&star;.blade.php` y reporta cada `<form>` con su
-estado:
+Scans `resources/views/**/*.blade.php` and reports each `<form>` with
+its status:
 
 ```
  +----------------------------------------+-------------------+----------------+----------+
@@ -209,10 +210,10 @@ estado:
 ```
 
 Flags:
-- `--path=resources/views/admin` para escanear sólo un subdirectorio.
-- `--json` para salida programática.
+- `--path=resources/views/admin` to scan only a subdirectory.
+- `--json` for programmatic output.
 
-Es **read-only** — no modifica nada.
+It is **read-only** — it modifies nothing.
 
 ### 5.2 `chatbot:integrate-form <view>` — wizard
 
@@ -220,97 +221,95 @@ Es **read-only** — no modifica nada.
 php artisan chatbot:integrate-form resources/views/contact.blade.php
 ```
 
-Localiza el primer `<form>` del Blade, te pregunta:
-- Qué id usar (default: slug del basename).
-- Qué schema source (FormRequest / lista manual / runtime-extracted).
-- Muestra el diff antes de aplicar.
+Locates the first `<form>` in the Blade file and asks:
+- What id to use (default: slug of the basename).
+- What schema source (FormRequest / manual list / runtime-extracted).
+- Shows the diff before applying.
 
-Es **idempotente**: si el form ya tiene `@chatbotForm` o
-`data-chatbot-form`, skip con mensaje (usa `--force` para sobrescribir).
+It is **idempotent**: if the form already has `@chatbotForm` or
+`data-chatbot-form`, it skips with a message (use `--force` to
+overwrite).
 
-Flags útiles:
-- `--request=App\Http\Requests\ContactRequest` para no-interactividad.
-- `--id=contact-main` para forzar un id concreto.
+Useful flags:
+- `--request=App\Http\Requests\ContactRequest` for non-interactive use.
+- `--id=contact-main` to force a specific id.
 
 ---
 
-## 6. Casos edge
+## 6. Edge cases
 
-### 6.1 Forms con `_method=PUT/DELETE`
+### 6.1 Forms with `_method=PUT/DELETE`
 
-El LLM no se entera del verb HTTP porque sólo ve el schema de campos.
-Eso es OK — `fill_form` no submitea por defecto (`submit: false`). Si
-submitea (`submit: true`), el `<form>` ya emite el `_method` correcto
-porque Laravel inyecta el hidden via `@method`. Sin acción adicional.
+The LLM is unaware of the HTTP verb because it only sees the field
+schema. That is fine — `fill_form` does not submit by default
+(`submit: false`). If it does submit (`submit: true`), the `<form>`
+already emits the correct `_method` because Laravel injects the hidden
+field via `@method`. No additional action needed.
 
-### 6.2 Forms con file uploads (`multipart/form-data`)
+### 6.2 Forms with file uploads (`multipart/form-data`)
 
-`fill_form` rellena `<input type="file">` con `''` (vacío) si el LLM
-pasa un value — no hay forma de subir un archivo desde la conversación
-por v1.1.x. Si quieres que el LLM "envíe" un archivo, considera una
-write tool específica que reciba un URL y haga el upload server-side.
+`fill_form` fills `<input type="file">` with `''` (empty) if the LLM
+passes a value — there is no way to upload a file from the conversation
+in v1.1.x. If you want the LLM to "send" a file, consider a dedicated
+write tool that receives a URL and performs the upload server-side.
 
-### 6.3 Forms multi-step (wizard)
+### 6.3 Multi-step forms (wizard)
 
-Cada step debería ser un `<form>` independiente con su propio
-`@chatbotForm`. El LLM ve el form del step actual via page context y
-puede rellenarlo. Al avanzar de step, el host emite
-`chatbot:context-changed` (manualmente vía `setPageContext` o vía
-re-render) para refrescar el schema.
+Each step should be an independent `<form>` with its own `@chatbotForm`.
+The LLM sees the current step's form via page context and can fill it.
+When advancing a step, the host emits `chatbot:context-changed`
+(manually via `setPageContext` or via re-render) to refresh the schema.
 
 ### 6.4 Livewire 3.x
 
-`wire:model` escucha eventos `input`. Como `fillForm` ya dispara
-`input` y `change` desde v1.0.1, Livewire reacciona normalmente. No
-hace falta configuración extra. Verifica que el `<form>` (o
-`<div wire:submit="save">`) tenga `data-chatbot-form` para que
-`fill_form` lo localice — Livewire NO emite forms con `id` por
-defecto.
+`wire:model` listens to `input` events. Since `fillForm` already fires
+`input` and `change` as of v1.0.1, Livewire reacts normally. No extra
+configuration is needed. Verify that the `<form>` (or
+`<div wire:submit="save">`) has `data-chatbot-form` so that `fill_form`
+can locate it — Livewire does NOT emit forms with an `id` by default.
 
 ### 6.5 Inertia
 
-Los forms Inertia son JSX/Vue/Svelte renderizados client-side. El
-patrón es:
-1. En el Blade root layout (`app.blade.php`), expón el schema via
-   `<meta name="chatbot:context-form" content='...'>` o vía
-   `Chatbot.setPageContext({form: ...})` en el componente cliente.
-2. Asegúrate de que el `<form>` final renderizado tenga
-   `data-chatbot-form="..."`. Para Vue/React, ponlo como prop o
-   attribute directo en el `<form>`.
+Inertia forms are JSX/Vue/Svelte rendered client-side. The pattern is:
+1. In the Blade root layout (`app.blade.php`), expose the schema via
+   `<meta name="chatbot:context-form" content='...'>` or via
+   `Chatbot.setPageContext({form: ...})` in the client component.
+2. Ensure the final rendered `<form>` has `data-chatbot-form="..."`.
+   For Vue/React, add it as a prop or direct attribute on the `<form>`.
 
-La directiva `@chatbotForm` no llega a un `<form>` que renderiza el
-framework cliente — tendrías que usar `setPageContext` desde tu JS.
+The `@chatbotForm` directive cannot reach a `<form>` rendered by the
+client-side framework — you would need to use `setPageContext` from
+your JS.
 
 ### 6.6 Filament
 
-Filament construye forms via builder API. Hoy NO hay integración
-automática como con Backpack — usa `@chatbotForm` en el panel Blade
-custom o publica el schema via `setPageContext` desde el JS del panel.
-Backlog: explorar un `FilamentPageContextProvider` análogo al de
-Backpack (post-1.1.x).
+Filament builds forms via a builder API. There is currently NO automatic
+integration as with Backpack — use `@chatbotForm` in a custom Blade
+panel or publish the schema via `setPageContext` from the panel's JS.
+Backlog: explore a `FilamentPageContextProvider` analogous to the
+Backpack one.
 
 ---
 
-## 7. Limitaciones conocidas
+## 7. Known limitations
 
-- **Parser Blade es heurístico** (regex sobre `<form`). Casos con
-  `<form` partido en varias líneas mezclado con condicionales Blade
-  pueden no detectarse en `chatbot:scan-forms`. Lo común sí.
-- **No soporta forms array-nested rules** (`items.*.name`) en variante
-  1 — el LLM no puede rellenar bien array fields de momento. Roadmap
-  v2.
-- **`@chatbotForm` no envuelve el `<form>`**: hay que ponerlo COMO
-  atributo dentro del tag (como cualquier otro `class="..."`). Esto es
-  intencional — Blade no permite directivas que generen atributos
-  desde fuera del tag sin un preprocessor invasivo.
+- **Blade parser is heuristic** (regex over `<form`). Cases where
+  `<form` is split across multiple lines mixed with Blade conditionals
+  may not be detected by `chatbot:scan-forms`. Common cases work fine.
+- **Array-nested rules not supported** (`items.*.name`) in variant 1 —
+  the LLM cannot fill array fields well at this time.
+- **`@chatbotForm` does not wrap the `<form>`**: it must be placed AS
+  an attribute inside the tag (like any other `class="..."`). This is
+  intentional — Blade does not allow directives to generate attributes
+  from outside the tag without an invasive preprocessor.
 
 ---
 
-## 8. Referencias
+## 8. References
 
-- Directiva: `src/View/Directives/ChatbotFormDirective.php`
-- Mapper rules: `src/Validation/RulesToFormSchema.php`
-- Comandos: `src/Console/Commands/ScanFormsCommand.php` + `IntegrateFormCommand.php`
+- Directive: `src/View/Directives/ChatbotFormDirective.php`
+- Rules mapper: `src/Validation/RulesToFormSchema.php`
+- Commands: `src/Console/Commands/ScanFormsCommand.php` + `IntegrateFormCommand.php`
 - `fill_form` primitive: [`FRONTEND_TOOLS.md`](../FRONTEND_TOOLS.md)
-- Backpack (comparativa): [`integrations/backpack.md`](backpack.md)
-- Write tools (combo): [`backend-tools.md §6`](../backend-tools.md)
+- Backpack (comparison): [`integrations/backpack.md`](backpack.md)
+- Write tools (combo): [`backend-tools.md`](../backend-tools.md)

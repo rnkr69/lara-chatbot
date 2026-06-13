@@ -1,6 +1,6 @@
 {
   "name": "@rnkr69/lara-chatbot-widget",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Web Component <chatbot-widget> bundle for the rnkr69/lara-chatbot Laravel package.",
   "private": true,
   "license": "MIT",

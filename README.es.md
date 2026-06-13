@@ -2,7 +2,7 @@
 
 *[English](README.md) · Español*
 
-![status](https://img.shields.io/badge/status-v0.4.0--prerelease-orange)
+![status](https://img.shields.io/badge/status-v0.4.1--prerelease-orange)
 ![php](https://img.shields.io/badge/php-%5E8.2-blue)
 ![laravel](https://img.shields.io/badge/laravel-12%20%7C%2013-red)
 ![license](https://img.shields.io/badge/license-MIT-green)
@@ -42,7 +42,7 @@ mientras esté en la línea `0.x`.
 
 | | |
 |---|---|
-| **Versión** | `0.4.0` (pre-estable; un bump MINOR puede romper en la línea `0.x`) |
+| **Versión** | `0.4.1` (pre-estable; un bump MINOR puede romper en la línea `0.x`) |
 | **Cobertura de tests** | Pest (PHP) + Vitest (JS); 487 vitest + objetivo ≥75% en el core PHP |
 | **CI** | `.github/workflows/ci.yml` (lint + matriz de tests + build JS) |
 | **Eval harness (calidad de tool-calling del LLM)** | 8 fixtures YAML. El modo fake (verifica el orquestador) corre en CI por PR. El modo live llama al LLM real y vuelca una traza por fixture a `tests/Evals/last-live-run.json`. Backlog: ≥20 fixtures + matriz multi-modelo + seguimiento de baseline. Ver [`tests/Evals/README.es.md`](tests/Evals/README.es.md). |

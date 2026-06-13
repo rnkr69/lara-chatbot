@@ -2,7 +2,7 @@
 
 *English · [Español](README.es.md)*
 
-![status](https://img.shields.io/badge/status-v0.4.0--prerelease-orange)
+![status](https://img.shields.io/badge/status-v0.4.1--prerelease-orange)
 ![php](https://img.shields.io/badge/php-%5E8.2-blue)
 ![laravel](https://img.shields.io/badge/laravel-12%20%7C%2013-red)
 ![license](https://img.shields.io/badge/license-MIT-green)
@@ -41,7 +41,7 @@ pre-`1.0`, so a MINOR bump may include breaking changes while on the `0.x` line.
 
 | | |
 |---|---|
-| **Version** | `0.4.0` (pre-stable; a MINOR bump may break on the `0.x` line) |
+| **Version** | `0.4.1` (pre-stable; a MINOR bump may break on the `0.x` line) |
 | **Test coverage** | Pest (PHP) + Vitest (JS); 487 vitest + ≥75% target on core PHP |
 | **CI** | `.github/workflows/ci.yml` (lint + test matrix + JS build) |
 | **Eval harness (LLM tool-calling quality)** | 8 YAML fixtures. Fake mode (verifies the orchestrator) runs in CI per PR. Live mode calls the real LLM and dumps a per-fixture trace to `tests/Evals/last-live-run.json`. Backlog: ≥20 fixtures + multi-model matrix + baseline tracking. See [`tests/Evals/README.md`](tests/Evals/README.md). |

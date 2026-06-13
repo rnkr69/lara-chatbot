@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-06-13
+
 ### Added
 - **Laravel 13 support.** Dependency constraints widened to
   `illuminate/* ^11.0|^12.0|^13.0`; the suite passes unchanged on Laravel 13
@@ -14,11 +16,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (PHP 8.3/8.4 — Laravel 13 drops PHP 8.2).
 
 ### Changed
+- **Codebase fully translated to English.** All code comments plus every
+  user- and LLM-facing string — artisan CLI output, error/exception messages
+  and the system-prompt few-shot examples — were translated from Spanish to
+  English. The `resources/lang/es` translation resource and the `*.es.md`
+  docs remain (the package stays bilingual at the docs/translation layer).
 - Dev tooling allows Pest `^3.0|^4.0` and Testbench `^9.0|^10.0|^11.0` so each
   Laravel line resolves its compatible test stack (Pest 3 on L12, Pest 4 on L13).
 - `composer test` now runs with `--no-coverage` (Pest 4 / PHPUnit 12 hard-fail
   when coverage reports are configured but no driver is present; use
   `composer test:coverage` for coverage runs).
+- **Leaner Composer dist.** `export-ignore` rules in `.gitattributes` exclude
+  development-only paths (tests, docs and their images, build scripts, source
+  maps and JS/TS tooling configs) from the `composer require` tarball.
 
 ### Notes
 - **Laravel 11** is still allowed (`^11.0`) but is no longer tested in CI: it
@@ -166,5 +176,6 @@ Adding new tools, new block renderer types, new artisan commands, or
 new opt-in integrations is MINOR. Internal refactors with no public-
 surface change are PATCH.
 
-[Unreleased]: https://github.com/rnkr69/lara-chatbot/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/rnkr69/lara-chatbot/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/rnkr69/lara-chatbot/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/rnkr69/lara-chatbot/releases/tag/v0.4.0

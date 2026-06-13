@@ -18,14 +18,15 @@
 | Component | Version | Notes |
 |---|---|---|
 | PHP | `^8.2` | Tested on 8.2 / 8.3 / 8.4. Requires `ext-pdo`, `ext-json`, `ext-mbstring`. |
-| Laravel | `^11.0` or `^12.0` | The package supports the two latest major versions. |
+| Laravel | `^12.0` or `^13.0` | Both tested in CI. Also `^11.0`, but with a caveat (security-EOL — see [Laravel 11](#laravel-11)). |
 | Database | MySQL ≥ 8.0, PostgreSQL ≥ 13, SQLite | Any driver supported by Eloquent + JSON columns. |
 | LLM provider | Anthropic / OpenAI / Groq / Gemini / Mistral / Ollama | Any provider supported by [Prism](https://github.com/prism-php/prism). |
 | Node + npm | `node ≥ 20`, `npm ≥ 10` | Only if you plan to customise the widget; the precompiled bundle is published via `vendor:publish --tag=chatbot-assets`. |
 
-**Installing from the repository.** The package is consumed via a Composer VCS
-repository pointing to `https://github.com/rnkr69/lara-chatbot.git` (see §2.1).
-Details on Satis / Packeton / Private Packagist alternatives in
+**Installing.** The package is published on Packagist as
+[`rnkr69/lara-chatbot`](https://packagist.org/packages/rnkr69/lara-chatbot), so a
+plain `composer require` works (see §2.1). For private or self-hosted
+distribution (VCS, Satis, Packeton, Private Packagist) see
 [`distribution.md`](distribution.md).
 
 **Host login route.** The package mounts `/chatbot*` behind the `auth` middleware
@@ -50,25 +51,15 @@ This affects any `auth` route in the host, not only the chatbot routes.
 
 ## 2. Quick installation
 
-### 2.1 Declare the repository in `composer.json`
+### 2.1 Install the package
 
-```json
-{
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/rnkr69/lara-chatbot.git"
-        }
-    ],
-    "require": {
-        "rnkr69/lara-chatbot": "^0.4"
-    }
-}
+```bash
+composer require rnkr69/lara-chatbot
 ```
 
 ### Laravel 11
 
-The package **supports** Laravel 11 (`illuminate/* ^11.0|^12.0`), but Laravel 11
+The package **supports** Laravel 11 (`illuminate/* ^11.0|^12.0|^13.0`), but Laravel 11
 reached its **end of security support (~March 2026)**: the entire `11.x` line
 carries an unpatched advisory. Recent versions of Composer block installation of
 packages flagged with advisories (`audit.block-insecure`) by default, so **a clean
@@ -82,7 +73,7 @@ before installing:
 ```bash
 # option A — Composer config of the host project
 composer config audit.block-insecure false
-composer update rnkr69/lara-chatbot
+composer require rnkr69/lara-chatbot
 ```
 
 ```json
@@ -95,13 +86,12 @@ composer update rnkr69/lara-chatbot
 ```
 
 This is the host's decision, not the package's: it only affects how Composer
-handles advisories in your project. The package CI tests only Laravel 12 for
+handles advisories in your project. The package CI tests Laravel 12 and 13 for
 this reason.
 
-### 2.2 Install and run the wizard
+### 2.2 Run the wizard
 
 ```bash
-composer update rnkr69/lara-chatbot
 php artisan chatbot:install
 ```
 

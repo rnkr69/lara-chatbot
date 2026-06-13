@@ -2,7 +2,7 @@
 
 *[English](distribution.md) · Español*
 
-Esta guía explica cómo publicar `rnkr69/lara-chatbot` en un git privado y consumirlo desde proyectos host, además de la matriz CI recomendada para futuras releases.
+Esta guía explica cómo se publica `rnkr69/lara-chatbot` en **Packagist público**, o bien en un git privado / servidor de paquetes propio, y cómo consumirlo desde proyectos host, además de la matriz CI usada para las releases.
 
 > Si solo quieres instalar el paquete en un proyecto Laravel existente, lee la sección [Instalación](#instalación) y vuelve al [README](../README.md). El resto del documento está pensado para mantenedores del paquete.
 
@@ -10,9 +10,20 @@ Esta guía explica cómo publicar `rnkr69/lara-chatbot` en un git privado y cons
 
 ## Instalación
 
-### Receta mínima — repositorio VCS
+### Recomendado — Packagist público
 
-Un host con acceso SSH al repo privado del paquete puede consumirlo añadiendo un repositorio `vcs` en su `composer.json`:
+El paquete está publicado en [Packagist](https://packagist.org/packages/rnkr69/lara-chatbot), así que un `require` normal funciona sin más:
+
+```bash
+composer require rnkr69/lara-chatbot
+php artisan chatbot:install
+```
+
+Esto cubre la mayoría de proyectos. Las secciones siguientes son **opcionales**, sólo para equipos que prefieren alojamiento privado.
+
+### Alternativa privada — repositorio VCS
+
+En vez de depender de Packagist, un host con acceso SSH al repo privado del paquete puede consumirlo añadiendo un repositorio `vcs` en su `composer.json`:
 
 ```json
 {
@@ -23,7 +34,7 @@ Un host con acceso SSH al repo privado del paquete puede consumirlo añadiendo u
         }
     ],
     "require": {
-        "rnkr69/lara-chatbot": "^1.0"
+        "rnkr69/lara-chatbot": "^0.4"
     }
 }
 ```
@@ -31,8 +42,7 @@ Un host con acceso SSH al repo privado del paquete puede consumirlo añadiendo u
 Después:
 
 ```bash
-composer update rnkr69/lara-chatbot
-php artisan chatbot:install
+composer require rnkr69/lara-chatbot && php artisan chatbot:install
 ```
 
 > Sustituye `https://github.com/rnkr69/lara-chatbot.git` por la URL real del repo. La receta funciona con cualquier git host (GitHub privado, GitLab self-hosted, Bitbucket, Gitea…). Composer resuelve tags y branches directamente sin necesidad de servidor de paquetes intermedio.
@@ -50,7 +60,7 @@ Para empresas con varios paquetes privados, montar un servidor de paquetes evita
     "repositories": [
         { "type": "composer", "url": "https://packages.example.com" }
     ],
-    "require": { "rnkr69/lara-chatbot": "^1.0" }
+    "require": { "rnkr69/lara-chatbot": "^0.4" }
 }
 ```
 
@@ -108,15 +118,17 @@ documentados abajo son la fuente de verdad portable.
 
 | Eje | Valores en CI | Valores soportados |
 |---|---|---|
-| PHP | `8.2`, `8.3` | `8.2`, `8.3`, `8.4` |
-| Laravel | `^11.0`, `^12.0` | `^11.0`, `^12.0` |
+| PHP | `8.2`, `8.3`, `8.4` | `8.2`, `8.3`, `8.4` |
+| Laravel | `^12.0`, `^13.0` | `^11.0`, `^12.0`, `^13.0` |
 
-CI corre **4 combinaciones** PHP × Laravel (subset de las 6 soportadas).
-PHP 8.4 se valida manualmente antes de release tag; en CI lo dejamos
-fuera para acortar el wall-clock y bajar coste de Actions.
+CI corre **5 combinaciones**: Laravel 12 en PHP 8.2/8.3/8.4 y Laravel 13
+en PHP 8.3/8.4 (Laravel 13 deja de soportar PHP 8.2). Laravel 11 lo
+permite `composer.json` pero **no** se ejecuta en CI — alcanzó
+security-EOL y el bloqueo de advisories de Composer impide una
+instalación limpia (ver [getting-started.es.md](getting-started.es.md#laravel-11)).
 
-`composer.json` declara `"illuminate/contracts": "^11.0|^12.0"` y
-`"illuminate/support": "^11.0|^12.0"`. `prism-php/prism: ^0.100`
+`composer.json` declara `"illuminate/contracts": "^11.0|^12.0|^13.0"` y
+`"illuminate/support": "^11.0|^12.0|^13.0"`. `prism-php/prism: ^0.100`
 requiere PHP `^8.2`.
 
 > **Laravel 10 fuera del paquete** (decisión D1).
@@ -178,7 +190,7 @@ en `scripts/check-bundle-tokens.mjs`.
 
 Si un host registra renderers propios o tools que tiran lib pesada al bundle del dashboard, el cap protege contra TTFB inflado de `/chatbot/dashboard`. Para overrides que requieran libs adicionales, considere registrarlas como ESM dinámico (lazy load post-mount) en vez de embedded en el bundle.
 
-> Estado actual: widget **~26 KB gzip / 80 KB cap** (~68% bajo budget) · dashboard **~108 KB gzip / 150 KB cap** (~28% bajo budget).
+> Estado actual: widget **~28 KB gzip / 80 KB cap** (~65% bajo budget) · dashboard **~110 KB gzip / 150 KB cap** (~27% bajo budget).
 
 #### 3. Suite Vitest + typecheck TypeScript
 
@@ -229,8 +241,8 @@ Composer ya entiende los tags git directamente — un host puede hacer `composer
 ## FAQ
 
 **¿Por qué incluís un `.github/workflows/ci.yml` si el git host real puede no ser GitHub?**
-Como referencia ejecutable. Las primeras dos integraciones piloto se harán
-contra GitHub, así que el workflow funciona out-of-the-box ahí. Empresas
+Como referencia ejecutable. El repositorio público está en GitHub, así
+que el workflow funciona out-of-the-box ahí. Equipos
 con otro git host (GitLab CI, Bitbucket, Gitea, Drone) traducen los pasos
 del YAML — son los mismos cuatro: composer install + pest, npm install +
 typecheck + vitest + build. La matriz y los comandos en esta guía son la

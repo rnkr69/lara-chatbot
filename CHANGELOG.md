@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-06-25
+
+### Fixed
+- **Duplicated block content.** When a backend tool returned typed `blocks`
+  (table/card/kpi/chart/list), the widget painted the block via SSE **and** the
+  LLM reproduced the same content as a markdown table in its text (which the
+  widget also rendered) — the user saw two tables / two cards. Root cause: the
+  tool result returned to the model (`PrismToolFactory::wrap()`) was
+  `ToolResult::toArray()`, which includes the `blocks` key with every row, so
+  the model "saw" the blocks and replayed them. The model payload now omits
+  `blocks` by default. The contract is now explicit: **`data` is what the LLM
+  sees and reasons over; `blocks` are presentation-only for the widget.**
+- **Blocks lost on reload.** Blocks only travelled over the live SSE stream and
+  were never persisted, so reloading the page or opening
+  `/chatbot?conversation_id=XX` dropped every card/table — the conversation
+  rehydrated with text only and looked half-finished. Emitted blocks are now
+  appended to the assistant message `content[]` (the same canonical payload the
+  widget already hydrates via `adaptStoredMessage`), so they re-render on
+  reload. No client-side change and no DB migration required (`content` is
+  already a JSON column). Note: conversations created before 0.4.2 have no
+  persisted blocks and stay text-only on reload — only new turns replay.
+
+### Added
+- `chatbot.llm.send_blocks_to_model` (env `CHATBOT_LLM_SEND_BLOCKS_TO_MODEL`,
+  default `false`) — when `true`, the tool result sent to the model includes
+  `blocks` again (restores pre-0.4.2 behavior, e.g. if you want the LLM to
+  reason over the block rows; prefer putting those rows in `data` instead).
+- `ToolResult::toModelArray(bool $includeBlocks = false)` — model-bound
+  serialization that omits `blocks` unless requested. `toArray()` is unchanged
+  (still used by the `tool_result` SSE event and the `ToolInvoked` listeners).
+
+### Changed
+- **Behavior change (default):** tool `blocks` are no longer sent to the model.
+  This is the fix for the duplicated content above. Hosts that relied on the LLM
+  seeing block rows can re-enable it with `CHATBOT_LLM_SEND_BLOCKS_TO_MODEL=true`,
+  but the recommended path is to expose those rows in the tool's `data`.
+
 ## [0.4.1] - 2026-06-13
 
 ### Added

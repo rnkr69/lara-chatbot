@@ -235,6 +235,64 @@ it('shares the FIFO buffer when wrappers are built inside a ref-capturing closur
         ->and($buffer['shared_tool'])->toBe([]);
 });
 
+it('omits blocks from the JSON sent to the model by default (no duplicated content)', function () {
+    config()->set('chatbot.llm.send_blocks_to_model', false);
+
+    $tool = makeTool([
+        'type' => 'object',
+        'properties' => [],
+        'required' => [],
+    ], name: 'blocky_tool');
+
+    $blocks = [['type' => 'table', 'data' => ['rows' => [['id' => 1]]]]];
+    $buffer = [
+        'blocky_tool' => [ToolResult::success(['summary' => 'one row'], $blocks)],
+    ];
+
+    $prism = (new PrismToolFactory)->wrap($tool, new ToolContext(user: new FakeUser), $buffer);
+
+    $reflection = new \ReflectionClass($prism);
+    $prop = $reflection->getProperty('fn');
+    $prop->setAccessible(true);
+    $closure = $prop->getValue($prism);
+
+    $raw     = $closure();
+    $payload = json_decode($raw, true);
+
+    expect($raw)->toBeString()
+        ->and($raw)->not->toContain('"blocks"')
+        ->and($payload)->toHaveKey('data')
+        ->and($payload)->not->toHaveKey('blocks')
+        ->and($payload['data'])->toBe(['summary' => 'one row']);
+});
+
+it('includes blocks in the JSON sent to the model when the flag is enabled', function () {
+    config()->set('chatbot.llm.send_blocks_to_model', true);
+
+    $tool = makeTool([
+        'type' => 'object',
+        'properties' => [],
+        'required' => [],
+    ], name: 'blocky_tool_on');
+
+    $blocks = [['type' => 'table', 'data' => ['rows' => [['id' => 1]]]]];
+    $buffer = [
+        'blocky_tool_on' => [ToolResult::success(['summary' => 'one row'], $blocks)],
+    ];
+
+    $prism = (new PrismToolFactory)->wrap($tool, new ToolContext(user: new FakeUser), $buffer);
+
+    $reflection = new \ReflectionClass($prism);
+    $prop = $reflection->getProperty('fn');
+    $prop->setAccessible(true);
+    $closure = $prop->getValue($prism);
+
+    $payload = json_decode($closure(), true);
+
+    expect($payload)->toHaveKey('blocks')
+        ->and($payload['blocks'])->toBe($blocks);
+});
+
 it('returns a runtime error JSON when the FIFO buffer is empty (defensive fallback)', function () {
     $tool = makeTool([
         'type' => 'object',

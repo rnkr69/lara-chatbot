@@ -126,6 +126,30 @@ identificadores los entiende el LLM):
 - `runtime` — error inesperado durante la ejecución (DB caída, API externa
   off, ...). El mensaje viaja al LLM, no incluyas internals.
 
+#### `data` vs `blocks` — quién ve qué (desde 0.4.2)
+
+Los dos argumentos de `ToolResult::success($data, $blocks)` van a **consumidores
+distintos**:
+
+- **`data`** es lo que ve el **LLM** y sobre lo que razona. Pon aquí las
+  filas/campos sobre los que quieres que el modelo responda ("¿cuántas facturas
+  están vencidas?").
+- **`blocks`** son **solo presentación para el widget**. Se emiten como frames
+  SSE `block` (table/card/kpi/chart/list) y, desde 0.4.2, se persisten en el
+  mensaje del asistente para que se vuelvan a renderizar al recargar la página o
+  abrir `/chatbot?conversation_id=XX`.
+
+**Los blocks NO se envían al modelo por defecto.** Enviarlos hacía que el LLM
+reprodujese su contenido como tabla markdown en su texto —que el widget también
+renderiza—, así que el usuario veía el contenido **duplicado**. El modelo ahora
+recibe `data` (y `status`) pero no `blocks`.
+
+Si de verdad quieres que el LLM razone sobre las filas del bloque, lo correcto es
+exponer también esas filas en `data`. Como vía de escape puedes activar
+`chatbot.llm.send_blocks_to_model` (env `CHATBOT_LLM_SEND_BLOCKS_TO_MODEL=true`)
+para volver a enviar `blocks` al modelo, pero entonces volverá el contenido
+duplicado salvo que tu system prompt lo evite.
+
 ---
 
 ## 3. Cascada de autorización

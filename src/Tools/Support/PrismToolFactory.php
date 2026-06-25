@@ -74,7 +74,12 @@ final class PrismToolFactory
             $result = array_shift($queue);
             $buffer[$name] = $queue;
 
-            $payload = $result->toArray();
+            // El payload que vuelve al LLM omite `blocks` por defecto: son
+            // presentación para el widget y, si el modelo los ve, los reproduce
+            // como texto (contenido duplicado). El host puede reactivarlos con
+            // `chatbot.llm.send_blocks_to_model`.
+            $includeBlocks = (bool) config('chatbot.llm.send_blocks_to_model', false);
+            $payload = $result->toModelArray($includeBlocks);
             $encoded = json_encode($payload);
 
             return is_string($encoded) ? $encoded : 'tool_result_serialization_failed';

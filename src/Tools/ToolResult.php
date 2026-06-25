@@ -127,4 +127,27 @@ final class ToolResult
             ],
         };
     }
+
+    /**
+     * Payload destinado al modelo (LLM). Es idéntico a `toArray()` pero OMITE la
+     * clave `blocks`, que es presentación para el widget — nunca razonamiento.
+     * Enviar `blocks` al modelo provoca que reproduzca su contenido como
+     * tabla/markdown en el texto, duplicando lo que el widget ya pinta por SSE.
+     *
+     * El host puede forzar el envío con `chatbot.llm.send_blocks_to_model`
+     * (`$includeBlocks = true`); por defecto NO se envían. Para `error` y
+     * `awaiting_user` el `unset` es no-op (esos branches no llevan `blocks`).
+     *
+     * @return array<string, mixed>
+     */
+    public function toModelArray(bool $includeBlocks = false): array
+    {
+        $payload = $this->toArray();
+
+        if (! $includeBlocks) {
+            unset($payload['blocks']);
+        }
+
+        return $payload;
+    }
 }

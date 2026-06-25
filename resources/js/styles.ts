@@ -97,12 +97,13 @@ button { font: inherit; cursor: pointer; }
 :host([data-state="minimized"]) .panel { display: none; }
 :host([data-state="closed"]) .panel { display: none; }
 :host([data-state="open"]) .launcher,
-:host([data-state="fullscreen"]) .launcher,
-:host([data-state="minimized"]) .launcher { display: none; }
+:host([data-state="fullscreen"]) .launcher { display: none; }
+/* The closed and minimized states both fall back to the launcher bubble so the
+   chat is always reopenable. (The header has no minimize button anymore; the
+   minimized state is only reachable via the window.Chatbot API and must not
+   leave a blank widget.) */
 :host([data-state="closed"]) .launcher,
-:host([data-state="minimized"]) .launcher-mini { display: flex; }
-
-.launcher-mini { display: none; }
+:host([data-state="minimized"]) .launcher { display: flex; }
 
 .header {
   display: flex; align-items: center; gap: 8px;
@@ -475,11 +476,10 @@ button { font: inherit; cursor: pointer; }
   text-align: center;
 }
 .cb-sidebar-new:hover { background: var(--cb-bubble-assistant); }
-/* In page mode the chrome buttons (fullscreen / minimize / close) make no
-   sense — the page is already the chat. The "new conversation" pen icon
-   in the header also duplicates the sidebar's "+ New conversation". */
+/* In page mode the chrome buttons (fullscreen / close) make no sense — the
+   page is already the chat. The "new conversation" pen icon in the header also
+   duplicates the sidebar's "+ New conversation". */
 :host([data-mode="page"]) .header .cb-header-fullscreen,
-:host([data-mode="page"]) .header .cb-header-minimize,
 :host([data-mode="page"]) .header .cb-header-close,
 :host([data-mode="page"]) .header .cb-header-new {
   display: none;

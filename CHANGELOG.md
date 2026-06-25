@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-06-25
+
+### Fixed
+- **Widget header: minimize and close felt swapped.** The header had two
+  buttons — minimize (—) and close (✕). Minimizing targeted the `minimized`
+  state, whose only visible affordance was a `.launcher-mini` element that was
+  never rendered in the DOM, so the whole widget vanished and looked closed;
+  closing targeted the `closed` state, which shows the 💬 launcher bubble and so
+  looked merely minimized. The minimize button is **removed**: the single close
+  button (✕) collapses the panel back to the reopenable launcher bubble. The
+  `minimized` state now also falls back to the launcher bubble (it remains
+  reachable via the `window.Chatbot` API), so it can never leave a blank widget.
+  Requires the published widget asset to be refreshed (`php artisan
+  vendor:publish --tag=chatbot-assets --force` or re-publish however the host
+  ships `public-build/chatbot-widget.js`).
+
 ## [0.4.2] - 2026-06-25
 
 ### Fixed

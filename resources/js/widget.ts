@@ -350,19 +350,18 @@ export class ChatbotWidgetElement extends HTMLElement {
     fullBtn.addEventListener('click', () => {
       this.requestState(this.machine.state === 'fullscreen' ? 'open' : 'fullscreen');
     });
-    const minBtn = document.createElement('button');
-    minBtn.type = 'button';
-    minBtn.className = 'cb-header-minimize';
-    minBtn.setAttribute('aria-label', 'Minimize');
-    minBtn.textContent = '—';
-    minBtn.addEventListener('click', () => this.requestState('minimized'));
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'cb-header-close';
+    // The close button collapses the panel back to the launcher bubble (the
+    // `closed` state shows the 💬 launcher, so the chat is always reopenable).
+    // There is no separate "minimize" button: it used to target the
+    // `minimized` state, which had no visible affordance and looked like the
+    // widget had vanished — confusing it with closing.
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.textContent = '✕';
     closeBtn.addEventListener('click', () => this.requestState('closed'));
-    header.append(newBtn, fullBtn, minBtn, closeBtn);
+    header.append(newBtn, fullBtn, closeBtn);
     panel.appendChild(header);
 
     // Error banner (hidden by default)

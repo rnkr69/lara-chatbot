@@ -1,42 +1,32 @@
 /**
- * v2.0 / E7 — default Chart.js renderer for the `chart` block when it lives
- * in the dashboard bundle.
+ * Default Chart.js renderer for the `chart` block (core module since v0.4.4).
  *
- * The floating widget does NOT bundle Chart.js (the 80 KB gzip cap forbids
- * it); the dashboard does bundle it (150 KB gzip cap). `chart.js/auto`
- * registers the 8 controllers + scales + plugins → any valid `type` comes for
- * free with no future changes here.
+ * Previously this lived in `dashboard/` and only the dashboard bundle pulled it
+ * in, so the floating widget and the `/chatbot` page rendered a placeholder
+ * instead of a chart. It now lives in core and is wired as the built-in `chart`
+ * renderer in `blocks.ts`, so ALL bundles (widget, page, dashboard) include
+ * Chart.js and render charts identically. The trade-off is the widget bundle
+ * grows (~+50 KB gzip); accepted in exchange for consistency.
  *
- * The renderer is PURE: it receives `data` and returns an HTMLElement. It
- * knows nothing about the widget-card lifecycle; the internal WeakMap destroys
- * the previous Chart instance when the same canvas is re-rendered (E3 replay
- * updates the snapshot → widget-card.ts re-calls renderBlock → if the wrapper
- * exists and the previous Chart is still alive, it must be destroyed to avoid
- * leaks).
+ * Host override: a host that prefers another library can still win the cascade
+ * with `window.Chatbot.registerBlockRenderer('chart', fn)` (see `renderBlock`).
  *
- * Sanity:
- *   - `type` must be one of the 4 supported ones; anything else → fallback to
- *     the placeholder in blocks.ts.
- *   - `labels` array of strings; `datasets` non-empty array of objects with a
- *     `data` array of numbers; or `series/points/values` aliases for
- *     datasets[0].data and `categories` for labels.
+ * The renderer is PURE: it receives `data` and returns an HTMLElement. The
+ * internal WeakMap destroys the previous Chart instance when the same canvas is
+ * re-rendered (E3 replay → widget-card.ts re-calls renderBlock → the previous
+ * Chart must be destroyed to avoid leaks).
  *
- * LLM-friendly aliases:
- *   - `kind` → `type` (v2.1.1 / #25).
+ * LLM-friendly aliases (handled in normalize()):
+ *   - `kind` → `type` (#25).
  *   - `categories` → `labels`.
- *   - `series` | `points` | `values` → `datasets[0].data` (with an optional
- *     label from block.data.title || block.type).
- *
- * Host override: if the host calls `window.Chatbot.registerBlockRenderer('chart', fn)`
- * BEFORE the dashboard bundle tries to register the built-in, the host wins.
- * The logic lives in `index.ts`; this module only exposes the renderer.
+ *   - `series` | `points` | `values` → `datasets[0].data`.
  */
 
-// We import Chart.js/auto (registers EVERYTHING automatically). The dashboard
-// bundle absorbs ~60 KB gzip; the widget bundle does not touch this module.
+// chart.js/auto registers EVERYTHING (controllers + scales + plugins) so any
+// supported `type` works with no further changes here.
 import Chart from 'chart.js/auto';
-import type { BlockHost, BlockRenderer } from '../types.js';
-import { renderChartBlock as renderChartBlockPlaceholder } from '../blocks.js';
+import type { BlockHost, BlockRenderer, BlockRendererMeta } from './types.js';
+import { renderChartBlock as renderChartBlockPlaceholder } from './chart-placeholder.js';
 
 const ALLOWED_TYPES = ['line', 'bar', 'pie', 'doughnut', 'radar', 'polarArea', 'bubble', 'scatter'] as const;
 type AllowedType = typeof ALLOWED_TYPES[number];
@@ -111,9 +101,8 @@ function normalizeDataset(raw: unknown, fallbackLabel: string): NormalizedDatase
 }
 
 function normalize(data: Record<string, unknown>): NormalizedShape | null {
-  // v2.1.1 (#25) — accept `kind` as an alias of `type`. An LLM or a backend
-  // tool naturally emits `kind: 'bar'`; without this the spec failed
-  // normalization and the placeholder falsely claimed no renderer existed.
+  // #25 — accept `kind` as an alias of `type`. An LLM or backend tool naturally
+  // emits `kind: 'bar'`; without this the spec failed normalization.
   const typeCandidate = data['type'] !== undefined ? data['type'] : data['kind'];
   if (!isAllowedType(typeCandidate)) return null;
   const type = typeCandidate;
@@ -145,7 +134,7 @@ function normalize(data: Record<string, unknown>): NormalizedShape | null {
   if (datasets === null || datasets.length === 0) return null;
 
   // In 'pie'/'doughnut'/'polarArea', labels.length MUST match
-  // datasets[0].data.length; otherwise Chart.js renders but with a broken legend.
+  // datasets[0].data.length; otherwise Chart.js renders with a broken legend.
   const arcLike = type === 'pie' || type === 'doughnut' || type === 'polarArea';
   if (arcLike && labels.length !== datasets[0]!.data.length) return null;
 
@@ -185,18 +174,24 @@ function buildChartOptions(shape: NormalizedShape): Record<string, unknown> {
 
 /**
  * Renders a `chart`-type block using Chart.js. If the `data` fails the sanity
- * checks, it delegates to the built-in placeholder (`renderChartBlock`) to keep
- * the UX consistent with the floating widget (hosts already saw that
- * placeholder in v1.x).
+ * checks, or a host renderer threw upstream (meta.customError), it delegates to
+ * the placeholder (`renderChartBlock`) so the UX is consistent everywhere.
  */
 export const renderChartBlockChartjs: BlockRenderer = (
   data: Record<string, unknown>,
   host: BlockHost,
+  meta?: BlockRendererMeta,
 ): HTMLElement => {
+  // When used as the built-in fallback after a host-registered 'chart' renderer
+  // threw, `renderBlock` passes `meta.customError`. Surface that via the
+  // placeholder instead of silently re-rendering the same data.
+  if (meta?.customError !== undefined && meta.customError !== null) {
+    return renderChartBlockPlaceholder(data, host, meta);
+  }
+
   const shape = normalize(data);
-  // v2.1.1 (#25) — the renderer IS registered; the data just failed
-  // normalization. `invalidData` makes the placeholder say so instead of
-  // the false "Chart renderer not registered".
+  // #25 — the renderer IS registered; the data just failed normalization.
+  // `invalidData` makes the placeholder say so.
   if (shape === null) return renderChartBlockPlaceholder(data, host, { invalidData: true });
 
   const wrapper = document.createElement('div');
@@ -217,9 +212,8 @@ export const renderChartBlockChartjs: BlockRenderer = (
 
   // Defer Chart() construction to the next microtask so callers that mount the
   // wrapper into the DOM right after this call can do so before Chart.js
-  // measures the canvas. Doing it synchronously works too (Chart.js handles
-  // detached canvas), but the responsive sizing degrades. queueMicrotask
-  // resolves before the next paint so visually it's identical.
+  // measures the canvas (responsive sizing). queueMicrotask resolves before the
+  // next paint so visually it's identical.
   const construct = (): void => {
     const prev = liveCharts.get(canvas);
     if (prev) {
@@ -236,9 +230,8 @@ export const renderChartBlockChartjs: BlockRenderer = (
       });
       liveCharts.set(canvas, instance);
     } catch (err) {
-      console.error('[chatbot:dashboard] Chart.js threw while mounting:', err);
-      // v2.1.1 (#25) — `customError` so the placeholder reports the throw,
-      // not a false "renderer not registered".
+      console.error('[chatbot:chart] Chart.js threw while mounting:', err);
+      // #25 — `customError` so the placeholder reports the throw.
       wrapper.replaceWith(renderChartBlockPlaceholder(data, host, { customError: err }));
     }
   };

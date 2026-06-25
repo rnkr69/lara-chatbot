@@ -787,15 +787,19 @@ return [
 
         /*
         |----------------------------------------------------------------------
-        | Renderer del block `chart` en el bundle del dashboard
+        | Renderer del block `chart` (informativo desde 0.4.4)
         |----------------------------------------------------------------------
         |
-        | `'chartjs'` (default) → el bundle separado del dashboard incluye
-        | Chart.js (~42 KB gzip) como renderer built-in. Los hosts pueden
-        | seguir overrideando vía `window.Chatbot.registerBlockRenderer('chart', …)`
-        | — la API se mantiene. `'none'` → ningún renderer built-in para
-        | charts; el host DEBE registrar el suyo o los widgets `chart`
-        | mostrarán el fallback "renderer not registered".
+        | Desde 0.4.4 Chart.js es el renderer built-in del block `chart` en el
+        | CORE del paquete, así que TODOS los bundles (widget, página y
+        | dashboard) lo incluyen y dibujan los charts de forma idéntica.
+        |
+        | Esta clave (y el atributo `data-chart-renderer` que emite) se conserva
+        | por compatibilidad pero YA NO cambia el render: `'none'` ya no
+        | desactiva Chart.js (el bundle del widget lo incluye igualmente, y la
+        | consistencia es justo el objetivo). Para usar otra librería, registra
+        | un override: `window.Chatbot.registerBlockRenderer('chart', fn)` gana
+        | la cascada sobre el built-in.
         |
         */
         'chart_renderer' => 'chartjs',

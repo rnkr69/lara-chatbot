@@ -50,7 +50,7 @@ with the next step and the error is logged to `console.error`.
 | `table`   | Tabular data, sortable visually by host CSS.    | `rows[]`           | `columns[]`, `caption`, `empty_text` |
 | `list`    | Ordered or unordered items, optionally clickable.| `items[]`          | `title`, `ordered` |
 | `actions` | Inline button row that triggers prompts/tools.  | `actions[]`        | —             |
-| `chart`   | Placeholder. Hosts register their own renderer. | (anything)         | `title`, `series`/`points`/`values` |
+| `chart`   | Chart.js (built-in on every surface since 0.4.4). | `type`/`kind` + `labels`/`categories` + `datasets`/`series`/`points`/`values` | `title`, `options` |
 
 ### `text`
 
@@ -143,31 +143,47 @@ container reads best for the conversation.
 
 ### `chart`
 
-The **widget bundle** ships a placeholder for `chart`. The widget stays small
-and the host picks the charting library that fits its design system. The
-placeholder shows the title (if any), a hint pointing at
-`registerBlockRenderer`, and a collapsible `<details>` with the raw payload
-so the data is not lost while the host wires up a real renderer.
+Since **0.4.4**, Chart.js is the built-in `chart` renderer in **every** bundle —
+the floating widget, the `/chatbot` page and the dashboard render charts
+identically, out of the box. (Before 0.4.4 only the dashboard bundled Chart.js;
+the widget showed a placeholder.) The trade-off is the widget bundle is larger
+(~97 KB gzip, up from ~28 KB) because it now includes Chart.js; this is the
+accepted cost of consistent charts across surfaces.
 
-The **dashboard bundle** (v2.0) ships Chart.js as the default renderer for
-`chart` — see [`dashboard.md`](dashboard.md) for the `chart_renderer` config
-(`chartjs` | `none`) and how to register your own renderer that overrides it.
-On pages where only the widget is loaded, the placeholder still applies; the
-dashboard bundle is the one that comes batteries-included.
+`chart.js/auto` registers all controllers, so any supported `type` works:
+`line`, `bar`, `pie`, `doughnut`, `radar`, `polarArea`, `bubble`, `scatter`.
 
-To register a renderer that wins on both bundles (must run **before** the
-dashboard bundle initialises):
+```json
+{
+  "type": "chart",
+  "data": {
+    "type": "bar",
+    "labels": ["Paid", "Pending", "Overdue"],
+    "datasets": [{ "label": "Invoices", "data": [12, 5, 3] }],
+    "title": "Invoices by status"
+  }
+}
+```
+
+LLM-friendly aliases (normalized internally): `kind` → `type`, `categories` →
+`labels`, and `series` / `points` / `values` → a single dataset's `data`.
+
+The **placeholder** now appears only when the data can't be drawn (no usable
+`type`, malformed datasets) — it shows the title, a short "chart data is
+invalid" note and a collapsible `<details>` with the raw payload. It never says
+"renderer not registered" anymore, because a renderer is always present.
+
+**Override with another library.** A host that prefers ApexCharts/ECharts/etc.
+can register its own `chart` renderer — it wins the cascade over the built-in:
 
 ```js
 window.Chatbot = window.Chatbot ?? {};
 window.Chatbot.registerBlockRenderer('chart', (data, host) => {
   const canvas = document.createElement('canvas');
-  // …draw with Chart.js / ApexCharts / your own SVG…
+  // …draw with your library…
   return canvas;
 });
 ```
-
-The dashboard bundle detects an existing registration and does not clobber it.
 
 ### `kpi`
 
@@ -261,12 +277,12 @@ Renderers receive `(data, host, meta?)`:
   `host.send(prompt)` enqueues a follow-up user message exactly as if the user
   typed it; keep it clear in your UI when a click triggers a prompt — users
   find silent submissions disorienting.
-- `meta` (optional, since v1.1) — runtime metadata. Today the only field is
-  `meta.customError`, which is set when a previously registered host renderer
-  for the same `type` threw and the cascade fell back to the built-in. Use it
-  to surface a useful diagnostic instead of the misleading default
-  ("renderer not registered") — that's exactly what the built-in `chart`
-  fallback does in v1.1.
+- `meta` (optional, since v1.1) — runtime metadata. The relevant field is
+  `meta.customError`, set when a previously registered host renderer for the
+  same `type` threw and the cascade fell back to the built-in. Use it to
+  surface a useful diagnostic — that's exactly what the built-in `chart`
+  fallback does (it reports the throw via the placeholder instead of silently
+  re-drawing).
 
 > **Common mistake:** assuming `host` is the DOM node and calling
 > `host.appendChild(...)`. It is not. Return the element you built; the widget

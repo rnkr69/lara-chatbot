@@ -38,7 +38,7 @@ Un renderer que lanza una excepción **no** envenena el hilo — la cascada cont
 | `table`   | Datos tabulares, ordenables visualmente por CSS del host. | `rows[]`         | `columns[]`, `caption`, `empty_text` |
 | `list`    | Ítems ordenados o no, opcionalmente clicables.         | `items[]`           | `title`, `ordered` |
 | `actions` | Fila de botones en línea que disparan prompts/herramientas. | `actions[]`   | —                 |
-| `chart`   | Placeholder. Los hosts registran su propio renderer.   | (cualquiera)        | `title`, `series`/`points`/`values` |
+| `chart`   | Chart.js (integrado en todas las superficies desde 0.4.4). | `type`/`kind` + `labels`/`categories` + `datasets`/`series`/`points`/`values` | `title`, `options` |
 
 ### `text`
 
@@ -127,22 +127,49 @@ Misma forma de ítem que dentro de `card.actions` y `list.items` — elige el co
 
 ### `chart`
 
-El **bundle del widget** incluye un placeholder para `chart`. El widget se mantiene pequeño y el host elige la librería de gráficos que se adapta a su sistema de diseño. El placeholder muestra el título (si lo hay), una pista apuntando a `registerBlockRenderer`, y un `<details>` colapsable con el payload crudo para que los datos no se pierdan mientras el host conecta un renderer real.
+Desde **0.4.4**, Chart.js es el renderer integrado de `chart` en **todos** los
+bundles — el widget flotante, la página `/chatbot` y el dashboard renderizan los
+gráficos de forma idéntica, out-of-the-box. (Antes de 0.4.4 solo el dashboard
+incluía Chart.js; el widget mostraba un placeholder.) El trade-off es que el
+bundle del widget pesa más (~97 KB gzip, frente a ~28 KB) porque ahora incluye
+Chart.js; es el coste aceptado a cambio de gráficos consistentes entre superficies.
 
-El **bundle del dashboard** (v2.0) incluye Chart.js como renderer por defecto para `chart` — consulta [`dashboard.es.md`](dashboard.es.md) para la configuración `chart_renderer` (`chartjs` | `none`) y cómo registrar tu propio renderer que lo sobreescriba. En páginas donde solo se carga el widget, sigue aplicando el placeholder; el bundle del dashboard es el que viene con las baterías incluidas.
+`chart.js/auto` registra todos los controllers, así que cualquier `type`
+soportado funciona: `line`, `bar`, `pie`, `doughnut`, `radar`, `polarArea`,
+`bubble`, `scatter`.
 
-Para registrar un renderer que gane en ambos bundles (debe ejecutarse **antes** de que el bundle del dashboard se inicialice):
+```json
+{
+  "type": "chart",
+  "data": {
+    "type": "bar",
+    "labels": ["Pagadas", "Pendientes", "Vencidas"],
+    "datasets": [{ "label": "Facturas", "data": [12, 5, 3] }],
+    "title": "Facturas por estado"
+  }
+}
+```
+
+Alias amistosos para el LLM (normalizados internamente): `kind` → `type`,
+`categories` → `labels`, y `series` / `points` / `values` → el `data` de un
+único dataset.
+
+El **placeholder** ahora aparece solo cuando los datos no se pueden dibujar (sin
+`type` usable, datasets mal formados) — muestra el título, una nota breve
+"chart data is invalid" y un `<details>` colapsable con el payload crudo. Ya
+nunca dice "renderer not registered", porque siempre hay un renderer.
+
+**Sobreescribir con otra librería.** Un host que prefiera ApexCharts/ECharts/etc.
+puede registrar su propio renderer de `chart` — gana la cascada sobre el integrado:
 
 ```js
 window.Chatbot = window.Chatbot ?? {};
 window.Chatbot.registerBlockRenderer('chart', (data, host) => {
   const canvas = document.createElement('canvas');
-  // …dibujar con Chart.js / ApexCharts / tu propio SVG…
+  // …dibujar con tu librería…
   return canvas;
 });
 ```
-
-El bundle del dashboard detecta un registro existente y no lo sobreescribe.
 
 ### `kpi`
 
@@ -218,7 +245,7 @@ Los renderers reciben `(data, host, meta?)`:
 
 - `data` — el payload del bloque del frame SSE.
 - `host` — `{ send(prompt: string): void }`. **No** es el contenedor DOM — tu renderer debe **retornar** el `HTMLElement` y el widget lo anexa. `host.send(prompt)` encola un mensaje de usuario de seguimiento exactamente como si el usuario lo hubiera escrito; deja claro en tu UI cuando un clic dispara un prompt — los usuarios encuentran desconcertante el envío silencioso.
-- `meta` (opcional, desde v1.1) — metadatos en tiempo de ejecución. Hoy el único campo es `meta.customError`, que se activa cuando un renderer del host previamente registrado para el mismo `type` lanzó una excepción y la cascada cayó al integrado. Úsalo para mostrar un diagnóstico útil en lugar del error predeterminado engañoso ("renderer not registered") — eso es exactamente lo que hace el fallback integrado de `chart` en v1.1.
+- `meta` (opcional, desde v1.1) — metadatos en tiempo de ejecución. El campo relevante es `meta.customError`, que se activa cuando un renderer del host previamente registrado para el mismo `type` lanzó una excepción y la cascada cayó al integrado. Úsalo para mostrar un diagnóstico útil — eso es exactamente lo que hace el fallback integrado de `chart` (reporta la excepción vía el placeholder en lugar de redibujar en silencio).
 
 > **Error común:** asumir que `host` es el nodo DOM y llamar `host.appendChild(...)`. No lo es. Retorna el elemento que construiste; el widget lo envuelve por ti.
 

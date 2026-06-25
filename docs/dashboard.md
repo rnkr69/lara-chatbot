@@ -138,7 +138,7 @@ you will find:
 | `replay.concurrency` | `8` | — | Maximum parallel tools in `replayBulk()`, chunked. With the `sync` driver the cap only controls chunk size (no real parallelism); with `process`/`fork` it limits actual parallelism. |
 | `replay.timeout_seconds` | `15` | — | Per-tool timeout during replay. Exceeded → `last_refresh_status='error'` + previous snapshot intact. |
 | `replay.rate_limit_per_user_per_minute` | `60` | — | Token-bucket per user on `POST .../refresh` and `POST .../widgets/{id}/refresh`. **Does not apply to CRUD** (list/create/pin/delete) — the real cost is re-executing tools, not writing rows. |
-| `chart_renderer` | `'chartjs'` | — | `'chartjs'` bundles Chart.js as the default `chart` block renderer in the dashboard bundle. `'none'` leaves the block without a renderer (the host registers its own via `window.Chatbot.registerBlockRenderer('chart', fn)` before the bundle). See §8. |
+| `chart_renderer` | `'chartjs'` | — | Informational since 0.4.4 — Chart.js is the core built-in `chart` renderer in every bundle, so this no longer gates rendering (`'none'` does not disable it). Register an override via `window.Chatbot.registerBlockRenderer('chart', fn)` to use another library. See §8. |
 | `default_refresh_policy` | `'on_open'` | — | Initial policy when pinning: `on_open` re-executes when opening the dashboard, `manual` requires a ↻ click, `never` stays on the static snapshot. The user can change it per widget via PATCH. |
 | `layout` | `null` | `CHATBOT_DASHBOARD_LAYOUT` | If a string AND the view exists, `chatbot::dashboard_layout` extends that layout (`@extends($layout) @section($section)`). If null or the view does not exist, `chatbot::dashboard` is served standalone. Same pattern as `chatbot.page.layout`. **Without a `layout` configured, the dashboard runs standalone — without the host navigation (see §5.2).** |
 | `section` | `'content'` | `CHATBOT_DASHBOARD_SECTION` | Section where content is injected when extending the host layout. |
@@ -687,26 +687,30 @@ to the user.
 
 ## 8. `chart_renderer` override
 
-The dashboard bundle embeds `chart.js/auto` (~60 KB gzip) as the default `chart`
-block renderer. Three modes:
+**Since 0.4.4**, Chart.js (`chart.js/auto`) is the CORE built-in `chart`
+renderer, bundled into **every** surface — the floating widget, the `/chatbot`
+page and the dashboard — so charts render identically everywhere. There is
+nothing to register: a `chart` block draws out of the box.
 
-### 8.1 Default (`chart_renderer = 'chartjs'`)
+> **`chart_renderer` is now informational.** It used to gate whether the
+> dashboard bundle registered Chart.js (`'chartjs'`) or not (`'none'`). With
+> Chart.js in core, `'none'` no longer removes it (the widget bundle would
+> include it anyway, and consistency is the whole point). The config key and the
+> `data-chart-renderer` attribute are kept for backward compatibility but no
+> longer change rendering. To use a different library, register an override (8.1).
 
-The bundle pre-registers `renderChartBlockChartjs` in the `chart` block cascade.
-The host does nothing. Supports types
-`line`/`bar`/`pie`/`doughnut`/`polarArea`/`radar` with LLM-friendly aliases
-(`series`/`points`/`values` → `datasets[0].data`; `categories` → `labels`).
+Supported types: `line`/`bar`/`pie`/`doughnut`/`polarArea`/`radar`/`bubble`/
+`scatter`, with LLM-friendly aliases (`kind` → `type`; `series`/`points`/`values`
+→ `datasets[0].data`; `categories` → `labels`). Shape detail in
+[`block-renderers.md`](block-renderers.md).
 
-Expected shape detail in [`block-renderers.md`](block-renderers.md).
+### 8.1 Custom renderer (override the built-in)
 
-### 8.2 Custom renderer (`chart_renderer = 'chartjs'` + override)
-
-If the host wants to use another library (D3, ECharts…), it can register it
-**before** the dashboard bundle starts:
+To use another library (D3, ECharts…), register it on `window.Chatbot`. A
+host-registered `chart` renderer wins the cascade over the built-in:
 
 ```html
 <script>
-  // Host's own bundle, loaded before the dashboard
   window.Chatbot = window.Chatbot ?? {};
   window.Chatbot.registerBlockRenderer('chart', function(data, host) {
     // ... your implementation
@@ -716,15 +720,8 @@ If the host wants to use another library (D3, ECharts…), it can register it
 <script src="{{ asset('vendor/chatbot/chatbot-dashboard.js') }}" defer></script>
 ```
 
-When the bundle starts, it detects that `chart` is already registered and does
-NOT clobber the override.
-
-### 8.3 No renderer (`chart_renderer = 'none'`)
-
-Useful when the host has its own system and does NOT want to pay the 60 KB
-Chart.js cost. The bundle registers nothing for `chart`; if the host registers
-nothing either, `chart` blocks show the built-in placeholder
-("Chart renderer not registered…").
+The dashboard bundle detects an existing registration and does NOT clobber the
+override.
 
 ---
 

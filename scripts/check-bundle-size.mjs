@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const file = resolve(__dirname, '..', 'public-build/chatbot-widget.js');
-const BUDGET_KB = 80;
+// v0.4.4 — raised from 80 to 130 KB gzip: the widget now bundles Chart.js so
+// the `chart` block renders identically across the widget, page and dashboard.
+const BUDGET_KB = 130;
 
 if (!existsSync(file)) {
   console.error(`Bundle missing at ${file}. Run "npm run build" first.`);

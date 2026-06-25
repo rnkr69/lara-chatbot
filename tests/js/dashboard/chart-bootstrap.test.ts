@@ -4,10 +4,9 @@
  *   - `installChatbotShim()` installs a minimal `window.Chatbot` with
  *     `registerBlockRenderer` + `__internal.getBlockRenderer` when there is no
  *     previous widget bundle.
- *   - `configureChartRenderer(root)` respects `data-chart-renderer`:
- *       * `'chartjs'` (default): registers `renderChartBlockChartjs`.
- *       * `'none'`: registers nothing.
- *   - If the host registered its own renderer BEFORE, we do not clobber it.
+ *   - `configureChartRenderer()` (v0.4.4) no longer registers a chart renderer
+ *     — Chart.js is the CORE built-in (blocks.ts → chart-default.ts). It only
+ *     installs the shim so host overrides keep working and #35 migration holds.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -36,13 +35,6 @@ beforeEach(() => {
   // `delete window.Chatbot` works because the property is configurable.
   delete (window as { Chatbot?: unknown }).Chatbot;
 });
-
-function makeRoot(attrs: Record<string, string> = {}): HTMLElement {
-  const el = document.createElement('div');
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-  document.body.appendChild(el);
-  return el;
-}
 
 describe('installChatbotShim', () => {
   it('creates a minimal Chatbot global with registerBlockRenderer + __internal.getBlockRenderer', () => {
@@ -81,54 +73,33 @@ describe('installChatbotShim', () => {
   });
 });
 
-describe('configureChartRenderer', () => {
-  it('registers the chart renderer when data-chart-renderer=chartjs', () => {
-    const root = makeRoot({ 'data-chart-renderer': 'chartjs' });
-    configureChartRenderer(root);
-    const renderer = window.Chatbot?.__internal.getBlockRenderer('chart');
-    expect(typeof renderer).toBe('function');
-  });
-
-  it('registers when data-chart-renderer is missing (defaults to chartjs)', () => {
-    const root = makeRoot();
-    configureChartRenderer(root);
-    expect(typeof window.Chatbot?.__internal.getBlockRenderer('chart')).toBe('function');
-  });
-
-  it('does NOT register when data-chart-renderer=none', () => {
-    const root = makeRoot({ 'data-chart-renderer': 'none' });
-    configureChartRenderer(root);
-    // The shim is not even installed when 'none' — the function only fires for chartjs.
+describe('configureChartRenderer (v0.4.4 — shim only, no chart registration)', () => {
+  it('installs the window.Chatbot shim but does NOT register a host chart renderer', () => {
+    // Charts render via the core built-in now, so the dashboard registers
+    // nothing on the host map — getBlockRenderer('chart') stays undefined while
+    // the shim itself exists (for host overrides + #35 migration).
+    configureChartRenderer();
+    expect(typeof window.Chatbot).toBe('object');
+    expect(typeof window.Chatbot?.registerBlockRenderer).toBe('function');
     expect(window.Chatbot?.__internal.getBlockRenderer('chart')).toBeUndefined();
   });
 
   it('does not clobber an existing host chart renderer', () => {
-    // Simulate the host having loaded the widget bundle BEFORE the dashboard
-    // bundle, with its own chart renderer registered.
+    // Host loaded the widget bundle (with its own chart override) BEFORE the
+    // dashboard bundle. installChatbotShim respects an existing window.Chatbot.
     const hostRenderer = vi.fn();
-    (window as { Chatbot?: ChatbotApi }).Chatbot = {
+    const existing = {
       registerBlockRenderer: vi.fn(),
       __internal: {
         getBlockRenderer: vi.fn((type: string) => (type === 'chart' ? hostRenderer : undefined)),
       },
     } as unknown as ChatbotApi;
+    (window as { Chatbot?: ChatbotApi }).Chatbot = existing;
 
-    const root = makeRoot({ 'data-chart-renderer': 'chartjs' });
-    configureChartRenderer(root);
+    configureChartRenderer();
 
+    expect(window.Chatbot).toBe(existing);
     expect(window.Chatbot?.__internal.getBlockRenderer('chart')).toBe(hostRenderer);
     expect(window.Chatbot?.registerBlockRenderer).not.toHaveBeenCalled();
-  });
-
-  it('case-insensitive on data-chart-renderer (NONE / Chartjs)', () => {
-    const root1 = makeRoot({ 'data-chart-renderer': 'NONE' });
-    configureChartRenderer(root1);
-    expect(window.Chatbot?.__internal.getBlockRenderer('chart')).toBeUndefined();
-
-    document.body.innerHTML = '';
-    delete (window as { Chatbot?: unknown }).Chatbot;
-    const root2 = makeRoot({ 'data-chart-renderer': 'Chartjs' });
-    configureChartRenderer(root2);
-    expect(typeof window.Chatbot?.__internal.getBlockRenderer('chart')).toBe('function');
   });
 });

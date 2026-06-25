@@ -35,7 +35,7 @@ const { ChartStub, chartInstances } = mocks;
 
 vi.mock('chart.js/auto', () => ({ default: mocks.ChartStub }));
 
-import { renderChartBlockChartjs, __getLiveChart } from '../../../resources/js/dashboard/chart-default.js';
+import { renderChartBlockChartjs, __getLiveChart } from '../../../resources/js/chart-default.js';
 import type { BlockHost } from '../../../resources/js/types.js';
 
 function makeHost(): BlockHost {

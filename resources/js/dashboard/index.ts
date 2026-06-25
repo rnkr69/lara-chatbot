@@ -6,21 +6,14 @@
  * loaded twice (a host custom layout that duplicates `<script>` by mistake)
  * the second invocation is a no-op.
  *
- * v2.0 / E7 — before starting the app, it installs the built-in chart renderer
- * according to `data-chart-renderer` (injected by DashboardController from
- * `config('chatbot.dashboard.chart_renderer')`):
- *
- *   - `'chartjs'` (default): pre-registers `renderChartBlockChartjs` in
- *     `window.Chatbot.__internal.getBlockRenderer('chart')`. If `window.Chatbot`
- *     does not exist (typical case: the dashboard view is a dedicated page and
- *     does not load `chatbot-widget.js`), we mount a minimal shim with
- *     `registerBlockRenderer` + `__internal.getBlockRenderer` so the cascade in
- *     `blocks.ts:480` works as-is. If `window.Chatbot` ALREADY exists AND the
- *     host already registered `'chart'` on it (a deliberate override), we don't
- *     clobber it.
- *   - `'none'`: nothing is registered. The cascade falls to the built-in
- *     placeholder ("Chart renderer not registered…"). The host can register its
- *     own BEFORE loading this bundle via its own widget loader.
+ * v0.4.4 — the Chart.js renderer is now the CORE built-in for the `chart` block
+ * (resources/js/chart-default.ts, wired in blocks.ts), so charts render the same
+ * in the widget, the /chatbot page and the dashboard. This bundle no longer
+ * registers a chart renderer; it only mounts a minimal `window.Chatbot` shim
+ * (when the widget bundle is absent) so host overrides via
+ * `registerBlockRenderer('chart', fn)` keep winning the cascade and the widget
+ * bundle can migrate them if it loads afterwards (#35). The legacy
+ * `data-chart-renderer` attribute is informational now.
  *
  * Exposes `window.ChatbotDashboard` with a couple of minimal hooks so hosts
  * can restart the bundle from code (e.g. after a user change in an SPA). The
@@ -29,10 +22,9 @@
 
 import { startDashboardApp, type DashboardAppHandle } from './app.js';
 import { injectStyles } from './styles.js';
-import { renderChartBlockChartjs } from './chart-default.js';
 import { parseI18nFromElement, pickObject, type ChatbotDashboardI18n } from '../i18n-bridge.js';
 import { setKpiLabels } from '../kpi.js';
-import { setChartLabels } from '../blocks.js';
+import { setChartLabels } from '../chart-placeholder.js';
 import type { BlockRenderer, ChatbotApi } from '../types.js';
 
 declare global {
@@ -109,13 +101,16 @@ function installChatbotShim(): void {
   window.Chatbot = shim as unknown as ChatbotApi;
 }
 
-function configureChartRenderer(root: HTMLElement): void {
-  const rendererName = (root.dataset['chartRenderer'] ?? 'chartjs').toLowerCase();
-  if (rendererName !== 'chartjs') return;
+function configureChartRenderer(): void {
+  // Since v0.4.4 the Chart.js renderer is the CORE built-in for `chart`
+  // (blocks.ts → chart-default.ts), so the dashboard no longer needs to
+  // register it — `renderBlock()`'s cascade falls through to the built-in and
+  // draws the chart. We still install the minimal `window.Chatbot` shim so a
+  // host override via `registerBlockRenderer('chart', fn)` keeps winning the
+  // cascade, and so the widget bundle can migrate it if it loads afterwards
+  // (#35). The legacy `data-chart-renderer` attribute is now informational:
+  // charts always render with Chart.js unless the host registers another.
   installChatbotShim();
-  const existing = window.Chatbot?.__internal.getBlockRenderer('chart');
-  if (existing !== undefined) return; // host override wins.
-  window.Chatbot?.registerBlockRenderer('chart', renderChartBlockChartjs);
 }
 
 /**
@@ -180,7 +175,7 @@ function bootstrap(): DashboardAppHandle | null {
     console.warn('[chatbot:dashboard] #chatbot-dashboard-root not found in DOM');
     return null;
   }
-  configureChartRenderer(root);
+  configureChartRenderer();
   emitDashboardContext(root);
 
   // v2.1 (E14 / #19) — `data-use-bootstrap` is stamped by DashboardController

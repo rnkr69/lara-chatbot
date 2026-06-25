@@ -15,7 +15,11 @@ const targets = [
     name: 'widget',
     entry: resolve(root, 'resources/js/index.ts'),
     outfile: resolve(root, 'public-build/chatbot-widget.js'),
-    capKb: 80,
+    // v0.4.4 — the widget now bundles Chart.js (the `chart` block renders with
+    // the real Chart.js renderer everywhere, not a placeholder), which adds
+    // ~50 KB gzip. Cap raised from 80 to 130 KB gzip to absorb it; this is the
+    // accepted trade-off for chart consistency across surfaces.
+    capKb: 130,
     loader: {},
   },
   {

@@ -1,7 +1,8 @@
-import type { BlockHost, BlockPayload, BlockRenderer, BlockRendererMeta } from './types.js';
+import type { BlockHost, BlockPayload, BlockRenderer } from './types.js';
 import { renderMarkdown } from './markdown.js';
 import { cloneAndBind, findTemplate } from './slot-templates.js';
 import { renderKpiBlock } from './kpi.js';
+import { renderChartBlockChartjs } from './chart-default.js';
 
 function asString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
@@ -416,99 +417,12 @@ export function renderListBlock(data: Record<string, unknown>, host: BlockHost):
   return wrapper;
 }
 
-/**
- * v2.1.1 (#25) — module-level i18n state for the chart placeholder.
- *
- * `renderChartBlock` is a built-in renderer (registered in
- * `BUILTIN_BLOCK_RENDERERS`), so it has no `opts.labels` channel — same
- * constraint as `kpi.ts`. The dashboard bundle (`dashboard/index.ts`) calls
- * `setChartLabels` at boot with `i18n.dashboard.chart`. The widget bundle
- * never reaches the `invalidData` branch (it has no chart renderer to fall
- * back FROM), so it does not wire this.
- */
-export interface ChartLabels {
-  invalid_data: string;
-}
-
-const DEFAULT_CHART_LABELS: ChartLabels = {
-  invalid_data: 'Chart data is invalid or incomplete.',
-};
-
-let currentChartLabels: ChartLabels = { ...DEFAULT_CHART_LABELS };
-
-export function setChartLabels(partial: Partial<ChartLabels>): void {
-  currentChartLabels = { ...currentChartLabels, ...partial };
-}
-
-/** Exposed for tests; resets to inline defaults. */
-export function resetChartLabels(): void {
-  currentChartLabels = { ...DEFAULT_CHART_LABELS };
-}
-
-/**
- * Chart placeholder (E15 D-tactical).
- *
- * The package does not ship a chart library — the bundle budget is precious
- * and host preferences vary (Chart.js, ApexCharts, ECharts, …). Instead we
- * render a placeholder describing the payload so the host sees something
- * useful, and a hint pointing to `registerBlockRenderer('chart', fn)`.
- */
-export function renderChartBlock(
-  data: Record<string, unknown>,
-  _host: BlockHost,
-  meta?: BlockRendererMeta,
-): HTMLElement {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'block block-chart cb-chart';
-
-  const title = asString(data['title']);
-  if (title !== '') {
-    const h = document.createElement('h3');
-    h.className = 'cb-chart-title';
-    h.textContent = title;
-    wrapper.appendChild(h);
-  }
-
-  // v1.1 (findings #6) / v2.1.1 (#25): distinguish three states that all used
-  // to collapse into the misleading "Chart renderer not registered" message
-  // and sent devs chasing a phantom registration bug —
-  //   1. a registered host renderer threw          → meta.customError
-  //   2. a registered renderer rejected the data   → meta.invalidData
-  //   3. genuinely no renderer registered          → neither
-  const note = document.createElement('div');
-  note.className = 'cb-chart-note';
-  if (meta?.customError !== undefined && meta.customError !== null) {
-    const err = meta.customError as { message?: unknown };
-    const msg = typeof err?.message === 'string' && err.message !== '' ? err.message : String(err);
-    note.textContent = `Chart renderer threw: ${msg}. Check the browser console for the stack trace.`;
-  } else if (meta?.invalidData === true) {
-    note.textContent = currentChartLabels.invalid_data;
-  } else {
-    note.textContent = 'Chart renderer not registered. Call window.Chatbot.registerBlockRenderer("chart", fn) in the host.';
-  }
-  wrapper.appendChild(note);
-
-  // Render the points as a small `<details>` so the data is still inspectable
-  // without leaking onto the page when the host already has a renderer.
-  const dataset = data['series'] ?? data['points'] ?? data['values'] ?? null;
-  if (dataset !== null && dataset !== undefined) {
-    const details = document.createElement('details');
-    details.className = 'cb-chart-payload';
-    const summary = document.createElement('summary');
-    summary.textContent = 'Payload';
-    details.appendChild(summary);
-    const pre = document.createElement('pre');
-    try {
-      pre.textContent = JSON.stringify(dataset, null, 2);
-    } catch {
-      pre.textContent = '';
-    }
-    details.appendChild(pre);
-    wrapper.appendChild(details);
-  }
-
-  return wrapper;
-}
+// Chart placeholder + i18n live in their own module so `blocks.ts` can import
+// the Chart.js renderer below without a `blocks → chart-default → blocks`
+// cycle. Re-exported here for back-compat: existing call sites (and tests) can
+// keep importing `renderChartBlock` / `setChartLabels` from `./blocks.js`.
+export { renderChartBlock, setChartLabels, resetChartLabels } from './chart-placeholder.js';
+export type { ChartLabels } from './chart-placeholder.js';
 
 export const BUILTIN_BLOCK_RENDERERS: Record<string, BlockRenderer> = {
   text: renderTextBlock,
@@ -516,7 +430,12 @@ export const BUILTIN_BLOCK_RENDERERS: Record<string, BlockRenderer> = {
   card: renderCardBlock,
   table: renderTableBlock,
   list: renderListBlock,
-  chart: renderChartBlock,
+  // Since v0.4.4 the built-in chart renderer is the real Chart.js one, so
+  // charts render identically in the widget, the /chatbot page and the
+  // dashboard. The placeholder (chart-placeholder.ts) is reached only for
+  // invalid data or when a host override throws. Hosts can still swap in
+  // another library via registerBlockRenderer('chart', fn).
+  chart: renderChartBlockChartjs,
   kpi: renderKpiBlock,
 };
 

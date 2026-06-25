@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-06-25
+
+### Fixed
+- **Charts now render identically on every surface.** The `chart` block used to
+  render a real Chart.js graph only on the dashboard; the floating widget and
+  the `/chatbot` page showed a placeholder ("Chart renderer not registered…")
+  because the widget bundle never included Chart.js. This was a conceptual bug:
+  both surfaces are the same package and should use the same renderer. Chart.js
+  is now the **core** built-in `chart` renderer (`resources/js/chart-default.ts`,
+  wired in `blocks.ts`), so the widget, the page and the dashboard all bundle it
+  and draw charts identically, out of the box.
+
+### Changed
+- **Widget bundle is larger: ~97 KB gzip (was ~28 KB).** It now includes
+  Chart.js. The build size cap was raised from 80 to 130 KB gzip. This is the
+  accepted trade-off for chart consistency across surfaces. Re-publish the asset
+  after updating: `php artisan vendor:publish --tag=chatbot-assets --force`.
+- The chart placeholder is now an internal fallback **only** for unusable data
+  (no valid `type`, malformed datasets) or when a host override throws — it
+  reports "chart data is invalid" / the thrown error, never "renderer not
+  registered" (a renderer is always present now).
+- `chatbot.dashboard.chart_renderer` (and the `data-chart-renderer` attribute)
+  are now **informational**: with Chart.js in core, `'none'` no longer disables
+  it. To use another charting library, register an override —
+  `window.Chatbot.registerBlockRenderer('chart', fn)` wins the cascade over the
+  built-in (unchanged).
+
+### Internal
+- Extracted the chart placeholder + i18n into `resources/js/chart-placeholder.ts`
+  and moved the Chart.js renderer from `dashboard/` to core
+  `resources/js/chart-default.ts`, breaking the `blocks ↔ chart-default` import
+  cycle. The dashboard bundle no longer registers the chart renderer (the core
+  built-in covers it); it still mounts the `window.Chatbot` shim for host
+  overrides and the #35 migration.
+
+## [0.4.3] - 2026-06-25
+
+### Fixed
+- **Widget header: minimize and close felt swapped.** The header had two
+  buttons — minimize (—) and close (✕). Minimizing targeted the `minimized`
+  state, whose only visible affordance was a `.launcher-mini` element that was
+  never rendered in the DOM, so the whole widget vanished and looked closed;
+  closing targeted the `closed` state, which shows the 💬 launcher bubble and so
+  looked merely minimized. The minimize button is **removed**: the single close
+  button (✕) collapses the panel back to the reopenable launcher bubble. The
+  `minimized` state now also falls back to the launcher bubble (it remains
+  reachable via the `window.Chatbot` API), so it can never leave a blank widget.
+  Requires the published widget asset to be refreshed (`php artisan
+  vendor:publish --tag=chatbot-assets --force` or re-publish however the host
+  ships `public-build/chatbot-widget.js`).
+
 ## [0.4.2] - 2026-06-25
 
 ### Fixed

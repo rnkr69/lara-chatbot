@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { installApi } from '../../resources/js/api.js';
-import { renderBlock, renderChartBlock, setChartLabels, resetChartLabels } from '../../resources/js/blocks.js';
+import { renderBlock, renderChartBlock, setChartLabels, resetChartLabels, BUILTIN_BLOCK_RENDERERS } from '../../resources/js/blocks.js';
+import { renderChartBlockChartjs } from '../../resources/js/chart-default.js';
 
 beforeEach(() => {
   delete (window as Window).Chatbot;
@@ -235,14 +236,45 @@ describe('renderBlock — list', () => {
   });
 });
 
-describe('renderBlock — chart placeholder', () => {
-  it('renders a placeholder pointing at the registration API', () => {
+describe('chart renderer unification (v0.4.4)', () => {
+  it('wires Chart.js as the core built-in chart renderer (same on every surface)', () => {
+    // The widget, the /chatbot page and the dashboard all render blocks via
+    // renderBlock() → BUILTIN_BLOCK_RENDERERS. Asserting the built-in `chart`
+    // entry IS renderChartBlockChartjs proves charts render identically
+    // everywhere — no placeholder in the widget anymore.
+    expect(BUILTIN_BLOCK_RENDERERS['chart']).toBe(renderChartBlockChartjs);
+  });
+});
+
+describe('renderBlock — chart (Chart.js built-in)', () => {
+  it('renders a Chart.js canvas for a valid chart — the built-in renderer, not a placeholder', () => {
+    // v0.4.4 — Chart.js is the CORE built-in for `chart`, so the widget bundle
+    // (this test imports blocks.ts directly, no dashboard) renders a real chart.
+    // We assert the synchronous output (the `.cb-chart-chartjs` canvas wrapper);
+    // Chart.js construction is deferred to a microtask, and in jsdom — which has
+    // no canvas — it would throw and swap in the placeholder, so we do NOT flush
+    // microtasks here. The real-draw smoke test lives in chart-default.test.ts
+    // (mocked Chart) and Playwright (real canvas).
     const node = renderBlock(
-      { type: 'chart', data: { title: 'Revenue', series: [1, 2, 3] } },
+      { type: 'chart', data: { kind: 'bar', labels: ['Q1', 'Q2', 'Q3'], series: [1, 2, 3], title: 'Revenue' } },
+      { send: () => undefined },
+    );
+    expect(node.classList.contains('cb-chart-chartjs')).toBe(true);
+    expect(node.querySelector('canvas')).not.toBeNull();
+    expect(node.querySelector('.cb-chart-title')!.textContent).toBe('Revenue');
+    // Not the placeholder: no "not registered" / "invalid" note.
+    expect(node.querySelector('.cb-chart-note')).toBeNull();
+  });
+
+  it('falls back to the invalid-data placeholder for a chart with no usable type', () => {
+    const node = renderBlock(
+      { type: 'chart', data: { title: 'Revenue', series: [1, 2, 3] } }, // no type/kind → invalid
       { send: () => undefined },
     );
     expect(node.querySelector('.cb-chart-title')!.textContent).toBe('Revenue');
-    expect(node.querySelector('.cb-chart-note')!.textContent).toContain('registerBlockRenderer("chart", fn)');
+    const note = node.querySelector('.cb-chart-note')!.textContent ?? '';
+    expect(note).toBe('Chart data is invalid or incomplete.');
+    expect(note).not.toContain('not registered');
     expect(node.querySelector('pre')!.textContent).toBe('[\n  1,\n  2,\n  3\n]');
   });
 });
@@ -372,12 +404,17 @@ describe('renderBlock — v1.1 alias resolution & meta.customError (findings #5/
     expect(warns.length).toBeGreaterThan(0);
   });
 
-  it('chart placeholder distinguishes "renderer not registered" from "renderer threw"', () => {
-    // Case A: nothing registered → classic message.
-    const noRenderer = renderBlock({ type: 'chart', data: { title: 'A' } }, { send: () => undefined });
-    expect(noRenderer.querySelector('.cb-chart-note')!.textContent).toContain('not registered');
+  it('chart fallback distinguishes "invalid data" from "renderer threw" (never "not registered")', () => {
+    // Case A: invalid chart data (no type) → the built-in Chart.js renderer
+    // delegates to the placeholder with invalidData. Since v0.4.4 a renderer is
+    // ALWAYS registered, so the message must never say "not registered".
+    const invalid = renderBlock({ type: 'chart', data: { title: 'A' } }, { send: () => undefined });
+    const noteA = invalid.querySelector('.cb-chart-note')!.textContent ?? '';
+    expect(noteA).toBe('Chart data is invalid or incomplete.');
+    expect(noteA).not.toContain('not registered');
 
-    // Case B: registered but throws → message must reflect the throw, NOT the registration hint.
+    // Case B: a host override throws → renderBlock falls through to the built-in
+    // with meta.customError, which surfaces the throw via the placeholder.
     window.Chatbot!.registerBlockRenderer('chart', () => { throw new Error('signature mismatch'); });
     const original = console.error;
     console.error = () => undefined; // silence the captured error log

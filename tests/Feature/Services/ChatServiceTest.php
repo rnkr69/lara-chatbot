@@ -841,6 +841,49 @@ it('emits block frames with stamped id + source for every block returned by a ba
         ->and($blocks[1]->data['id'])->not->toBe($blocks[0]->data['id']); // unique UUIDs per block
 });
 
+it('persists emitted blocks into the assistant message content for replay on reload', function () {
+    // v0.4.2 — blocks used to live only in the live SSE stream, so reloading
+    // the page (or opening ?conversation_id=XX) lost the cards/tables. We now
+    // append each emitted block to the assistant message `content[]`, which the
+    // widget's history hydration (`adaptStoredMessage`) re-renders. The block
+    // payload persisted is the SAME canonical shape that travels over SSE.
+    $tool = new EchoBackendTool;
+    $tool->emitBlocks = [
+        ['type' => 'table', 'data' => ['rows' => [['x' => 1]]]],
+        ['type' => 'card',  'data' => ['title' => 'Hi']],
+    ];
+    app(ToolRegistry::class)->clear()->register($tool);
+
+    fakeEchoToolCall(['message' => 'pong']);
+
+    $c = makeConversation();
+
+    collectChatEvents($c, 'echo pls', ['route' => '/orders']);
+
+    $assistant = Message::query()
+        ->where('conversation_id', $c->id)
+        ->where('role', MessageRole::Assistant->value)
+        ->latest('id')
+        ->first();
+
+    expect($assistant)->not->toBeNull();
+
+    // The block entries are appended after the assistant text entry. Filter the
+    // non-text entries: those are the persisted blocks.
+    $blockEntries = array_values(array_filter(
+        $assistant->content,
+        fn ($entry) => ($entry['type'] ?? null) !== 'text',
+    ));
+
+    expect($blockEntries)->toHaveCount(2)
+        ->and($blockEntries[0]['type'])->toBe('table')
+        ->and($blockEntries[0]['data'])->toMatchArray(['rows' => [['x' => 1]]])
+        ->and($blockEntries[0])->toHaveKey('id')
+        ->and($blockEntries[0]['source'])->toMatchArray(['tool' => 'echo_tool'])
+        ->and($blockEntries[1]['type'])->toBe('card')
+        ->and($blockEntries[1]['data'])->toMatchArray(['title' => 'Hi']);
+});
+
 it('stamps block_ordinal per block-type within the tool result (#27)', function () {
     // #27 — `block_ordinal` is the 0-based position of a block AMONG those
     // of its own type in the tool's output. A multi-block tool (KPIs +

@@ -131,6 +131,7 @@ class ChatService
         $assistantText = '';
         $toolCalls     = [];
         $toolResults   = [];
+        $blocks        = [];
         $usage         = null;
         $callIndex     = [];
 
@@ -157,6 +158,7 @@ class ChatService
                         $resultBuffer,
                         $toolCalls,
                         $callIndex,
+                        $blocks,
                     );
                     continue;
                 }
@@ -192,6 +194,7 @@ class ChatService
             $toolCalls,
             $toolResults,
             $usage,
+            $blocks,
         );
 
         // Telemetry hook. Effective provider/model: per-conversation override
@@ -225,6 +228,8 @@ class ChatService
      * @param  array<string, list<ToolResult>>  $resultBuffer
      * @param  array<int, array<string, mixed>>  $toolCalls
      * @param  array<string, array<string, mixed>>  $callIndex
+     * @param  array<int, array<string, mixed>>  $blocks  Acumulador de bloques
+     *         emitidos (payload SSE canónico) para persistirlos en `content[]`.
      * @return Generator<int, SseEvent>
      */
     protected function onToolCall(
@@ -234,6 +239,7 @@ class ChatService
         array &$resultBuffer,
         array &$toolCalls,
         array &$callIndex,
+        array &$blocks,
     ): Generator {
         $name = $event->toolCall->name;
         $args = $this->safeArguments($event->toolCall);
@@ -437,7 +443,14 @@ class ChatService
                 $rawMeta = $rawBlock['meta'] ?? null;
                 $meta = is_array($rawMeta) && $rawMeta !== [] ? $rawMeta : null;
 
-                yield SseEvent::block(
+                // v0.4.2 — el bloque se construye una sola vez. Su payload
+                // (`->data`) es el shape canónico `{type,data,id?,source?,
+                // pinnable?,block_ordinal?,meta?}` que (a) viaja por SSE en vivo
+                // y (b) se persiste en el `content[]` del mensaje asistente para
+                // que la recarga / `?conversation_id=XX` lo vuelva a renderizar
+                // (`adaptStoredMessage` + `readV2BlockMetadata` en el widget ya
+                // saben hidratarlo). Sin esto los blocks se perdían al recargar.
+                $blockEvent = SseEvent::block(
                     type: $blockType,
                     data: $blockData,
                     id: (string) Str::uuid(),
@@ -446,6 +459,10 @@ class ChatService
                     blockOrdinal: $ordinal,
                     meta: $meta,
                 );
+
+                $blocks[] = $blockEvent->data;
+
+                yield $blockEvent;
             }
         }
 
@@ -849,6 +866,10 @@ class ChatService
     /**
      * @param  array<int, array<string, mixed>>  $toolCalls
      * @param  array<int, array<string, mixed>>  $toolResults
+     * @param  array<int, array<string, mixed>>  $blocks  Bloques emitidos en el
+     *         turno (payload SSE canónico). Se anexan al `content[]` tras el
+     *         texto para que la recarga los vuelva a renderizar. `extractText()`
+     *         los ignora, así que NO se reenvían al LLM en turnos posteriores.
      */
     protected function persistAssistantMessage(
         Conversation $conversation,
@@ -856,10 +877,15 @@ class ChatService
         array $toolCalls,
         array $toolResults,
         ?\Prism\Prism\ValueObjects\Usage $usage,
+        array $blocks = [],
     ): Message {
         $content = $assistantText !== ''
             ? [['type' => 'text', 'text' => $assistantText]]
             : [];
+
+        foreach ($blocks as $block) {
+            $content[] = $block;
+        }
 
         return $conversation->messages()->create([
             'role'         => MessageRole::Assistant,

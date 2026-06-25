@@ -40,6 +40,15 @@ return [
     */
     'llm' => [
         'cache_system_prompt' => filter_var(env('CHATBOT_CACHE_SYSTEM_PROMPT', true), FILTER_VALIDATE_BOOLEAN),
+
+        // `send_blocks_to_model`: si el resultado de una tool que se envía al
+        // modelo debe incluir los `blocks`. Por defecto `false`: los blocks son
+        // SOLO para el widget (presentación y replay en recarga); enviarlos al
+        // LLM hace que los reproduzca como tabla/markdown en su texto, que el
+        // widget también renderiza — el usuario ve el contenido DUPLICADO. El
+        // LLM razona sobre `data`; los blocks son presentación. Ponlo a `true`
+        // solo si quieres que el modelo razone sobre las filas del bloque.
+        'send_blocks_to_model' => filter_var(env('CHATBOT_LLM_SEND_BLOCKS_TO_MODEL', false), FILTER_VALIDATE_BOOLEAN),
     ],
 
     /*

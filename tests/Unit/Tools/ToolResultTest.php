@@ -65,3 +65,32 @@ it('serializes an awaiting_user result with pending_action_id and message', func
         'message'           => 'Shall we?',
     ]);
 });
+
+it('omits blocks from the model payload by default', function () {
+    $payload = ToolResult::success(['x' => 1], [['type' => 'table', 'data' => ['rows' => []]]])
+        ->toModelArray();
+
+    expect($payload)->toBe([
+        'status' => 'ok',
+        'data'   => ['x' => 1],
+    ])->and($payload)->not->toHaveKey('blocks');
+});
+
+it('includes blocks in the model payload when requested', function () {
+    $blocks  = [['type' => 'table', 'data' => ['rows' => []]]];
+    $payload = ToolResult::success(['x' => 1], $blocks)->toModelArray(true);
+
+    expect($payload)->toBe([
+        'status' => 'ok',
+        'data'   => ['x' => 1],
+        'blocks' => $blocks,
+    ]);
+});
+
+it('model payload equals array payload for error and awaiting_user (no blocks key)', function () {
+    $error    = ToolResult::error('not_owner', 'no access');
+    $awaiting = ToolResult::awaitingUser('act_42', 'Shall we?');
+
+    expect($error->toModelArray())->toBe($error->toArray())
+        ->and($awaiting->toModelArray())->toBe($awaiting->toArray());
+});

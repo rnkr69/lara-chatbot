@@ -84,6 +84,7 @@ export class ChatbotWidgetElement extends HTMLElement {
   private fileInput: HTMLInputElement | null = null;
   private chipsEl: HTMLDivElement | null = null;
   private pendingAttachments: File[] = [];
+  private dragDepth = 0;
   private messages: ChatMessage[] = [];
   private currentAssistant: ChatMessage | null = null;
   private streaming = false;
@@ -441,6 +442,9 @@ export class ChatbotWidgetElement extends HTMLElement {
       this.attachBtn.title = attachLabel;
       this.attachBtn.setAttribute('aria-label', attachLabel);
       this.attachBtn.addEventListener('click', () => this.fileInput?.click());
+
+      // Drag-and-drop: soltar ficheros sobre el panel del chat.
+      this.setupDropZone(panel);
     }
 
     if (this.chipsEl) composer.appendChild(this.chipsEl);
@@ -1103,27 +1107,103 @@ export class ChatbotWidgetElement extends HTMLElement {
     this.send(value);
   }
 
-  /** Merge freshly picked files into the pending set (respecting max-files). */
+  /** Files chosen via the 📎 button. Delegates to the shared add path. */
   private onFilesPicked(): void {
     if (!this.fileInput) return;
     const picked = Array.from(this.fileInput.files ?? []);
     // Reset the native input so picking the same file again re-fires `change`.
     this.fileInput.value = '';
-    if (picked.length === 0) return;
+    this.addFiles(picked);
+  }
+
+  /** Allowed extensions (lowercased, no dot) from data-attachment-accept, or null. */
+  private acceptedExtensions(): Set<string> | null {
+    const raw = this.getAttribute('data-attachment-accept');
+    if (!raw) return null;
+    const exts = raw.split(',').map((s) => s.trim().replace(/^\./, '').toLowerCase()).filter(Boolean);
+    return exts.length > 0 ? new Set(exts) : null;
+  }
+
+  /**
+   * Merge files (from the button OR drag-and-drop) into the pending set,
+   * respecting max-files, de-duping, and the accepted-extension allow-list.
+   * Native picking already filters by `accept`; drops don't, so we filter here.
+   */
+  private addFiles(files: File[]): void {
+    if (files.length === 0) return;
 
     const maxAttr = this.getAttribute('data-attachment-max-files');
     const max = maxAttr ? parseInt(maxAttr, 10) : 5;
+    const accepted = this.acceptedExtensions();
+    let rejected = 0;
+    let hitMax = false;
 
-    for (const file of picked) {
-      if (this.pendingAttachments.length >= max) {
-        this.showError(`You can attach at most ${max} file(s).`);
-        break;
+    for (const file of files) {
+      if (accepted) {
+        const ext = (file.name.split('.').pop() ?? '').toLowerCase();
+        if (!accepted.has(ext)) { rejected++; continue; }
       }
-      // De-dupe by name+size so a double pick doesn't stack twice.
+      if (this.pendingAttachments.length >= max) { hitMax = true; break; }
+      // De-dupe by name+size so a double add doesn't stack twice.
       const dup = this.pendingAttachments.some((f) => f.name === file.name && f.size === file.size);
       if (!dup) this.pendingAttachments.push(file);
     }
+
+    if (rejected > 0) this.showError(`${rejected} archivo(s) omitido(s): tipo no admitido.`);
+    if (hitMax) this.showError(`Puedes adjuntar como máximo ${max} archivo(s).`);
     this.renderChips();
+  }
+
+  /**
+   * Wires drag-and-drop of files onto the chat panel. A translucent overlay
+   * appears while a file is dragged over; dropping routes the files through the
+   * same add path as the 📎 button. A depth counter keeps the overlay stable as
+   * dragenter/dragleave bubble across child elements.
+   */
+  private setupDropZone(panel: HTMLElement): void {
+    const overlay = document.createElement('div');
+    overlay.className = 'cb-dropzone';
+    const inner = document.createElement('div');
+    inner.className = 'cb-dropzone-inner';
+    const icon = document.createElement('span');
+    icon.className = 'cb-dropzone-icon';
+    icon.textContent = '📎';
+    const text = document.createElement('span');
+    text.textContent = this.getAttribute('data-attachment-drop-label') || 'Drop files here to attach';
+    inner.append(icon, text);
+    overlay.appendChild(inner);
+    panel.appendChild(overlay);
+    if (getComputedStyle(panel).position === 'static') panel.style.position = 'relative';
+
+    const hasFiles = (e: DragEvent): boolean =>
+      !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+    const hide = (): void => { this.dragDepth = 0; overlay.classList.remove('visible'); };
+
+    panel.addEventListener('dragenter', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      this.dragDepth++;
+      overlay.classList.add('visible');
+    });
+    panel.addEventListener('dragover', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    });
+    panel.addEventListener('dragleave', (e) => {
+      if (!hasFiles(e)) return;
+      this.dragDepth--;
+      if (this.dragDepth <= 0) hide();
+    });
+    panel.addEventListener('drop', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      hide();
+      const files = e.dataTransfer ? Array.from(e.dataTransfer.files) : [];
+      if (files.length === 0) return;
+      if (this.machine.state !== 'open' && this.machine.state !== 'fullscreen') this.requestState('open');
+      this.addFiles(files);
+    });
   }
 
   private removeAttachment(index: number): void {

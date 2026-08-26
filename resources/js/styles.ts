@@ -168,6 +168,19 @@ button { font: inherit; cursor: pointer; }
   padding: 0 10px; cursor: pointer; font-size: 16px; line-height: 1;
 }
 .composer button.attach:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Drag-and-drop de ficheros sobre el panel del chat. */
+.cb-dropzone {
+  position: absolute; inset: 6px; z-index: 30; pointer-events: none;
+  display: none; align-items: center; justify-content: center;
+  border: 2px dashed var(--cb-accent); border-radius: 12px;
+  background: color-mix(in srgb, var(--cb-bg) 80%, transparent);
+}
+.cb-dropzone.visible { display: flex; }
+.cb-dropzone-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  color: var(--cb-accent); font-weight: 600; font-size: 15px; text-align: center; padding: 16px;
+}
+.cb-dropzone-icon { font-size: 28px; line-height: 1; }
 .cb-attachments { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
 .cb-attachments:empty { display: none; }
 .cb-chip {

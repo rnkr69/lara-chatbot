@@ -123,6 +123,29 @@ export function streamPost(opts: SseOptions, handlers: SseHandlers): { abort(): 
           handlers.onClose?.('rate_limited');
           return;
         }
+        // Session/auth failures are terminal, never transient. A 401/403 or a
+        // 419 (Laravel session/CSRF mismatch) will keep failing identically, so
+        // retrying only forces the user to sit through the full backoff sequence
+        // before the same error surfaces. The most common variant is invisible:
+        // when the `web`/`backpack` session expires, the auth middleware answers
+        // with a 302 to the login page, `fetch` follows it, and we get a 200
+        // whose body is HTML instead of `text/event-stream` — which used to be
+        // read as garbage, fail to parse, and retry as "Stream ended before
+        // done". Detect both shapes and short-circuit with a dedicated code so
+        // the UI can tell the user their session expired.
+        const contentType = response.headers.get('Content-Type') ?? '';
+        const isAuthStatus = response.status === 401 || response.status === 403 || response.status === 419;
+        // The redirect-to-login shape: a valid SSE reply is `text/event-stream`
+        // and never redirected, so a followed 3xx (`response.redirected`) or an
+        // `text/html` body is the login page, not our stream. Keying on those
+        // POSITIVE signals (rather than "not event-stream") avoids killing an
+        // unusual but legitimate header-less 200 stream.
+        const looksLikeLogin = response.redirected || contentType.includes('text/html');
+        if (isAuthStatus || looksLikeLogin) {
+          handlers.onError?.('Session expired', 'session_expired');
+          handlers.onClose?.('fatal');
+          return;
+        }
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }

@@ -157,11 +157,16 @@ return [
     'untitled_conversation'       => 'Untitled conversation',
     'new_conversation'            => 'New conversation',
     'new_conversation_aria'       => 'Start a new conversation',
+    'input_placeholder'           => 'Type a message…',
+    'send'                        => 'Send',
     'loading_conversation'        => 'Loading conversation…',
     'failed_to_load_conversation' => 'Failed to load conversation',
     // v2.1 (#3) — shown in the assistant message + banner when the stream
     // emits an `event: error` frame (LLM provider down, network, 5xx).
     'stream_error'                => 'Something went wrong. Please try again.',
+    // Session (web/backpack) expired mid-request: 401/403/419 or a redirect to
+    // the login page. Shown in the banner and pinned into the assistant bubble.
+    'session_expired'             => 'Your session has expired. Please reload the page to sign in again.',
     'title'                       => 'Chatbot',
     'open_full_page'              => 'Open full chat page',
 ];

@@ -405,7 +405,11 @@ export class ChatbotWidgetElement extends HTMLElement {
     // #24 fix covered the dashboard bundle's inputs; this is the same class
     // of fix for the widget bundle's chat textarea.
     this.inputEl.name = 'chatbot_message';
-    this.inputEl.placeholder = 'Type a message…';
+    this.inputEl.placeholder = pickString(
+      this.i18n as Record<string, unknown>,
+      'input_placeholder',
+      'Type a message…',
+    );
     this.inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -416,7 +420,11 @@ export class ChatbotWidgetElement extends HTMLElement {
     this.sendBtn = document.createElement('button');
     this.sendBtn.type = 'submit';
     this.sendBtn.className = 'send';
-    this.sendBtn.textContent = 'Send';
+    this.sendBtn.textContent = pickString(
+      this.i18n as Record<string, unknown>,
+      'send',
+      'Send',
+    );
 
     // Attachments UI (opt-in): the host enables it with data-attachments="true"
     // on <chatbot-widget> (mirrors config('chatbot.attachments.enabled')).
@@ -1316,6 +1324,24 @@ export class ChatbotWidgetElement extends HTMLElement {
       {
         onFrame: (frame) => this.handleFrame(frame),
         onError: (msg, code) => {
+          if (code === 'session_expired') {
+            // The `web`/`backpack` session expired mid-request. Surface a clear,
+            // actionable message (localizable via i18n `session_expired`) and
+            // pin it into the assistant bubble so it survives past the 6s
+            // banner — otherwise the user is left staring at an empty pending
+            // message with no explanation.
+            const localized = pickString(
+              this.i18n as Record<string, unknown>,
+              'session_expired',
+              'Your session has expired. Please reload the page to sign in again.',
+            );
+            this.showError(localized);
+            if (this.currentAssistant) {
+              this.currentAssistant.error = localized;
+              this.refreshAssistantNode(this.currentAssistant);
+            }
+            return;
+          }
           this.showError(`${code ?? 'error'}: ${msg}`);
         },
         onClose: (reason) => {

@@ -161,6 +161,49 @@ describe('streamPost', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('treats a 419 (session/CSRF) as terminal session_expired without retrying', async () => {
+    const fetchMock = vi.fn(async () => new Response('', { status: 419 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    let errCode: string | undefined;
+    const reason = await new Promise<string>((resolve) => {
+      streamPost(
+        { url: '/x', body: {}, maxRetries: 5, initialBackoffMs: 1, maxBackoffMs: 5 },
+        {
+          onFrame: () => undefined,
+          onError: (_m, code) => { errCode = code; },
+          onClose: (r) => resolve(r),
+        },
+      );
+    });
+    expect(reason).toBe('fatal');
+    expect(errCode).toBe('session_expired');
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('treats an HTML login response (session expired redirect) as terminal session_expired', async () => {
+    const fetchMock = vi.fn(async () => new Response(
+      '<!doctype html><title>Login</title>',
+      { status: 200, headers: { 'Content-Type': 'text/html; charset=UTF-8' } },
+    ));
+    vi.stubGlobal('fetch', fetchMock);
+
+    let errCode: string | undefined;
+    const reason = await new Promise<string>((resolve) => {
+      streamPost(
+        { url: '/x', body: {}, maxRetries: 5, initialBackoffMs: 1, maxBackoffMs: 5 },
+        {
+          onFrame: () => undefined,
+          onError: (_m, code) => { errCode = code; },
+          onClose: (r) => resolve(r),
+        },
+      );
+    });
+    expect(reason).toBe('fatal');
+    expect(errCode).toBe('session_expired');
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it('attaches X-CSRF-TOKEN from the meta tag and bearer token', async () => {
     document.head.innerHTML = '<meta name="csrf-token" content="csrf-abc">';
     let captured: Headers | null = null;

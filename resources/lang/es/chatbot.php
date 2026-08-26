@@ -157,11 +157,16 @@ return [
     'untitled_conversation'       => 'Conversación sin título',
     'new_conversation'            => 'Nueva conversación',
     'new_conversation_aria'       => 'Empezar una nueva conversación',
+    'input_placeholder'           => 'Escribe un mensaje…',
+    'send'                        => 'Enviar',
     'loading_conversation'        => 'Cargando conversación…',
     'failed_to_load_conversation' => 'No se pudo cargar la conversación',
     // v2.1 (#3) — se muestra en el mensaje del asistente + banner cuando el
     // stream emite un frame `event: error` (LLM caído, red, 5xx).
     'stream_error'                => 'Algo salió mal. Inténtalo de nuevo.',
+    // Sesión (web/backpack) caducada a mitad de una petición: 401/403/419 o
+    // redirección al login. Se muestra en el banner y en la burbuja del asistente.
+    'session_expired'             => 'Tu sesión ha caducado. Recarga la página para volver a iniciar sesión.',
     'title'                       => 'Chatbot',
     'open_full_page'              => 'Abrir página completa del chat',
 ];

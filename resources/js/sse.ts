@@ -9,7 +9,12 @@ export interface SseHandlers {
 
 export interface SseOptions {
   url: string;
-  body: Record<string, unknown>;
+  /**
+   * JSON body (default) or a `FormData` for multipart uploads (file
+   * attachments). When a `FormData` is passed the `Content-Type` header is left
+   * unset so the browser adds the multipart boundary.
+   */
+  body: Record<string, unknown> | FormData;
   headers?: Record<string, string>;
   bearer?: string | null;
   csrfToken?: string | null;
@@ -92,9 +97,13 @@ export function streamPost(opts: SseOptions, handlers: SseHandlers): { abort(): 
   const run = async (): Promise<void> => {
     while (true) {
       try {
+        const isMultipart = typeof FormData !== 'undefined' && opts.body instanceof FormData;
+
         const headers: Record<string, string> = {
           'Accept': 'text/event-stream',
-          'Content-Type': 'application/json',
+          // For multipart the browser MUST set Content-Type (with the boundary);
+          // setting it by hand breaks the upload.
+          ...(isMultipart ? {} : { 'Content-Type': 'application/json' }),
           ...(opts.headers ?? {}),
         };
         const csrf = opts.csrfToken ?? readCsrfToken();
@@ -104,7 +113,7 @@ export function streamPost(opts: SseOptions, handlers: SseHandlers): { abort(): 
         const response = await fetch(opts.url, {
           method: 'POST',
           headers,
-          body: JSON.stringify(opts.body),
+          body: isMultipart ? (opts.body as FormData) : JSON.stringify(opts.body),
           credentials: 'same-origin',
           signal: controller.signal,
         });

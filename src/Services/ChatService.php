@@ -9,6 +9,8 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Rnkr69\LaraChatbot\Attachments\Attachment;
+use Rnkr69\LaraChatbot\Attachments\Contracts\AttachmentProcessor;
 use Rnkr69\LaraChatbot\Events\MessagePersisted;
 use Rnkr69\LaraChatbot\Events\ToolInvoked;
 use Rnkr69\LaraChatbot\Llm\Exceptions\LlmException;
@@ -89,19 +91,26 @@ class ChatService
         protected PrismToolFactory $factory,
         protected Dispatcher $events,
         protected PendingActionStore $pendingActions,
+        protected AttachmentProcessor $attachmentProcessor,
     ) {}
 
     /**
      * @param  array<string, mixed>  $pageContext
+     * @param  array<int, Attachment>  $attachments  Uploaded files already stored
+     *         on disk (see {@see \Rnkr69\LaraChatbot\Attachments\AttachmentStore}).
+     *         Their text is extracted here and injected into the user turn.
      * @return Generator<int, SseEvent>
      */
-    public function handle(Conversation $conversation, string $userMessage, array $pageContext = []): Generator
+    public function handle(Conversation $conversation, string $userMessage, array $pageContext = [], array $attachments = []): Generator
     {
         /** @var Authenticatable $user */
         $user = $conversation->user;
 
-        $this->persistUserMessage($conversation, $userMessage);
-        $this->maybeAutoTitle($conversation, $userMessage);
+        $this->persistUserMessage($conversation, $userMessage, $attachments);
+        $this->maybeAutoTitle(
+            $conversation,
+            $userMessage !== '' ? $userMessage : $this->titleFromAttachments($attachments),
+        );
 
         $locale       = $this->resolveLocale($user);
         $ctx          = new ToolContext(
@@ -693,10 +702,38 @@ class ChatService
 
             if ($type === 'text' && is_string($text)) {
                 $parts[] = $text;
+                continue;
+            }
+
+            // Attachment blocks are rendered inline as delimited plain text so
+            // the extracted document content reaches the LLM on this and every
+            // later turn — keeping the whole flow provider-agnostic (no binary
+            // documents are ever sent to the model).
+            if ($type === 'attachment') {
+                $parts[] = $this->renderAttachmentText($entry);
             }
         }
 
         return implode("\n", $parts);
+    }
+
+    /**
+     * @param  array<string, mixed>  $block
+     */
+    protected function renderAttachmentText(array $block): string
+    {
+        $name = is_string($block['name'] ?? null) && $block['name'] !== '' ? $block['name'] : 'documento';
+        $text = $block['text'] ?? null;
+
+        if (is_string($text) && trim($text) !== '') {
+            return "===== Documento adjunto: {$name} =====\n"
+                . trim($text) . "\n"
+                . "===== Fin del documento: {$name} =====";
+        }
+
+        return "[Documento adjunto: {$name} — no se pudo extraer texto legible "
+            . '(por ejemplo un PDF escaneado o un formato no soportado). '
+            . 'Pide al usuario los datos necesarios.]';
     }
 
     /**
@@ -752,12 +789,85 @@ class ChatService
         return null;
     }
 
-    protected function persistUserMessage(Conversation $conversation, string $userMessage): Message
+    /**
+     * @param  array<int, Attachment>  $attachments
+     */
+    protected function persistUserMessage(Conversation $conversation, string $userMessage, array $attachments = []): Message
     {
+        $content = [];
+
+        if ($userMessage !== '') {
+            $content[] = ['type' => 'text', 'text' => $userMessage];
+        }
+
+        foreach ($attachments as $attachment) {
+            if (! $attachment instanceof Attachment) {
+                continue;
+            }
+            // Extract text once, at persist time, and store it inside the block
+            // so history replay (buildHistory → extractText) re-feeds it to the
+            // LLM on later turns without re-reading the file.
+            $content[] = $this->extractAttachment($attachment)->toBlock();
+        }
+
+        // Never persist an empty content array (the column is NOT NULL and the
+        // history builder expects at least one entry).
+        if ($content === []) {
+            $content[] = ['type' => 'text', 'text' => ''];
+        }
+
         return $conversation->messages()->create([
             'role'    => MessageRole::User,
-            'content' => [['type' => 'text', 'text' => $userMessage]],
+            'content' => $content,
         ]);
+    }
+
+    /**
+     * Runs the configured {@see AttachmentProcessor} over an attachment and
+     * returns a copy carrying the (capped) extracted text. Never throws: a
+     * broken file yields an attachment with `text = null`.
+     */
+    protected function extractAttachment(Attachment $attachment): Attachment
+    {
+        try {
+            $text = $this->attachmentProcessor->extract($attachment);
+        } catch (Throwable $e) {
+            Log::warning('[chatbot] attachment extraction failed', [
+                'attachment' => $attachment->name,
+                'mime'       => $attachment->mime,
+                'exception'  => $e::class,
+                'message'    => $e->getMessage(),
+            ]);
+            $text = null;
+        }
+
+        if (! is_string($text)) {
+            return $attachment->withText(null);
+        }
+
+        $max = (int) config('chatbot.attachments.max_text_chars', 100000);
+        if ($max > 0 && mb_strlen($text) > $max) {
+            $text = mb_substr($text, 0, $max) . "\n…[texto truncado]";
+        }
+
+        return $attachment->withText($text);
+    }
+
+    /**
+     * Fallback conversation title when the first turn is attachment-only (no
+     * typed message): use the first attachment's filename.
+     *
+     * @param  array<int, Attachment>  $attachments
+     */
+    protected function titleFromAttachments(array $attachments): string
+    {
+        foreach ($attachments as $attachment) {
+            if ($attachment instanceof Attachment && $attachment->name !== '') {
+                return $attachment->name;
+            }
+        }
+
+        return '';
     }
 
     /**

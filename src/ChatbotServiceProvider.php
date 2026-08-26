@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Rnkr69\LaraChatbot\Attachments\Contracts\AttachmentProcessor;
+use Rnkr69\LaraChatbot\Attachments\PlainTextProcessor;
 use Rnkr69\LaraChatbot\Authorization\Contracts\Authorizer;
 use Rnkr69\LaraChatbot\Authorization\Contracts\ScopeResolver;
 use Rnkr69\LaraChatbot\Authorization\Contracts\TenantResolver;
@@ -71,6 +73,7 @@ class ChatbotServiceProvider extends ServiceProvider
         $this->registerLlm();
         $this->registerToolRegistry();
         $this->registerMcpBridge();
+        $this->registerAttachments();
         $this->registerChatService();
         $this->registerReplayService();
         $this->registerPinService();
@@ -120,6 +123,29 @@ class ChatbotServiceProvider extends ServiceProvider
     protected function registerMcpBridge(): void
     {
         $this->app->singleton(McpToolBridge::class);
+    }
+
+    /**
+     * Binds the attachment text extractor. Resolves the class declared in
+     * `chatbot.attachments.processor` (must implement {@see AttachmentProcessor});
+     * falls back to the dependency-free {@see PlainTextProcessor} when the
+     * config value is missing or points to an unusable class. Hosts bind a
+     * richer processor (PDF/Excel/Word/eml) simply by pointing that config key
+     * at their own implementation.
+     */
+    protected function registerAttachments(): void
+    {
+        $this->app->singleton(AttachmentProcessor::class, function ($app) {
+            $class = config('chatbot.attachments.processor');
+
+            if (is_string($class) && $class !== '' && class_exists($class)
+                && is_subclass_of($class, AttachmentProcessor::class)
+            ) {
+                return $app->make($class);
+            }
+
+            return $app->make(PlainTextProcessor::class);
+        });
     }
 
     /**

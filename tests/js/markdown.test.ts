@@ -49,4 +49,29 @@ describe('renderMarkdown', () => {
     const out = renderMarkdown('one\ntwo');
     expect(out).toBe('<p>one<br>two</p>');
   });
+
+  it('renders an unordered list', () => {
+    expect(renderMarkdown('- a\n- b')).toBe('<ul class="cb-md-list"><li>a</li><li>b</li></ul>');
+  });
+
+  it('renders an ordered list', () => {
+    expect(renderMarkdown('1. a\n2. b')).toBe('<ol class="cb-md-list"><li>a</li><li>b</li></ol>');
+  });
+
+  it('renders an ATX heading', () => {
+    expect(renderMarkdown('## Título')).toBe('<h4 class="cb-md-h">Título</h4>');
+  });
+
+  it('renders a GFM pipe table with inline formatting in cells', () => {
+    const md = '| Campo | Valor |\n|---|---|\n| **Proveedor** | SERCALIA |\n| Total | 47.046,91 |';
+    const out = renderMarkdown(md);
+    expect(out).toContain('<table class="cb-md-table">');
+    expect(out).toContain('<th>Campo</th>');
+    expect(out).toContain('<td><strong>Proveedor</strong></td>');
+    expect(out).toContain('<td>47.046,91</td>');
+  });
+
+  it('does not treat a bold line as a list item', () => {
+    expect(renderMarkdown('**bold**')).toBe('<p><strong>bold</strong></p>');
+  });
 });

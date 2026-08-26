@@ -117,6 +117,11 @@ export interface ChatMessage {
    * no feedback). `fillAssistantNode` renders it as a `.cb-block-error`.
    */
   error?: string;
+  /**
+   * File attachments the user sent with this message. Rendered as chips under
+   * the user bubble. Only the display metadata is kept client-side.
+   */
+  attachments?: { name: string; size?: number }[];
 }
 
 export type ToolHandler = (args: Record<string, unknown>, ctx: ToolContext) => void | Promise<void>;

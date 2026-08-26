@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Rnkr69\LaraChatbot\Attachments\AttachmentStore;
 use Rnkr69\LaraChatbot\Http\Requests\SendMessageRequest;
 use Rnkr69\LaraChatbot\Models\Conversation;
 use Rnkr69\LaraChatbot\Services\ChatService;
@@ -47,6 +48,7 @@ class ChatController extends Controller
     public function __construct(
         protected Container $container,
         protected PageContextSanitizer $sanitizer,
+        protected AttachmentStore $attachments,
     ) {}
 
     public function stream(SendMessageRequest $request, ChatService $service): Response
@@ -62,10 +64,18 @@ class ChatController extends Controller
         $userMessage = (string) $request->input('message', '');
         $pageContext = $this->sanitizePageContext($request->input('page_context', []));
 
+        // Store uploaded files (if any) BEFORE the streamed response starts, so
+        // a client disconnect mid-stream doesn't leave the turn without its
+        // attachments and so validation has already run at this point.
+        $attachments = $this->attachments->storeUploaded(
+            $conversation,
+            array_values($request->file('attachments', [])),
+        );
+
         $isAborted = $this->resolveAbortDetector();
 
-        $callback = function () use ($service, $conversation, $userMessage, $pageContext, $isAborted): void {
-            foreach ($service->handle($conversation, $userMessage, $pageContext) as $event) {
+        $callback = function () use ($service, $conversation, $userMessage, $pageContext, $attachments, $isAborted): void {
+            foreach ($service->handle($conversation, $userMessage, $pageContext, $attachments) as $event) {
                 /** @var SseEvent $event */
                 echo $this->formatSseFrame($event);
 

@@ -353,6 +353,44 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Adjuntos del chat (subida de documentos)
+    |--------------------------------------------------------------------------
+    |
+    | Permite que el usuario adjunte ficheros en el chat (📎). El backend los
+    | guarda en un disk y los convierte a TEXTO PLANO mediante un
+    | `AttachmentProcessor`, que se inyecta al turno del LLM como texto. Este
+    | diseño es agnóstico de proveedor: NO se envían binarios al modelo, así que
+    | funciona igual con cualquier LLM (no depende del multimodal de Claude).
+    |
+    |   - `enabled`         activa/desactiva la subida por completo.
+    |   - `disk`            disk de `config/filesystems.php` donde se guardan
+    |                       (null → el disk por defecto de la app).
+    |   - `path`            carpeta base; los ficheros van a
+    |                       `<path>/<conversation_id>/<uuid>.<ext>`.
+    |   - `max_files`       máximo de ficheros por mensaje.
+    |   - `max_size_kb`     tamaño máximo por fichero (validación FormRequest).
+    |   - `allowed_extensions` lista blanca de extensiones (regla `mimes:`).
+    |   - `max_text_chars`  cota del texto extraído que se persiste/inyecta por
+    |                       adjunto (evita inflar la BD y el prompt). 0 = sin cota.
+    |   - `processor`       clase que implementa
+    |                       `Rnkr69\LaraChatbot\Attachments\Contracts\AttachmentProcessor`.
+    |                       Por defecto `PlainTextProcessor` (sólo texto/CSV). El
+    |                       host bindea el suyo para PDF/Excel/Word/eml.
+    |
+    */
+    'attachments' => [
+        'enabled'            => env('CHATBOT_ATTACHMENTS_ENABLED', false),
+        'disk'               => env('CHATBOT_ATTACHMENTS_DISK'),
+        'path'               => 'chatbot/attachments',
+        'max_files'          => (int) env('CHATBOT_ATTACHMENTS_MAX_FILES', 5),
+        'max_size_kb'        => (int) env('CHATBOT_ATTACHMENTS_MAX_SIZE_KB', 10240),
+        'allowed_extensions' => ['pdf', 'xls', 'xlsx', 'csv', 'txt', 'eml', 'doc', 'docx'],
+        'max_text_chars'     => (int) env('CHATBOT_ATTACHMENTS_MAX_TEXT_CHARS', 100000),
+        'processor'          => \Rnkr69\LaraChatbot\Attachments\PlainTextProcessor::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | MCP — servidores externos
     |--------------------------------------------------------------------------
     |

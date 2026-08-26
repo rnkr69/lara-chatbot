@@ -35,6 +35,24 @@ class SendMessageRequest extends FormRequest
     }
 
     /**
+     * When the payload arrives as `multipart/form-data` (i.e. it carries file
+     * attachments), `page_context` travels as a JSON string rather than a
+     * native array. Decode it here so the `array` rule and the controller see a
+     * consistent shape regardless of transport.
+     */
+    protected function prepareForValidation(): void
+    {
+        $ctx = $this->input('page_context');
+
+        if (is_string($ctx) && $ctx !== '') {
+            $decoded = json_decode($ctx, true);
+            if (is_array($decoded)) {
+                $this->merge(['page_context' => $decoded]);
+            }
+        }
+    }
+
+    /**
      * @return array<string, array<int, mixed>>
      */
     public function rules(): array
@@ -45,8 +63,16 @@ class SendMessageRequest extends FormRequest
         $morphClass  = $user instanceof Model ? $user->getMorphClass() : (string) ($user::class ?? '');
         $userKey     = $user instanceof Model ? $user->getKey() : ($user?->getAuthIdentifier());
 
+        $attachmentsEnabled = (bool) config('chatbot.attachments.enabled', false);
+        $maxFiles           = (int) config('chatbot.attachments.max_files', 5);
+        $maxSizeKb          = (int) config('chatbot.attachments.max_size_kb', 10240);
+        $allowedExtensions  = config('chatbot.attachments.allowed_extensions', []);
+        $allowedExtensions  = is_array($allowedExtensions) ? $allowedExtensions : [];
+
         return [
-            'message' => ['required', 'string', 'max:4000'],
+            // Optional when the turn carries at least one attachment (a user may
+            // just drop a document with no words).
+            'message' => ['nullable', 'required_without:attachments', 'string', 'max:4000'],
 
             'conversation_id' => [
                 'nullable',
@@ -59,6 +85,19 @@ class SendMessageRequest extends FormRequest
             ],
 
             'page_context' => ['nullable', 'array'],
+
+            // Attachments are rejected outright when the feature is disabled;
+            // otherwise bounded by count, size and an extension allow-list.
+            'attachments'   => $attachmentsEnabled
+                ? ['nullable', 'array', "max:{$maxFiles}"]
+                : ['nullable', 'prohibited'],
+            'attachments.*' => $attachmentsEnabled
+                ? array_values(array_filter([
+                    'file',
+                    "max:{$maxSizeKb}",
+                    $allowedExtensions !== [] ? 'mimes:' . implode(',', $allowedExtensions) : null,
+                ]))
+                : ['prohibited'],
         ];
     }
 }

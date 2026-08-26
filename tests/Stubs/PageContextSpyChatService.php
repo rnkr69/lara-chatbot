@@ -29,8 +29,9 @@ class PageContextSpyChatService extends ChatService
 
     /**
      * @param  array<string, mixed>  $pageContext
+     * @param  array<int, \Rnkr69\LaraChatbot\Attachments\Attachment>  $attachments
      */
-    public function handle(Conversation $conversation, string $userMessage, array $pageContext = []): Generator
+    public function handle(Conversation $conversation, string $userMessage, array $pageContext = [], array $attachments = []): Generator
     {
         $this->captured = $pageContext;
 

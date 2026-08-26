@@ -37,6 +37,20 @@ import type {
 } from './types.js';
 import { readV2BlockMetadata } from './block-metadata.js';
 
+/** Human-readable file size for attachment chips (e.g. "1.2 MB"). */
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  const rounded = unit === 0 ? Math.round(value) : Math.round(value * 10) / 10;
+  return `${rounded} ${units[unit]}`;
+}
+
 const OBSERVED_ATTRS = [
   'data-endpoint',
   'data-conversation-id',
@@ -66,6 +80,10 @@ export class ChatbotWidgetElement extends HTMLElement {
   private sendBtn!: HTMLButtonElement;
   private errorBanner!: HTMLDivElement;
   private launcherEl!: HTMLButtonElement;
+  private attachBtn: HTMLButtonElement | null = null;
+  private fileInput: HTMLInputElement | null = null;
+  private chipsEl: HTMLDivElement | null = null;
+  private pendingAttachments: File[] = [];
   private messages: ChatMessage[] = [];
   private currentAssistant: ChatMessage | null = null;
   private streaming = false;
@@ -398,7 +416,37 @@ export class ChatbotWidgetElement extends HTMLElement {
     this.sendBtn.type = 'submit';
     this.sendBtn.className = 'send';
     this.sendBtn.textContent = 'Send';
+
+    // Attachments UI (opt-in): the host enables it with data-attachments="true"
+    // on <chatbot-widget> (mirrors config('chatbot.attachments.enabled')).
+    const attachmentsEnabled = this.getAttribute('data-attachments') === 'true';
+    if (attachmentsEnabled) {
+      this.chipsEl = document.createElement('div');
+      this.chipsEl.className = 'cb-attachments';
+
+      this.fileInput = document.createElement('input');
+      this.fileInput.type = 'file';
+      this.fileInput.multiple = true;
+      this.fileInput.hidden = true;
+      this.fileInput.name = 'chatbot_attachments';
+      const accept = this.getAttribute('data-attachment-accept');
+      if (accept) this.fileInput.accept = accept;
+      this.fileInput.addEventListener('change', () => this.onFilesPicked());
+
+      this.attachBtn = document.createElement('button');
+      this.attachBtn.type = 'button';
+      this.attachBtn.className = 'attach';
+      this.attachBtn.textContent = '📎';
+      const attachLabel = this.getAttribute('data-attachment-label') || 'Attach document';
+      this.attachBtn.title = attachLabel;
+      this.attachBtn.setAttribute('aria-label', attachLabel);
+      this.attachBtn.addEventListener('click', () => this.fileInput?.click());
+    }
+
+    if (this.chipsEl) composer.appendChild(this.chipsEl);
+    if (this.attachBtn) composer.appendChild(this.attachBtn);
     composer.append(this.inputEl, this.sendBtn);
+    if (this.fileInput) composer.appendChild(this.fileInput);
 
     const footerSlot = document.createElement('slot');
     footerSlot.name = 'footer';
@@ -1048,10 +1096,70 @@ export class ChatbotWidgetElement extends HTMLElement {
   private submit(): void {
     if (this.streaming) return;
     const value = this.inputEl.value.trim();
-    if (value === '') return;
+    const hasFiles = this.pendingAttachments.length > 0;
+    if (value === '' && !hasFiles) return;
     this.inputEl.value = '';
     this.persist();
     this.send(value);
+  }
+
+  /** Merge freshly picked files into the pending set (respecting max-files). */
+  private onFilesPicked(): void {
+    if (!this.fileInput) return;
+    const picked = Array.from(this.fileInput.files ?? []);
+    // Reset the native input so picking the same file again re-fires `change`.
+    this.fileInput.value = '';
+    if (picked.length === 0) return;
+
+    const maxAttr = this.getAttribute('data-attachment-max-files');
+    const max = maxAttr ? parseInt(maxAttr, 10) : 5;
+
+    for (const file of picked) {
+      if (this.pendingAttachments.length >= max) {
+        this.showError(`You can attach at most ${max} file(s).`);
+        break;
+      }
+      // De-dupe by name+size so a double pick doesn't stack twice.
+      const dup = this.pendingAttachments.some((f) => f.name === file.name && f.size === file.size);
+      if (!dup) this.pendingAttachments.push(file);
+    }
+    this.renderChips();
+  }
+
+  private removeAttachment(index: number): void {
+    this.pendingAttachments.splice(index, 1);
+    this.renderChips();
+  }
+
+  private renderChips(): void {
+    if (!this.chipsEl) return;
+    this.chipsEl.innerHTML = '';
+    this.pendingAttachments.forEach((file, index) => {
+      const chip = document.createElement('span');
+      chip.className = 'cb-chip';
+
+      const name = document.createElement('span');
+      name.className = 'cb-chip-name';
+      name.textContent = file.name;
+      name.title = file.name;
+      chip.appendChild(name);
+
+      if (file.size > 0) {
+        const size = document.createElement('span');
+        size.className = 'cb-chip-size';
+        size.textContent = formatBytes(file.size);
+        chip.appendChild(size);
+      }
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', `Remove ${file.name}`);
+      remove.addEventListener('click', () => this.removeAttachment(index));
+      chip.appendChild(remove);
+
+      this.chipsEl!.appendChild(chip);
+    });
   }
 
   private send(text: string): void {
@@ -1060,12 +1168,19 @@ export class ChatbotWidgetElement extends HTMLElement {
       this.showError('Missing data-endpoint attribute on <chatbot-widget>');
       return;
     }
+    // Detach the pending files for THIS turn; the composer is cleared so the
+    // next message starts fresh.
+    const files = this.pendingAttachments;
+    this.pendingAttachments = [];
+    this.renderChips();
+
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
       role: 'user',
       text,
       blocks: [],
       pending: false,
+      attachments: files.map((f) => ({ name: f.name, size: f.size })),
     };
     this.messages.push(userMsg);
     this.appendMessageElement(userMsg);
@@ -1083,17 +1198,40 @@ export class ChatbotWidgetElement extends HTMLElement {
 
     this.streaming = true;
     this.sendBtn.disabled = true;
+    if (this.attachBtn) this.attachBtn.disabled = true;
 
-    const body: Record<string, unknown> = { message: text };
-    if (this.conversationId !== null && this.conversationId !== '') body['conversation_id'] = this.conversationId;
     const ctx = this.api.__internal.getPageContext();
-    if (Object.keys(ctx).length > 0) body['page_context'] = ctx;
+    const hasCtx = Object.keys(ctx).length > 0;
+
+    // With attachments we must POST multipart/form-data; otherwise keep the
+    // lean JSON body. Retries are disabled for uploads so a mid-stream
+    // reconnect never re-uploads (and re-persists) the same files.
+    let body: Record<string, unknown> | FormData;
+    let maxRetries: number | undefined;
+
+    if (files.length > 0) {
+      const form = new FormData();
+      form.append('message', text);
+      if (this.conversationId !== null && this.conversationId !== '') {
+        form.append('conversation_id', String(this.conversationId));
+      }
+      if (hasCtx) form.append('page_context', JSON.stringify(ctx));
+      for (const file of files) form.append('attachments[]', file, file.name);
+      body = form;
+      maxRetries = 0;
+    } else {
+      const json: Record<string, unknown> = { message: text };
+      if (this.conversationId !== null && this.conversationId !== '') json['conversation_id'] = this.conversationId;
+      if (hasCtx) json['page_context'] = ctx;
+      body = json;
+    }
 
     this.currentStream = streamPost(
       {
         url: endpoint,
         body,
         bearer: this.api.__internal.getBearer(),
+        ...(maxRetries !== undefined ? { maxRetries } : {}),
       },
       {
         onFrame: (frame) => this.handleFrame(frame),
@@ -1103,6 +1241,7 @@ export class ChatbotWidgetElement extends HTMLElement {
         onClose: (reason) => {
           this.streaming = false;
           this.sendBtn.disabled = false;
+          if (this.attachBtn) this.attachBtn.disabled = false;
           this.currentStream = null;
           if (this.currentAssistant) {
             this.currentAssistant.pending = false;
@@ -1285,7 +1424,32 @@ export class ChatbotWidgetElement extends HTMLElement {
     node.className = `msg ${msg.role}`;
     node.dataset['msgId'] = msg.id;
     if (msg.role === 'user') {
-      node.textContent = msg.text;
+      if (msg.text !== '') {
+        const text = document.createElement('div');
+        text.textContent = msg.text;
+        node.appendChild(text);
+      }
+      if (msg.attachments && msg.attachments.length > 0) {
+        const wrap = document.createElement('div');
+        wrap.className = 'cb-msg-attachments';
+        for (const att of msg.attachments) {
+          const chip = document.createElement('span');
+          chip.className = 'cb-chip';
+          const name = document.createElement('span');
+          name.className = 'cb-chip-name';
+          name.textContent = `📎 ${att.name}`;
+          name.title = att.name;
+          chip.appendChild(name);
+          if (att.size && att.size > 0) {
+            const size = document.createElement('span');
+            size.className = 'cb-chip-size';
+            size.textContent = formatBytes(att.size);
+            chip.appendChild(size);
+          }
+          wrap.appendChild(chip);
+        }
+        node.appendChild(wrap);
+      }
     } else {
       this.fillAssistantNode(node, msg);
     }

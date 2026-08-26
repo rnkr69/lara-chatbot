@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Chat attachments (file upload).** Users can attach documents in the chat
+  (📎). Uploaded files are stored on a configurable disk and turned into **plain
+  text** by an `AttachmentProcessor`, which is injected into the LLM turn as
+  text — no binary is ever sent to the model, so the feature is **provider-
+  agnostic** (works with any LLM, not only multimodal ones).
+  - New `Rnkr69\LaraChatbot\Attachments\{Attachment, AttachmentStore,
+    PlainTextProcessor}` and the `Contracts\AttachmentProcessor` interface.
+  - New `chatbot.attachments` config block (`enabled`, `disk`, `path`,
+    `max_files`, `max_size_kb`, `allowed_extensions`, `max_text_chars`,
+    `processor`). Disabled by default (`CHATBOT_ATTACHMENTS_ENABLED`).
+  - `SendMessageRequest` validates `attachments[]` (count/size/extension) and
+    prohibits them when disabled; `message` becomes optional when at least one
+    file is attached; `page_context` is JSON-decoded when the request arrives as
+    `multipart/form-data`.
+  - `ChatController::stream` stores the files and forwards them to
+    `ChatService::handle(..., array $attachments = [])` (new 4th parameter).
+  - The extracted text is persisted in the user message as a
+    `type: 'attachment'` block inside `content[]` (no schema change) and
+    re-fed to the model on later turns via `extractText()`.
+  - Widget: attach button, file chips, `multipart/FormData` transport
+    (uploads disable retry so a reconnect never re-uploads), and attachment
+    chips under the user bubble. Enable in the host `<chatbot-widget>` with
+    `data-attachments="true"` (+ `data-attachment-accept`,
+    `data-attachment-max-files`, `data-attachment-label`).
+  - The default `PlainTextProcessor` only reads text/CSV; bind a richer host
+    processor (PDF/Excel/Word/eml) via `chatbot.attachments.processor`.
+
+### Changed
+- `ChatService::handle()` signature gained an optional 4th parameter
+  `array $attachments = []`. Subclasses overriding `handle()` must add it.
+- **Widget markdown now renders GFM tables, ordered/unordered lists and ATX
+  headings** (previously only bold/italic/code/links). Cells and list items keep
+  inline formatting; tables scroll horizontally on narrow widgets. All input is
+  still HTML-escaped first. Re-publish the asset after upgrading
+  (`php artisan vendor:publish --tag=chatbot-assets --force`).
+
 ## [0.4.4] - 2026-06-25
 
 ### Fixed

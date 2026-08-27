@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Rnkr69\LaraChatbot\Llm;
 
 use Generator;
+use Illuminate\Support\Facades\Log;
 use Rnkr69\LaraChatbot\Llm\Exceptions\LlmException;
 use Prism\Prism\Contracts\Message;
 use Prism\Prism\Facades\Prism;
@@ -45,11 +46,46 @@ class LlmGateway
      */
     public function streamChat(array $messages, array $tools = [], PromptOptions|array $options = []): Generator
     {
-        $request = $this->buildRequest($messages, $tools, $this->normalizeOptions($options));
+        $opts    = $this->normalizeOptions($options);
+        $request = $this->buildRequest($messages, $tools, $opts);
+
+        // Observabilidad: una línea por llamada al LLM con modelo, duración,
+        // recuento de eventos (texto/tool_call/tool_result) y si el modelo llegó
+        // a emitir alguna tool call. Imprescindible para diagnosticar cuándo el
+        // modelo "narra y no llama la herramienta" o cuándo el gateway falla.
+        $model   = (string) ($opts->model ?? config('chatbot.model'));
+        $started = microtime(true);
+        $counts  = ['text' => 0, 'tool_call' => 0, 'tool_result' => 0, 'other' => 0];
+        $lastEvt = '';
+        Log::info('[chatbot][llm] streamChat START', [
+            'model' => $model, 'messages' => count($messages), 'tools' => count($tools),
+        ]);
 
         try {
-            yield from $request->asStream();
+            foreach ($request->asStream() as $event) {
+                $cls     = class_basename($event);
+                $lastEvt = $cls;
+                if (stripos($cls, 'ToolCall') !== false)       { $counts['tool_call']++; }
+                elseif (stripos($cls, 'ToolResult') !== false) { $counts['tool_result']++; }
+                elseif (stripos($cls, 'Text') !== false)       { $counts['text']++; }
+                else                                           { $counts['other']++; }
+                yield $event;
+            }
+            Log::info('[chatbot][llm] streamChat DONE', [
+                'model'             => $model,
+                'ms'                => (int) round((microtime(true) - $started) * 1000),
+                'events'            => $counts,
+                'last_event'        => $lastEvt,
+                'emitted_tool_call' => $counts['tool_call'] > 0,
+            ]);
         } catch (Throwable $e) {
+            Log::error('[chatbot][llm] streamChat ERROR', [
+                'model'     => $model,
+                'ms'        => (int) round((microtime(true) - $started) * 1000),
+                'events'    => $counts,
+                'error'     => $e->getMessage(),
+                'exception' => get_class($e),
+            ]);
             throw LlmException::fromPrism($e);
         }
     }

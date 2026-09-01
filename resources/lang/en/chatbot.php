@@ -167,6 +167,9 @@ return [
     // Session (web/backpack) expired mid-request: 401/403/419 or a redirect to
     // the login page. Shown in the banner and pinned into the assistant bubble.
     'session_expired'             => 'Your session has expired. Please reload the page to sign in again.',
+    // A turn that ended with no visible output (empty model reply or tool-calls only).
+    // Prevents leaving the bubble blank.
+    'empty_response'              => 'I could not generate a response. Please try again.',
     'title'                       => 'Chatbot',
     'open_full_page'              => 'Open full chat page',
 ];

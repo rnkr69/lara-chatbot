@@ -167,6 +167,9 @@ return [
     // Sesión (web/backpack) caducada a mitad de una petición: 401/403/419 o
     // redirección al login. Se muestra en el banner y en la burbuja del asistente.
     'session_expired'             => 'Tu sesión ha caducado. Recarga la página para volver a iniciar sesión.',
+    // Turno que terminó sin salida visible (respuesta vacía del modelo o solo tool
+    // calls sin mensaje). Evita dejar la burbuja "en blanco".
+    'empty_response'              => 'No he podido generar una respuesta. Inténtalo de nuevo.',
     'title'                       => 'Chatbot',
     'open_full_page'              => 'Abrir página completa del chat',
 ];

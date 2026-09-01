@@ -1350,8 +1350,21 @@ export class ChatbotWidgetElement extends HTMLElement {
           if (this.attachBtn) this.attachBtn.disabled = false;
           this.currentStream = null;
           if (this.currentAssistant) {
-            this.currentAssistant.pending = false;
-            this.refreshAssistantNode(this.currentAssistant);
+            const a = this.currentAssistant;
+            // Fallback anti-"nada de nada": si el turno terminó LIMPIAMENTE (done)
+            // pero sin ninguna salida visible — ni texto, ni bloques, ni error —,
+            // no dejar la burbuja vacía. Cubre respuestas vacías del modelo y turnos
+            // que sólo hicieron tool calls sin cerrar con un mensaje de texto.
+            const empty = ((a.text ?? '').trim() === '') && ((a.blocks?.length ?? 0) === 0) && !a.error;
+            if (reason === 'done' && empty) {
+              a.text = pickString(
+                this.i18n as Record<string, unknown>,
+                'empty_response',
+                'No he podido generar una respuesta. Inténtalo de nuevo.',
+              );
+            }
+            a.pending = false;
+            this.refreshAssistantNode(a);
             this.currentAssistant = null;
           }
           if (reason === 'fatal' || reason === 'rate_limited') {

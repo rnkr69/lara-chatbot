@@ -1474,7 +1474,11 @@ export class ChatbotWidgetElement extends HTMLElement {
         return;
       }
       case 'tool_call': {
-        this.turnHadActivity = true;
+        // NOTA: las tool calls de LECTURA (p.ej. prerequest_form_options) NO cuentan
+        // como "actividad que procesó la solicitud" — un turno que solo resuelve ids
+        // y no rellena nada, si acaba sin texto, es un fallo ("no pude responder"),
+        // no un "he procesado". Solo las frontend actions (fill/navigate) marcan
+        // turnHadActivity (ver case 'frontend_action').
         // v1.1.1 (finding #14.e): surface an ephemeral "Calling X…" status
         // line on the current assistant message so multi-step turns don't
         // feel hung during the 5–15s the LLM spends in tool cascades.

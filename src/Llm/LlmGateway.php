@@ -55,8 +55,10 @@ class LlmGateway
         // modelo "narra y no llama la herramienta" o cuándo el gateway falla.
         $model   = (string) ($opts->model ?? config('chatbot.model'));
         $started = microtime(true);
-        $counts  = ['text' => 0, 'tool_call' => 0, 'tool_result' => 0, 'other' => 0];
+        $counts  = ['text' => 0, 'tool_call' => 0, 'tool_result' => 0, 'thinking' => 0, 'other' => 0];
         $lastEvt = '';
+        $finish  = null;   // FinishReason del StreamEndEvent (Stop, Length, ContentFilter, ToolCalls…)
+        $usage   = null;   // tokens (incl. thought_tokens y cache read/write)
         Log::info('[chatbot][llm] streamChat START', [
             'model' => $model, 'messages' => count($messages), 'tools' => count($tools),
         ]);
@@ -67,8 +69,31 @@ class LlmGateway
                 $lastEvt = $cls;
                 if (stripos($cls, 'ToolCall') !== false)       { $counts['tool_call']++; }
                 elseif (stripos($cls, 'ToolResult') !== false) { $counts['tool_result']++; }
+                elseif (stripos($cls, 'Thinking') !== false)   { $counts['thinking']++; }
                 elseif (stripos($cls, 'Text') !== false)       { $counts['text']++; }
                 else                                           { $counts['other']++; }
+
+                // El StreamEndEvent trae POR QUÉ terminó y el consumo de tokens.
+                // Clave para diagnosticar turnos vacíos: p.ej. finish=Length con
+                // thought alto = el razonamiento se comió el presupuesto y no dio
+                // texto; finish=ContentFilter = bloqueo; cache_read alto = el prompt
+                // cacheó (coste bajo).
+                if ($cls === 'StreamEndEvent') {
+                    try {
+                        $finish = $event->finishReason?->name;
+                        $u = $event->usage ?? null;
+                        if ($u !== null) {
+                            $usage = [
+                                'in'          => $u->promptTokens ?? null,
+                                'out'         => $u->completionTokens ?? null,
+                                'thought'     => $u->thoughtTokens ?? null,
+                                'cache_read'  => $u->cacheReadInputTokens ?? null,
+                                'cache_write' => $u->cacheWriteInputTokens ?? null,
+                            ];
+                        }
+                    } catch (Throwable) { /* best-effort */ }
+                }
+
                 yield $event;
             }
             Log::info('[chatbot][llm] streamChat DONE', [
@@ -77,6 +102,8 @@ class LlmGateway
                 'events'            => $counts,
                 'last_event'        => $lastEvt,
                 'emitted_tool_call' => $counts['tool_call'] > 0,
+                'finish_reason'     => $finish,
+                'usage'             => $usage,
             ]);
         } catch (Throwable $e) {
             Log::error('[chatbot][llm] streamChat ERROR', [

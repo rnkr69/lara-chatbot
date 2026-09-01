@@ -44,6 +44,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   still HTML-escaped first. Re-publish the asset after upgrading
   (`php artisan vendor:publish --tag=chatbot-assets --force`).
 
+## [0.5.6] - 2026-09-01
+
+### Fixed
+- **Prompt caching de Anthropic ahora funciona de verdad.** Hasta v0.5.5,
+  `LlmGateway::applySystemPrompt` intentaba marcar el bloque cacheable con
+  `withProviderMeta()`/`usingProviderMeta()` guardados por `method_exists()`.
+  Esos métodos **no existen en Prism v0.100**, así que ambas ramas se saltaban
+  en silencio y el `cache_control` **nunca se enviaba** (`cache_read` y
+  `cache_write` = 0 en cada turno; se pagaba el prefijo entero siempre).
+  - Ahora el bloque estable se emite como `SystemMessage` con
+    `withProviderOptions(['cacheType' => 'ephemeral'])` (la vía correcta en
+    Prism v0.100: el `NormalizesCacheControl` del driver Anthropic lo traduce a
+    `cache_control` sobre el bloque). El bloque dinámico (page context + fecha)
+    va como un 2º `SystemMessage` sin cachear, vía `withSystemPrompts([...])`.
+  - Como en la request de Anthropic el orden es tools → system → messages,
+    cachear el bloque estable del system incluye también las definiciones de
+    tools en el prefijo cacheado.
+  - Verificado en vivo: 1er turno `cache_write≈19K`, 2º turno idéntico
+    `cache_read≈19K`. Ahorro ~90% de input en conversaciones multi-turno/paso.
+  - Tests: 2 nuevos en `tests/Feature/Llm/LlmGatewayTest.php`.
+
 ## [0.4.4] - 2026-06-25
 
 ### Fixed

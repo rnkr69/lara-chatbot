@@ -135,6 +135,59 @@ it('uses the SystemPromptBuilder when no explicit system prompt is given', funct
     });
 });
 
+it('marks the stable system block with ephemeral cacheType for Anthropic (v0.5.6)', function () {
+    config()->set('chatbot.provider', 'anthropic');
+    config()->set('chatbot.model', 'claude-test');
+    config()->set('chatbot.llm.cache_system_prompt', true);
+
+    $fake = Prism::fake([
+        TextResponseFake::make()->withText('ok')->withFinishReason(FinishReason::Stop),
+    ]);
+
+    app(LlmGateway::class)->chat(
+        messages: [new UserMessage('hi')],
+        options: new PromptOptions(
+            promptContext: ['locale' => 'es', 'pageContext' => ['route' => 'orders.index']],
+        ),
+    );
+
+    $fake->assertRequest(function (array $recorded): void {
+        $systemPrompts = $recorded[0]->systemPrompts();
+
+        // El primer bloque (estable: header + tools + estrategia + locale) va
+        // cacheado; el LLM lo recibe con cache_control ephemeral.
+        expect($systemPrompts)->not->toBeEmpty()
+            ->and($systemPrompts[0]->providerOptions('cacheType'))->toBe('ephemeral');
+
+        // El bloque dinámico (page context / fecha), si existe, NO se cachea.
+        if (count($systemPrompts) > 1) {
+            expect($systemPrompts[1]->providerOptions('cacheType'))->toBeNull();
+        }
+    });
+});
+
+it('does not set cacheType when prompt caching is disabled', function () {
+    config()->set('chatbot.provider', 'anthropic');
+    config()->set('chatbot.llm.cache_system_prompt', false);
+
+    $fake = Prism::fake([
+        TextResponseFake::make()->withText('ok')->withFinishReason(FinishReason::Stop),
+    ]);
+
+    app(LlmGateway::class)->chat(
+        messages: [new UserMessage('hi')],
+        options: new PromptOptions(
+            promptContext: ['locale' => 'es', 'pageContext' => ['route' => 'orders.index']],
+        ),
+    );
+
+    $fake->assertRequest(function (array $recorded): void {
+        foreach ($recorded[0]->systemPrompts() as $message) {
+            expect($message->providerOptions('cacheType'))->toBeNull();
+        }
+    });
+});
+
 it('forwards tools via withTools() to the underlying request', function () {
     $fake = Prism::fake([
         TextResponseFake::make()->withText('ok')->withFinishReason(FinishReason::Stop),

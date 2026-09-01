@@ -12,6 +12,7 @@ use Prism\Prism\Facades\Prism;
 use Prism\Prism\Text\PendingRequest as TextPendingRequest;
 use Prism\Prism\Text\Response as TextResponse;
 use Prism\Prism\Tool;
+use Prism\Prism\ValueObjects\Messages\SystemMessage;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Throwable;
 
@@ -206,18 +207,24 @@ class LlmGateway
 
     /**
      * Applies the system prompt to the request, optionally with prompt caching
-     * (v1.1.1, finding #14.g).
+     * (v1.1.1 finding #14.g; corregido en v0.5.6).
      *
      * If `chatbot.llm.cache_system_prompt=true` AND the provider is Anthropic
      * AND `$options->systemPrompt` is not overridden by the caller, the prompt
-     * is split into `cacheable` (header + tools + decision strategy
-     * + locale) and `dynamic` (page context + pending actions). The cacheable
-     * block travels with `cache_control: ephemeral` via
-     * `usingProviderMeta()` if Prism supports it — we fall back to the
-     * traditional concatenated prompt if not.
+     * is split into `cacheable` (header + tools + decision strategy + locale)
+     * and `dynamic` (page context + pending actions). The cacheable block is
+     * emitted as a `SystemMessage` with `providerOptions(['cacheType' =>
+     * 'ephemeral'])` — la vía correcta en Prism v0.100 (el `NormalizesCacheControl`
+     * del driver de Anthropic lo traduce a `cache_control` sobre el bloque).
+     * El bloque dinámico va como un segundo SystemMessage SIN cachear.
      *
-     * Result: ~75% input cost savings on conversations of 10+ turns
-     * with a large system prompt (Anthropic cache TTL = 5 min).
+     * Nota histórica: hasta v0.5.5 esto usaba `withProviderMeta`/`usingProviderMeta`
+     * guardados con `method_exists`; esos métodos NO existen en Prism v0.100, así
+     * que las dos ramas se saltaban en silencio y NUNCA se enviaba `cache_control`
+     * (`cache_read`/`cache_write` = 0 en cada turno).
+     *
+     * Result: ~90% input cost savings on multi-turn / multi-step conversations
+     * with a large system prompt + tools (Anthropic cache TTL = 5 min).
      */
     protected function applySystemPrompt(TextPendingRequest $request, PromptOptions $options, string $provider): TextPendingRequest
     {
@@ -236,30 +243,23 @@ class LlmGateway
 
         $split = $this->systemPromptBuilder->buildSplit($options->promptContext);
 
-        // Best-effort: try to pass cache_control via Prism provider meta.
-        // Prism versions that don't expose this just receive a concatenated
-        // prompt — no errors, no surprises.
-        $merged = trim($split['cacheable'] . "\n\n" . $split['dynamic']);
-        $request = $request->withSystemPrompt($merged);
+        // Prism v0.100: el prompt caching de Anthropic se activa poniendo
+        // `cacheType` en el propio SystemMessage (lo lee NormalizesCacheControl),
+        // NO con un meta a nivel de request. El bloque ESTABLE (header + tools +
+        // estrategia + locale) viaja con cache_control ephemeral; el DINÁMICO
+        // (page context + fecha/hora) va aparte y SIN cachear, para no invalidar
+        // el prefijo en cada turno. Como en la request de Anthropic el orden es
+        // tools → system → messages, marcar el bloque estable del system cachea
+        // además las definiciones de tools (van antes en el prefijo cacheado).
+        // Anthropic exige ≥1024 tokens en el bloque cacheado; el header+addendum
+        // los supera holgadamente.
+        $stable = (new SystemMessage(trim($split['cacheable'])))
+            ->withProviderOptions(['cacheType' => 'ephemeral']);
 
-        // Provider-level hint for Anthropic via Prism's providerMeta API
-        // when available. The Anthropic Prism driver inspects `cache_control`
-        // to wrap the system prompt block. If the method is absent (older
-        // Prism), we silently skip — the prompt still goes through.
-        if (method_exists($request, 'withProviderMeta')) {
-            try {
-                $request = $request->withProviderMeta('anthropic', [
-                    'cache_control' => ['type' => 'ephemeral'],
-                ]);
-            } catch (Throwable) { /* fall through — provider hint not supported */ }
-        } elseif (method_exists($request, 'usingProviderMeta')) {
-            try {
-                $request = $request->usingProviderMeta('anthropic', [
-                    'cache_control' => ['type' => 'ephemeral'],
-                ]);
-            } catch (Throwable) { /* fall through */ }
-        }
+        $dynamic = trim((string) ($split['dynamic'] ?? ''));
 
-        return $request;
+        return $dynamic === ''
+            ? $request->withSystemPrompts([$stable])
+            : $request->withSystemPrompts([$stable, new SystemMessage($dynamic)]);
     }
 }

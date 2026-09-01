@@ -170,6 +170,9 @@ return [
     // Turno que terminó sin salida visible (respuesta vacía del modelo o solo tool
     // calls sin mensaje). Evita dejar la burbuja "en blanco".
     'empty_response'              => 'No he podido generar una respuesta. Inténtalo de nuevo.',
+    // Turno que ejecutó acciones (p.ej. rellenó el formulario) pero terminó sin
+    // texto: NO es un fallo, así que se muestra un mensaje neutro en su lugar.
+    'empty_response_after_action' => 'He procesado tu solicitud. Revisa el resultado en el formulario.',
     'title'                       => 'Chatbot',
     'open_full_page'              => 'Abrir página completa del chat',
 ];

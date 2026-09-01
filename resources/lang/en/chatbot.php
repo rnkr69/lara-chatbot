@@ -170,6 +170,9 @@ return [
     // A turn that ended with no visible output (empty model reply or tool-calls only).
     // Prevents leaving the bubble blank.
     'empty_response'              => 'I could not generate a response. Please try again.',
+    // A turn that ran actions (e.g. filled the form) but ended without text: not a
+    // failure, so we show a neutral message instead.
+    'empty_response_after_action' => 'I have processed your request. Please review the form.',
     'title'                       => 'Chatbot',
     'open_full_page'              => 'Open full chat page',
 ];

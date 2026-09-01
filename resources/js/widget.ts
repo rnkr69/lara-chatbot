@@ -87,6 +87,10 @@ export class ChatbotWidgetElement extends HTMLElement {
   private dragDepth = 0;
   private messages: ChatMessage[] = [];
   private currentAssistant: ChatMessage | null = null;
+  // ¿el turno en curso ejecutó alguna tool/frontend action? Sirve para elegir el
+  // mensaje de fallback cuando el turno termina sin texto: "no pude responder"
+  // (nada hecho) vs "he procesado tu solicitud" (p.ej. rellenó el formulario).
+  private turnHadActivity = false;
   private streaming = false;
   private currentStream: { abort(): void } | null = null;
   private conversationId: string | number | null = null;
@@ -1282,6 +1286,7 @@ export class ChatbotWidgetElement extends HTMLElement {
     };
     this.messages.push(assistant);
     this.currentAssistant = assistant;
+    this.turnHadActivity = false;
     this.appendMessageElement(assistant);
 
     this.streaming = true;
@@ -1357,11 +1362,20 @@ export class ChatbotWidgetElement extends HTMLElement {
             // que sólo hicieron tool calls sin cerrar con un mensaje de texto.
             const empty = ((a.text ?? '').trim() === '') && ((a.blocks?.length ?? 0) === 0) && !a.error;
             if (reason === 'done' && empty) {
-              a.text = pickString(
-                this.i18n as Record<string, unknown>,
-                'empty_response',
-                'No he podido generar una respuesta. Inténtalo de nuevo.',
-              );
+              // Distinguir: turno que NO hizo nada (respuesta vacía del modelo) vs
+              // turno que SÍ ejecutó acciones (p.ej. rellenó el formulario) pero no
+              // cerró con texto. El segundo NO es un fallo — no engañar al usuario.
+              a.text = this.turnHadActivity
+                ? pickString(
+                    this.i18n as Record<string, unknown>,
+                    'empty_response_after_action',
+                    'He procesado tu solicitud. Revisa el resultado en el formulario.',
+                  )
+                : pickString(
+                    this.i18n as Record<string, unknown>,
+                    'empty_response',
+                    'No he podido generar una respuesta. Inténtalo de nuevo.',
+                  );
             }
             a.pending = false;
             this.refreshAssistantNode(a);
@@ -1435,6 +1449,9 @@ export class ChatbotWidgetElement extends HTMLElement {
           }
           return;
         }
+        // Acción real (no render_block): p.ej. fill_s4r_form / navigate. Cuenta
+        // como actividad del turno para el fallback de "turno sin texto".
+        this.turnHadActivity = true;
         // E16: confirm/manual go through the banner + REST flow; only `auto`
         // executes the primitive immediately.
         if (payload.confirmation !== 'auto') {
@@ -1457,6 +1474,7 @@ export class ChatbotWidgetElement extends HTMLElement {
         return;
       }
       case 'tool_call': {
+        this.turnHadActivity = true;
         // v1.1.1 (finding #14.e): surface an ephemeral "Calling X…" status
         // line on the current assistant message so multi-step turns don't
         // feel hung during the 5–15s the LLM spends in tool cascades.
